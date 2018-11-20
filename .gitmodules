@@ -1,0 +1,3 @@
+[submodule "Drone/FlightLib"]
+	path = Drone/FlightLib
+	url = git://github.com/artem30801/CleverFlightLib.git
