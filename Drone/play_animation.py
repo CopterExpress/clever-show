@@ -58,7 +58,7 @@ def read_animation_file():
 
 if __name__ == '__main__':
     read_animation_file()
-    dtime=time_synch()
+    dtime=time_synch()-time.time()
     while True:
         if t_st==dtime+time.time:
             break
