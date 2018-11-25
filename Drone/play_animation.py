@@ -58,13 +58,13 @@ def read_animation_file():
 
 if __name__ == '__main__':
     read_animation_file()
-    dtime=time_synch()-time.time()
-    while True:
-        if t_st==dtime+time.time:
-            break
+    #dtime=time_synch()-time.time()
+    #while True:
+     #   if t_st==dtime+time.time:
+      #      break
     takeoff()
     for frame in frames:
-        
+    time.sleep(0.1)#cut for using ntp    
         do_next_animation(frame)
 
     land()
