@@ -5,7 +5,7 @@ from FlightLib/FlightLib import FlightLib
 FlightLib.init('SingleCleverFlight')
 from FlightLib/FlightLib import LedLib
 
-animation_file_path = 'animation.csv'
+animation_file_path = 'drone.csv'
 frames = []
 def time_synch()
     c = ntplib.NTPClient()
