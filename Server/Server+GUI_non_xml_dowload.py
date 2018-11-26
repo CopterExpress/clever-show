@@ -1064,4 +1064,4 @@ if __name__ == '__main__':
 
     app.exec()
 
-"""Code by Alexandr Osherov 9B class phone- +79251834732 email - allexandr2001@mail.ru"""
+"""Code by Alexandr Osherov 10B class phone- +79251834732 email - allexandr2001@mail.ru"""
