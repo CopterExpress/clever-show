@@ -1,18 +1,17 @@
 import time
 import csv
-import ntplib
-from FlightLib/FlightLib import FlightLib
+from FlightLib.FlightLib import FlightLib
 FlightLib.init('SingleCleverFlight')
-from FlightLib/FlightLib import LedLib
+from FlightLib.FlightLib import LedLib
+import ntplib
+
 
 animation_file_path = 'drone.csv'
 frames = []
-def time_synch()
+def time_synch():
     c = ntplib.NTPClient()
     response = c.request('ntp1.stratum2.ru')
     return response.tx_time-time.time()
-
-
 
 
 def takeoff():
@@ -64,7 +63,7 @@ if __name__ == '__main__':
       #      break
     takeoff()
     for frame in frames:
-    time.sleep(0.1)#cut for using ntp    
+        time.sleep(0.1)#cut for using ntp    
         do_next_animation(frame)
 
     land()
