@@ -15,7 +15,7 @@ def time_synch():
 
 
 def takeoff():
-    FlightLib.takeoff()
+    FlightLib.takeoff(1.75)
     LedLib.wipe_to(0, 255, 0)
 
 
