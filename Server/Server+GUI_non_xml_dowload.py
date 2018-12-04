@@ -676,19 +676,6 @@ data = b''
 addr = []
 addr_2 = []
 coord = []
-# function for scanning wi-fi for searching drones
-
-'''def search_drones():
-    global ip
-    for i in range(256):
-
-        address = ' 192.168.1.' + str(i + 1)
-        response = os.system('ping -n 2 -w 10' + address)
-
-        if response == 0:
-            ip.append('192.168.1.' + str(i + 1))
-    print(ip)
-    return(ip)'''
 
 sock = socket.socket()
 
@@ -736,17 +723,10 @@ class Widget(QMainWindow, Ui_MainWindow):
         self.swarm_size_spinBox.valueChanged.connect(self.number_copters)
 
     def stop_swarm(self):
-        # global coord
-        # n = 0
-        # for s in coord:
-        #     n += 1
-        #     self.sender(b'reach(' + bytes(str(s[0] + ',' + s[1] + ',' + s[2]), 'utf-8') + ')', n)
-        #     print(b'reach(' + bytes(str(s[0] + ',' + s[1] + ',' + s[2]), 'utf-8') + ')', n)
         pass
 
     def receiver(self):
         global copters
-        # global data
         global addr
         while True:
             try:
@@ -766,19 +746,17 @@ class Widget(QMainWindow, Ui_MainWindow):
 
             except Exception as e:
 
-                # print(e)
                 pass
 
     def sender(self, com, num):
         global conn
         global conn_2
         global copters
-        # global ip # для автопоиска коптеров
         print(com)
         print(num)
         try:
             if num == 'all':
-                for i in range(copters):  # len(ip) # для автопоиска коптеров
+                for i in range(copters):
                     conn[i].send(com + b'$$')
                     print(com + b'$$')
             elif int(num) > 0:
@@ -803,7 +781,7 @@ class Widget(QMainWindow, Ui_MainWindow):
         conn_2 = []
 
         self.message('Try connect')
-        for i in range(copters):  # len(ip) # для автопоиска коптеров
+        for i in range(copters):
             conn.append(0)
             addr.append(0)
             coord.append('0')
@@ -817,14 +795,12 @@ class Widget(QMainWindow, Ui_MainWindow):
                                  "0);\">Wait</span></p></body></html>")
         global copters
 
-        # ip = search_drones() # для автопоиска коптеров
-        # global ip # для автопоиска коптеров
         global conn
         global addr
         global conn_2
         global addr_2
 
-        for i in range(copters):  # len(ip) # для автопоиска коптеров
+        for i in range(copters):
             conn[i], addr[i] = sock.accept()
             print("connected_controllers:", addr[i])
 
@@ -897,21 +873,7 @@ class Widget(QMainWindow, Ui_MainWindow):
         self.sender(b'led.fill(0, 0, 255)', 'all')
 
     def square(self):
-        # try:
-        #     x = int(self.lineEdit.text().split(',')[0])
-        #     y = int(self.lineEdit.text().split(',')[1])
-        #     z = int(self.lineEdit.text().split(',')[2])
-        #     r = int(self.lineEdit_3.text())
-        #
-        #     self.sender(bytes('f.reach(' + str(x) + ',' + str(y) + ',' + str(z) + ')', 'utf-8'), 0)
-        #     self.sender(bytes('f.reach(' + str(x + r) + ',' + str(y + r) + ',' + str(z) + ')', 'utf-8'), 1)
-        #     self.sender(bytes('f.reach(' + str(x + r) + ',' + str(y - r) + ',' + str(z) + ')', 'utf-8'), 2)
-        #     self.sender(bytes('f.reach(' + str(x - r) + ',' + str(y + r) + ',' + str(z) + ')', 'utf-8'), 3)
-        #     self.sender(bytes('f.reach(' + str(x - r) + ',' + str(y - r) + ',' + str(z) + ')', 'utf-8'), 4)
-        #
-        # except:
-        #
-        #     self.message('input normal x,y,z or radius')
+
         pass
 
     def number_copters(self):
@@ -919,11 +881,7 @@ class Widget(QMainWindow, Ui_MainWindow):
         copters = self.swarm_size_spinBox.value()
 
     def circle(self):
-        # self.message('circle')
-        #
-        # self.sender(b'f.circle(' + bytes(self.center_circle_lineEdit.text(), 'utf-8') + b',' + bytes(
-        #     str(int(self.radius_circle_DoubleSpinBox.text()) / 10), 'utf-8') + b')',
-        #             'all')  # ToDO made function for all copters not for 1
+        # ToDO to make this function
         pass
 
     def upload_animation(self):
@@ -934,7 +892,6 @@ class Widget(QMainWindow, Ui_MainWindow):
         t_4 = Thread(target=self.start_animation_1)
         t_4.daemon = True
         t_4.start()
-
 
     def start_animation_1(self):
         global file
@@ -1057,11 +1014,11 @@ class Widget(QMainWindow, Ui_MainWindow):
         plt.show()
 
 
-if __name__ == '__main__':
-    app = QApplication([])
-    w = Widget()
-    w.show()
+#if __name__ == '__main__':
+app = QApplication([])
+w = Widget()
+w.show()
 
-    app.exec()
+app.exec()
 
-"""Code by Alexandr Osherov 10B class phone- +79251834732 email - allexandr2001@mail.ru"""
+"""Code by Alexandr Osherov 10 class phone - +79251834732 email - allexandr2001@mail.ru"""
