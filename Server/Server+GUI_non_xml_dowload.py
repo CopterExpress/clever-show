@@ -14,14 +14,6 @@ from threading import Thread
 import math
 import requests
 import json
-# -*- coding: utf-8 -*-
-
-# Resource object code
-#
-# Created by: The Resource Compiler for PyQt5 (Qt v5.10.1)
-#
-# WARNING! All changes made in this file will be lost!
-
 from PyQt5 import QtCore
 
 qt_resource_data = b"\
@@ -730,7 +722,7 @@ class Widget(QMainWindow, Ui_MainWindow):
         global addr
         while True:
             try:
-                for k in range(copters):  # len(ip) # для автопоиска коптеров
+                for k in range(copters): 
                     a = requests.get('http://' + addr[k][0] + ':8081/aruco_map')
                     tem = json.loads(a.text)
 
@@ -1021,4 +1013,4 @@ w.show()
 
 app.exec()
 
-"""Code by Alexandr Osherov 10 class phone - +79251834732 email - allexandr2001@mail.ru"""
+"""Code by Alexandr Osherov 10 class, phone - +79251834732,  email - allexandr2001@mail.ru"""
