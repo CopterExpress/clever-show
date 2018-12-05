@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*- .
+"""Code by Alexandr Osherov 10 class, phone - +79251834732,  email - allexandr2001@mail.ru """
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -7,18 +8,15 @@ import matplotlib.pyplot as plt
 import time
 import socket
 import os
-from PyQt5 import QtCore, QtGui, QtWidgets
 import easygui
 import threading
 from threading import Thread
 import math
 import requests
 import json
-from PyQt5 import QtCore
 import main_gui
 import gui_telem
 ip = [1, 2]
-# slids = 0
 sq_rad = 0
 sq_cet = 0
 cr_rad = 0
@@ -59,8 +57,6 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         self.stop_swarm_but.clicked.connect(self.stop_swarm)
         self.show_3d_scene_button.clicked.connect(self.show_3d)
         self.disarm_all_button.clicked.connect(self.disarm)
-
-
         self.turn_off_led_button.clicked.connect(self.off_leds)
         self.turn_on_led_button.clicked.connect(self.on_leds)
         self.upload_animation_button.clicked.connect(self.upload_animation)
@@ -96,7 +92,6 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
                                str(tem['vx']) + ',' + str(tem['vy']) + ',' + str(tem['vz'])
 
                     time.sleep(0.05)
-
 
 
             except Exception as e:
@@ -227,18 +222,10 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
     def on_leds(self):
         self.sender(b'led.fill(0, 0, 255)', 'all')
 
-    def square(self):
-
-        pass
-
     def number_copters(self):
         global copters
         copters = self.swarm_size_spinBox.value()
-
-    def circle(self):
-        # ToDO to make this function
-        pass
-
+    
     def upload_animation(self):
         global file
         file = easygui.fileopenbox(filetypes=["*.avi"])  # вызов окна проводника для выбора файла
@@ -376,4 +363,4 @@ w.show()
 
 app.exec()
 
-"""Code by Alexandr Osherov 10 class, phone - +79251834732,  email - allexandr2001@mail.ru"""
+
