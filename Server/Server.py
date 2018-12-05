@@ -15,7 +15,8 @@ import math
 import requests
 import json
 from PyQt5 import QtCore
-import gui1
+import main_gui
+import gui_telem
 ip = [1, 2]
 # slids = 0
 sq_rad = 0
@@ -41,16 +42,16 @@ sock_2.bind(('', 35002))  # назначается адресс и порт св
 sock_2.listen(1)
 
 
-"""class Dialog(QMainWindow, gui1.Ui_Dialog):
+class Dialog(QMainWindow, gui_telem.Ui_Dialog):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
 
     def up(self):
-        self.voltage_2.setText('1234567')"""
+        self.voltage_2.setText('1234567')
 
 
-class Widget(QMainWindow, gui1.Ui_MainWindow):
+class Widget(QMainWindow, main_gui.Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
@@ -368,7 +369,7 @@ class Widget(QMainWindow, gui1.Ui_MainWindow):
         plt.show()
 
 
-#if __name__ == '__main__':
+
 app = QApplication([])
 w = Widget()
 w.show()
