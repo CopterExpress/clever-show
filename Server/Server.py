@@ -62,7 +62,8 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         self.upload_animation_button.clicked.connect(self.upload_animation)
         self.land_all_button.clicked.connect(self.land)
         self.take_off_button.clicked.connect(self.take_off)
-        #self.number_animation_copters.clicked.connect(self.number_animation)
+        #self.number_animation_copters.clicked.connect(self.number_animation)   synch_button
+        self.synch_button.clicked.connect(self.synch)
         self.take_off_n_button.clicked.connect(self.take_off_n)
         self.land_n_button.clicked.connect(self.land_n)
         self.disarm_n_button.clicked.connect(self.disarm_n)
@@ -73,8 +74,7 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         self.connect_button.clicked.connect(self.connect)
         self.swarm_size_spinBox.valueChanged.connect(self.number_copters)
 
-    def stop_swarm(self):
-        pass
+    
 
     def receiver(self):
         global copters
@@ -91,11 +91,10 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
                                str(tem['yaw']) + ',' + str(tem['pitch']) + ',' + str(tem['roll']) + ',' + \
                                str(tem['vx']) + ',' + str(tem['vy']) + ',' + str(tem['vz'])
 
-                    time.sleep(0.05)
+                    #time.sleep(0.05)
 
 
             except Exception as e:
-
                 pass
 
     def sender(self, com, num):
@@ -220,7 +219,7 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         self.sender(b'led.fill(0,0,255)', self.take_off_spinBox.value())
 
     def on_leds(self):
-        self.sender(b'led.fill(0, 0, 255)', 'all')
+        self.sender(b'led.fill(0,0,255)', 'all')
 
     def number_copters(self):
         global copters
@@ -242,6 +241,15 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         self.sender(b'programm', 'all')
         time.sleep(0.5)
         self.sender(bytes(prog, 'utf-8'), 'all')
+
+    def stop_swarm(self):
+        pass
+
+    def synch(self)
+        self.sender(b'synch', 'all')
+        c = ntplib.NTPClient()
+        response = c.request('ntp1.stratum2.ru')
+        return response.tx_time-time.time()
 
     def show_3d(self):
 
