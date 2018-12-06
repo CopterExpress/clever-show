@@ -16,6 +16,7 @@ import requests
 import json
 import main_gui
 import gui_telem
+import ntplib
 ip = [1, 2]
 sq_rad = 0
 sq_cet = 0
@@ -29,7 +30,8 @@ data = b''
 addr = []
 addr_2 = []
 coord = []
-
+d_time = 0
+size_scene=[2,2,2]
 sock = socket.socket()
 
 sock.bind(('', 35001))  # назначается адресс и порт связи для отпраки команд на коптеры
@@ -245,14 +247,16 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
     def stop_swarm(self):
         pass
 
-    def synch(self)
+    def synch(self):
+        global d_time
         self.sender(b'synch', 'all')
         c = ntplib.NTPClient()
         response = c.request('ntp1.stratum2.ru')
-        return response.tx_time-time.time()
+        d_time =  response.tx_time-time.time()
+        print(d_time)
 
     def show_3d(self):
-
+        global size_scene
         global data
         global copters
         global coord
@@ -317,9 +321,9 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
                 n = 0
                 # set size of scene
 
-                ax.set_xlim(0, 1.5)
-                ax.set_ylim(0, 2.2)
-                ax.set_zlim(0, 2)
+                ax.set_xlim(0, size_scene[0])
+                ax.set_ylim(0, size_scene[1])
+                ax.set_zlim(0, size_scene[2])
 
                 ax.set_xlabel('x')
                 ax.set_ylabel('y')
@@ -348,9 +352,10 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
                 except Exception as e:
                     print(e)
 
-                ax.set_xlim(0, 1.5)
-                ax.set_ylim(0, 2.2)
-                ax.set_zlim(0, 2)
+                ax.set_xlim(0, size_scene[0])
+                ax.set_ylim(0, size_scene[1])
+                ax.set_zlim(0, size_scene[2])
+
 
                 ax.set_xlabel('x')
                 ax.set_ylabel('y')
