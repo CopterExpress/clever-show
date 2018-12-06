@@ -8,6 +8,7 @@ sock.send(bytes('left','utf-8'))
 command = ''
 def receive():
     global command
+    
     try:
         while True:
             data = str(sock.recv(1024))
@@ -21,12 +22,6 @@ def receive():
                         data = str(sock.recv(1024))
                         if b'stop' in data:
                             xm.write(data[:data.index(b'stop')])
-
-                            t_0 = Thread(target=animation)
-                            t_0.daemon = True
-                            t_0.start()
-
-                            time.sleep(2)
                             break
                         else:
                             xm.write(data)
@@ -40,7 +35,7 @@ def receive():
 
                     except Exception as e:
                         print(e)
-
+            
             except:
                 print('er')
         sock.close()
@@ -49,13 +44,11 @@ def receive():
         led.off()
         sock.close()
 
-
-
-def main():
-    pass
-
-
+def 
 
 
 if __name__==__main__:
-    main()
+    t_0 = Thread(target=receive)
+    t_0.daemon = True
+    t_0.start()
+    

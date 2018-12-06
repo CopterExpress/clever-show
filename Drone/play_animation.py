@@ -53,7 +53,9 @@ def read_animation_file():
                 'blue': blue,
                 'yaw': yaw
             })
-
+def frame()
+    global frames
+    return frames
 
 if __name__ == '__main__':
     read_animation_file()
