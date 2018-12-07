@@ -8,11 +8,12 @@ import ntplib
 
 animation_file_path = 'drone.csv'
 frames = []
+'''
 def time_synch():
     c = ntplib.NTPClient()
     response = c.request('ntp1.stratum2.ru')
     return response.tx_time-time.time()
-
+'''
 
 def takeoff():
     FlightLib.takeoff(1.75)
@@ -56,7 +57,7 @@ def read_animation_file():
 def frame()
     global frames
     return frames
-
+'''
 if __name__ == '__main__':
     read_animation_file()
     #dtime=time_synch()-time.time()
@@ -69,4 +70,4 @@ if __name__ == '__main__':
         do_next_animation(frame)
 
     land()
-    time.sleep(3)
+    time.sleep(3)'''

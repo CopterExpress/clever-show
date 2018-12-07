@@ -6,6 +6,7 @@ port = 1234
 sock.connect((serv, port))
 sock.send(bytes('left','utf-8'))
 command = ''
+
 def receive():
     global command
     
@@ -20,11 +21,12 @@ def receive():
 
                     while True:
                         data = str(sock.recv(1024))
+
                         if b'stop' in data:
-                            xm.write(data[:data.index(b'stop')])
+                            anim.write(data[:data.index(b'stop')])
                             break
                         else:
-                            xm.write(data)
+                            anim.write(data)
 
                 else:
                     try:
@@ -41,14 +43,44 @@ def receive():
         sock.close()
     except KeyboardInterrupt:
         print("Shutting down")
+
         led.off()
         sock.close()
 
-def 
+def time_synch():
+    c = ntplib.NTPClient()
+    response = c.request('ntp1.stratum2.ru')
+    return response.tx_time-time.time()
+
+
+def pl_anim(c_frame):
+    global command
+    takeoff()
+    for frame in c_frame:
+        if command != 'pause':
+            time.sleep(0.1)
+            play_animation.do_next_animation(frame)
 
 
 if __name__==__main__:
     t_0 = Thread(target=receive)
     t_0.daemon = True
     t_0.start()
+    play_animation.read_animation_file()
+    dtime=time_synch() - time.time()
     
+    while True:
+        
+        if 'begin_anim' in command:
+            t_st = int(command[command.index('('):])
+        if t_st==dtime+time.time:
+            break
+        if 'synch' in command:
+            dtime=time_synch() - time.time()
+            print(dtime)
+    
+        pl_anim(play_animation.frame())
+
+
+
+
