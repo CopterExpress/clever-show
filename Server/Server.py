@@ -229,20 +229,14 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
     
     def upload_animation(self):
         global file
-        file = easygui.fileopenbox(filetypes=["*.avi"])  # вызов окна проводника для выбора файла
-
+        file = easygui.fileopenbox(filetypes=["*.csv"],multiple=True)  # вызов окна проводника для выбора файла
+        
     def start_animation(self):
-        t_4 = Thread(target=self.start_animation_1)
-        t_4.daemon = True
-        t_4.start()
-
-    def start_animation_1(self):
         global file
-        f = open(file, 'r')
-        prog = f.read()
-        self.sender(b'programm', 'all')
-        time.sleep(0.5)
-        self.sender(bytes(prog, 'utf-8'), 'all')
+        for counter, sub_file in enumerate(file):
+            f = open(sub_file, 'r')
+            prog = f.read()
+            self.sender(b'programm' + bytes(prog, 'utf-8')+b'stop', str(counter))
 
     def stop_swarm(self):
         pass
