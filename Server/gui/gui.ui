@@ -414,6 +414,22 @@ p, li { white-space: pre-wrap; }
      <string>Synchronize</string>
     </property>
    </widget>
+   <widget class="QLabel" name="time_to_start_label">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>200</y>
+      <width>141</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">color:rgb(30, 30, 30)</string>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:16pt;&quot;/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+   </widget>
    <zorder>back_label</zorder>
    <zorder>take_off_button</zorder>
    <zorder>land_all_button</zorder>
@@ -440,6 +456,7 @@ p, li { white-space: pre-wrap; }
    <zorder>start_animation_button</zorder>
    <zorder>safty_button</zorder>
    <zorder>synch_button</zorder>
+   <zorder>time_to_start_label</zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

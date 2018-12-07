@@ -237,6 +237,26 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
             f = open(sub_file, 'r')
             prog = f.read()
             self.sender(b'programm' + bytes(prog, 'utf-8')+b'stop', str(counter))
+        t1 = Thread(target=self.start_retime)
+        t1.daemon = True
+        t1.start()
+    def start_retime(self):
+        for i in range(11):
+            time.sleep(1)
+            self.time_to_start_label.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt;\">"+str(10-i)+"</p></body></html>")
+        '''if i==10:
+            k=0
+            while True:
+                k+=1
+                time.sleep(0.2r)
+                self.time_to_start_label.setText("<html><head/><body><p align=\"center\">"+k*'.'+"</p></body></html>")
+                if k>3:
+                    k=0'''# for ... animation
+        self.time_to_start_label.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:11pt;\">Take off</p></body></html>")
+        time.sleep(2)
+        self.time_to_start_label.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:11pt;\"></p></body></html>")
+
+                
 
     def stop_swarm(self):
         pass

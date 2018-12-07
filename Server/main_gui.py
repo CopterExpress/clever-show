@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'swarm_5.ui'
+# Form implementation generated from reading ui file 'gui.ui'
 #
 # Created by: PyQt5 UI code generator 5.11.3
 #
@@ -116,6 +116,10 @@ class Ui_MainWindow(object):
         self.synch_button.setGeometry(QtCore.QRect(620, 160, 111, 40))
         self.synch_button.setStyleSheet("")
         self.synch_button.setObjectName("synch_button")
+        self.time_to_start_label = QtWidgets.QLabel(self.centralwidget)
+        self.time_to_start_label.setGeometry(QtCore.QRect(220, 200, 141, 51))
+        self.time_to_start_label.setStyleSheet("color:rgb(30, 30, 30)")
+        self.time_to_start_label.setObjectName("time_to_start_label")
         self.back_label.raise_()
         self.take_off_button.raise_()
         self.land_all_button.raise_()
@@ -142,6 +146,7 @@ class Ui_MainWindow(object):
         self.start_animation_button.raise_()
         self.safty_button.raise_()
         self.synch_button.raise_()
+        self.time_to_start_label.raise_()
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1280, 23))
@@ -183,6 +188,7 @@ class Ui_MainWindow(object):
         self.back_label.setText(_translate("MainWindow", "<html><head/><body><p><img src=\":/back/back.png\"/></p></body></html>"))
         self.safty_button.setText(_translate("MainWindow", "Safty check"))
         self.synch_button.setText(_translate("MainWindow", "Synchronize"))
+        self.time_to_start_label.setText(_translate("MainWindow", "<html><head/><body><p align=\"center\"><span style=\" font-size:16pt;\"/></p></body></html>"))
 
 import back_1_rc
 
