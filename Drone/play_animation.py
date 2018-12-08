@@ -3,21 +3,14 @@ import csv
 from FlightLib.FlightLib import FlightLib
 FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
-import ntplib
-
 
 animation_file_path = 'drone.csv'
 frames = []
-'''
-def time_synch():
-    c = ntplib.NTPClient()
-    response = c.request('ntp1.stratum2.ru')
-    return response.tx_time-time.time()
-'''
+
 
 def takeoff():
-    FlightLib.takeoff(1.75)
     LedLib.wipe_to(0, 255, 0)
+    FlightLib.takeoff(1.75)
 
 
 def land():
@@ -29,7 +22,7 @@ def land():
 def do_next_animation(current_frame):
     FlightLib.navto(
         round(float(current_frame['x']), 4), round(float(current_frame['y']), 4), round(float(current_frame['z']), 4),
-        round(float(current_frame['yaw']), 4), speed=2
+        round(float(current_frame['yaw']), 4), speed=round(float(current_frame['speed']), 4)
     )
     LedLib.fill(
         int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
@@ -54,20 +47,21 @@ def read_animation_file():
                 'blue': blue,
                 'yaw': yaw
             })
-def frame()
+
+
+def frame():
     global frames
     return frames
-'''
+
+
 if __name__ == '__main__':
     read_animation_file()
-    #dtime=time_synch()-time.time()
-    #while True:
-     #   if t_st==dtime+time.time:
-      #      break
+
     takeoff()
+    #FlightLib.reach()
     for frame in frames:
-        time.sleep(0.1)#cut for using ntp    
+        time.sleep(0.1)
         do_next_animation(frame)
 
     land()
-    time.sleep(3)'''
+    time.sleep(3)
