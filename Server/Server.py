@@ -165,19 +165,6 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         t.daemon = True
         t.start()
 
-    def number_animation(self):
-        global copters
-        col = [b'(255,0,0)', b'(173,255,47)', b'(255,215,0)', b'(255,0,255)', b'(0,0,255)', b'(205,92,92)',
-               b'(255,255,255)', b'(240,128,128)']
-        for i in range(copters + 1):
-            self.sender(b'led.fill' + col[i], str(i))
-            time.sleep(0.5)
-            self.sender(b'led.off()', str(i))
-        for i in range(copters + 1):
-            self.sender(b'led.fill' + col[i], str(i))
-
-            time.sleep(0.5)
-
     def safty(self):
         self.message('safty check')
         self.sender(b'f.safety_check(False)', 'all')
@@ -240,7 +227,7 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
             self.sender(b'programm' + bytes(prog, 'utf-8')+b'stop', str(counter))
         time.sleep(0.1)
         for i in range(len(afile)):
-            self.sender(bytes('begin_anim('+str(time.time()+d_time+10)+')','utf-8', str(counter))
+            self.sender(bytes('begin_anim('+str(time.time()+d_time+10)+')','utf-8', str(counter)))
 
         t1 = Thread(target=self.start_retime)
         t1.daemon = True
