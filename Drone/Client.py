@@ -61,13 +61,12 @@ def pl_anim():
     global command
     play_animation.read_animation_file()
     dtime = time_synch() - time.time()
-    ok = 0
+    t_st = None
     while True:
         
         if 'begin_anim' in command:
             t_st = int(command[command.index('('):])
-            ok=1
-        if t_st == dtime+time.time and ok==1:
+        if t_st == dtime+time.time:
             break
         if 'synch' in command:
             dtime=time_synch() - time.time()
