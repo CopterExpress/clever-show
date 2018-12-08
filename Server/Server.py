@@ -358,7 +358,8 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
                                 zorder=1, color=(0, 0, 0))
 
                 except Exception as e:
-                    print(e)
+                    #print(e)
+                    pass
 
                 ax.set_xlim(0, size_scene[0])
                 ax.set_ylim(0, size_scene[1])
