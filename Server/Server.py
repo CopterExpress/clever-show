@@ -165,19 +165,6 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         t.daemon = True
         t.start()
 
-    def number_animation(self):
-        global copters
-        col = [b'(255,0,0)', b'(173,255,47)', b'(255,215,0)', b'(255,0,255)', b'(0,0,255)', b'(205,92,92)',
-               b'(255,255,255)', b'(240,128,128)']
-        for i in range(copters + 1):
-            self.sender(b'led.fill' + col[i], str(i))
-            time.sleep(0.5)
-            self.sender(b'led.off()', str(i))
-        for i in range(copters + 1):
-            self.sender(b'led.fill' + col[i], str(i))
-
-            time.sleep(0.5)
-
     def safty(self):
         self.message('safty check')
         self.sender(b'f.safety_check(False)', 'all')
@@ -371,7 +358,8 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
                                 zorder=1, color=(0, 0, 0))
 
                 except Exception as e:
-                    print(e)
+                    #print(e)
+                    pass
 
                 ax.set_xlim(0, size_scene[0])
                 ax.set_ylim(0, size_scene[1])
