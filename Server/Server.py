@@ -25,7 +25,7 @@ cr_cet = 0
 copters = 1
 conn = []
 conn_2 = []
-file = ''
+afile = ''
 data = b''
 addr = []
 addr_2 = []
@@ -228,18 +228,25 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
         copters = self.swarm_size_spinBox.value()
     
     def upload_animation(self):
-        global file
-        file = easygui.fileopenbox(filetypes=["*.csv"],multiple=True)  # вызов окна проводника для выбора файла
+        global afile
+        afile = easygui.fileopenbox(filetypes=["*.csv"],multiple=True)  # вызов окна проводника для выбора файла
         
     def start_animation(self):
-        global file
-        for counter, sub_file in enumerate(file):
+        global afile
+        global d_time
+        for counter, sub_file in enumerate(afile):
             f = open(sub_file, 'r')
             prog = f.read()
             self.sender(b'programm' + bytes(prog, 'utf-8')+b'stop', str(counter))
+        time.sleep(0.1)
+        for i in range(len(afile)):
+            self.sender(bytes('begin_anim('+str(time.time()+d_time+10)+')','utf-8', str(counter))
+
         t1 = Thread(target=self.start_retime)
         t1.daemon = True
         t1.start()
+
+
     def start_retime(self):
         for i in range(11):
             time.sleep(1)

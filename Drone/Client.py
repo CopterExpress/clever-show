@@ -1,8 +1,9 @@
 import socket
 import play_animation
+import time
 sock = socket.socket()
-serv = '192.168.1.10'
-port = 1234
+serv = '192.168.1.10' # Change to server ip
+port = 35001
 sock.connect((serv, port))
 sock.send(bytes('left','utf-8'))
 command = ''
@@ -53,19 +54,8 @@ def time_synch():
     return response.tx_time-time.time()
 
 
-def pl_anim(c_frame):
+def pl_anim():
     global command
-    takeoff()
-    for frame in c_frame:
-        if command != 'pause':
-            time.sleep(0.1)
-            play_animation.do_next_animation(frame)
-
-
-if __name__==__main__:
-    t_0 = Thread(target=receive)
-    t_0.daemon = True
-    t_0.start()
     play_animation.read_animation_file()
     dtime=time_synch() - time.time()
     
@@ -78,8 +68,28 @@ if __name__==__main__:
         if 'synch' in command:
             dtime=time_synch() - time.time()
             print(dtime)
+
+    play_animation.takeoff()
+    for frame in play_animation.frame():
+        if command != 'pause':
+            time.sleep(0.1)
+            play_animation.do_next_animation(frame)
+
+
     
-        pl_anim(play_animation.frame())
+
+if __name__==__main__:
+    t_0 = Thread(target=receive)
+    t_0.daemon = True
+    t_0.start()
+
+    t_1 = Thread(target=pl_anim)
+    t_1.daemon = True
+    t_1.start()
+    
+    
+    
+    
 
 
 
