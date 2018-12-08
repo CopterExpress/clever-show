@@ -240,7 +240,7 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
             self.sender(b'programm' + bytes(prog, 'utf-8')+b'stop', str(counter))
         time.sleep(0.1)
         for i in range(len(afile)):
-            self.sender(bytes('begin_anim('+str(time.time()+d_time+10)+')','utf-8', str(counter))
+            self.sender(bytes('begin_anim('+str(time.time()+d_time+10)+')','utf-8', str(counter)))
 
         t1 = Thread(target=self.start_retime)
         t1.daemon = True
