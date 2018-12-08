@@ -275,17 +275,17 @@ class Widget(QMainWindow, main_gui.Ui_MainWindow):
 
         while True:
             s = str(self.console_textEdit.toPlainText())
-            print(s)
+            #print(s)
             if '>' in s:
 
                 print(s[:-2], s[s.index('>') - 1])
                 self.console_textEdit.setText('')
                 if s[s.index('>') - 1] == '0':
                     self.sender(bytes(str(s[:s.index('>') - 1]), 'utf-8'), 'all')
-                    print(s[:s.index('>') - 1], 'all')
+                    #print(s[:s.index('>') - 1], 'all')
                 else:
                     self.sender(bytes(str(s[:s.index('>') - 1]), 'utf-8'), str(s[s.index('>') - 1]))
-                    print('sender', s[s.index('>') - 1])
+                    #print('sender', s[s.index('>') - 1])
             try:
 
                 i = updateDialog.number_spinBox.value()
