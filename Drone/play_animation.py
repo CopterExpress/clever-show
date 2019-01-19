@@ -1,7 +1,7 @@
 import time
 import csv
 from FlightLib.FlightLib import FlightLib
-FlightLib.init('SingleCleverFlight')
+#FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
 
 animation_file_path = 'drone.csv'
@@ -55,6 +55,8 @@ def frame():
 
 
 if __name__ == '__main__':
+    FlightLib.init('SingleCleverFlight')
+
     read_animation_file()
 
     takeoff()
