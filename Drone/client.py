@@ -10,6 +10,10 @@ from contextlib import closing
 
 import rospy
 
+from FlightLib.FlightLib import FlightLib
+rospy.init_node('Swarm_client', anonymous=True)
+from FlightLib.FlightLib import LedLib
+
 import play_animation
 
 random.seed()
