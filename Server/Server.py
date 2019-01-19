@@ -1,388 +1,289 @@
-# -*- coding: utf-8 -*- .
-"""Code by Alexandr Osherov 10 class, phone - +79251834732,  email - allexandr2001@mail.ru """
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-import time
-import socket
+from tkinter import *
+from tkinter import ttk
+from tkinter import filedialog
+import ttkwidgets
+
 import os
-import easygui
+import sys
+import glob
+import time
+import struct
+import socket
 import threading
-from threading import Thread
-import math
-import requests
-import json
-import main_gui
-import gui_telem
-import ntplib
-ip = [1, 2]
-sq_rad = 0
-sq_cet = 0
-cr_rad = 0
-cr_cet = 0
-copters = 1
-conn = []
-conn_2 = []
-afile = ''
-data = b''
-addr = []
-addr_2 = []
-coord = []
-d_time = 0
-size_scene=[2,2,2]
-sock = socket.socket()
+import collections
+import configparser
 
-sock.bind(('', 35001))  # назначается адресс и порт связи для отпраки команд на коптеры
-sock.listen(1)
-
-sock_2 = socket.socket()
-sock_2.bind(('', 35002))  # назначается адресс и порт связи для приема данных с коптеров
-sock_2.listen(1)
+# All imports sorted in pyramid
 
 
-class Dialog(QMainWindow, gui_telem.Ui_Dialog):
-    def __init__(self):
-        super().__init__()
-        self.setupUi(self)
+def auto_connect():
+    while True:
+        ServerSocket.listen(1)
+        c, addr = ServerSocket.accept()
+        print("Got connection from:", str(addr))
+        #client_thread = threading.Thread(target=on_new_client, args=(c, addr))
+        #client_thread.start()
 
-    def up(self):
-        self.voltage_2.setText('1234567')
+        if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
+            client = Client(addr[0])
+            print("New client")
+        else:
+            print("Reconnected client")
+        Client.clients[addr[0]].connect(c, addr)
 
 
-class Widget(QMainWindow, main_gui.Ui_MainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setupUi(self)
-        self.start_animation_button.clicked.connect(self.start_animation)
-        self.stop_swarm_but.clicked.connect(self.stop_swarm)
-        self.show_3d_scene_button.clicked.connect(self.show_3d)
-        self.disarm_all_button.clicked.connect(self.disarm)
-        self.turn_off_led_button.clicked.connect(self.off_leds)
-        self.turn_on_led_button.clicked.connect(self.on_leds)
-        self.upload_animation_button.clicked.connect(self.upload_animation)
-        self.land_all_button.clicked.connect(self.land)
-        self.take_off_button.clicked.connect(self.take_off)
-        #self.number_animation_copters.clicked.connect(self.number_animation)   synch_button
-        self.synch_button.clicked.connect(self.synch)
-        self.take_off_n_button.clicked.connect(self.take_off_n)
-        self.land_n_button.clicked.connect(self.land_n)
-        self.disarm_n_button.clicked.connect(self.disarm_n)
-        self.land_spinBox.valueChanged.connect(self.land_led)
-        self.disarm_spinBox.valueChanged.connect(self.disarm_led)
-        self.take_off_spinBox.valueChanged.connect(self.take_off_led)
-        self.safty_button.clicked.connect(self.safty)
-        self.connect_button.clicked.connect(self.connect)
-        self.swarm_size_spinBox.valueChanged.connect(self.number_copters)
+NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
+NTP_QUERY = b'\x1b' + bytes(47)
 
-    
 
-    def receiver(self):
-        global copters
-        global addr
-        while True:
+def get_ntp_time(ntp_host, ntp_port):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.sendto(NTP_QUERY, (ntp_host, ntp_port))
+        msg, _ = s.recvfrom(1024)
+    return int.from_bytes(msg[-8:], 'big') / 2 ** 32 - NTP_DELTA
+
+
+def requires_connect(f):
+    def wrapper(*args, **kwargs):
+        if args[0].connected:
+            return f(*args, **kwargs)
+        else:
+            print("Function requires client to be connected!")
+    return wrapper
+
+
+class Client:
+    clients = {}
+
+    def __init__(self, ip):
+        self.socket = None
+        self.addr = None
+
+        self._send_queue = collections.deque()
+        self._received_queue = collections.deque()
+        self._request_queue = collections.OrderedDict()
+
+        self.copter_id = None
+        self.malfunction = False
+
+        Client.clients[ip] = self
+
+        self.connected = False
+
+    def connect(self, client_socket, client_addr):
+        print("Client connected")
+        self._send_queue = collections.deque()  # comment for resuming queue after reconnection
+
+        self.socket = client_socket
+        self.addr = client_addr
+
+        self.socket.setblocking(0)
+        self.connected = True
+        client_thread = threading.Thread(target=self._run, args=())
+        client_thread.start()
+        if self.copter_id is None:
+            self.copter_id = self.get_response("id")
+            print("Got copter id:", self.copter_id)
+            drone_list.insert("", "end", self.addr[0], text=self.copter_id)
+
+    def _send_all(self, msg):
+        self.socket.sendall(struct.pack('>I', len(msg)) + msg)
+
+    def _receive_all(self, n):
+        data = b''
+        while len(data) < n:
+            packet = self.socket.recv(min(n - len(data), BUFFER_SIZE))
+            if not packet:
+                return None
+            data += packet
+        return data
+
+    def _receive_message(self):
+        raw_msglen = self._receive_all(4)
+        if not raw_msglen:
+            return None
+        msglen = struct.unpack('>I', raw_msglen)[0]
+        msg = self._receive_all(msglen)
+        return msg
+
+    def _run(self):
+        while self.connected:
             try:
-                for k in range(copters): 
-                    a = requests.get('http://' + addr[k][0] + ':8081/aruco_map')
-                    tem = json.loads(a.text)
-
-                    coord[k] = str(tem['x']) + ',' + str(tem['y']) + ',' + str(tem['z']) + ',' + \
-                               str(tem['mode']) + ',' + str(tem['armed']) + ',' + str(tem['frame_id']) + str(
-                        tem['voltage']) + ',' + \
-                               str(tem['yaw']) + ',' + str(tem['pitch']) + ',' + str(tem['roll']) + ',' + \
-                               str(tem['vx']) + ',' + str(tem['vy']) + ',' + str(tem['vz'])
-
-                    #time.sleep(0.05)
-
-
-            except Exception as e:
-                pass
-
-    def sender(self, com, num):
-        global conn
-        global conn_2
-        global copters
-        print(com)
-        print(num)
-        try:
-            if num == 'all':
-                for i in range(copters):
-                    conn[i].send(com + b'$$')
-                    print(com + b'$$')
-            elif int(num) > 0:
-                conn[int(num) - 1].send(com + b'$$')
-        except:
-            pass
-
-    def message(self, mes):
-        pass
-
-    def connect(self):
-        global copters
-        global conn
-        global conn_2
-        global addr
-        global addr_2
-        global coord
-
-        addr_2 = []
-
-        conn = []
-        conn_2 = []
-
-        self.message('Try connect')
-        for i in range(copters):
-            conn.append(0)
-            addr.append(0)
-            coord.append('0')
-
-        t_0 = Thread(target=self.connect_init)
-        t_0.daemon = True
-        t_0.start()
-
-    def connect_init(self):
-        self.state_label.setText("<html><head/><body><p><span style=\" font-size:12pt; color:rgb(255,255,"
-                                 "0);\">Wait</span></p></body></html>")
-        global copters
-
-        global conn
-        global addr
-        global conn_2
-        global addr_2
-
-        for i in range(copters):
-            conn[i], addr[i] = sock.accept()
-            print("connected_controllers:", addr[i])
-
-        self.disarm_spinBox.setMaximum(copters)
-        self.land_spinBox.setMaximum(copters)
-        self.take_off_spinBox.setMaximum(copters)
-        self.state_label.setText("<html><head/><body><p><span style=\" font-size:12pt; "
-                                 "color:Green;\">Connect</span></p></body></html>")
-
-        t = Thread(target=self.receiver)
-        t.daemon = True
-        t.start()
-
-    def safty(self):
-        self.message('safty check')
-        self.sender(b'f.safety_check(False)', 'all')
-
-    def take_off(self):
-        self.message('take off')
-        self.sender(b'f.takeoff(z=2, speed=2,speed_takeoff=2 , timeout=2)', 'all')
-
-    def take_off_n(self):
-        self.message('take off n')
-        self.sender(b'f.takeoff()', str(self.take_off_spinBox.value()))
-
-    def land(self):
-        self.message('land')
-        self.sender(b'f.land(preland=False)', 'all')
-
-    def land_n(self):
-        self.message('land n')
-        self.sender(b'f.land(preland=False)', str(self.land_spinBox.value()))
-
-    def disarm(self):
-        self.sender(b'f.arming(False)', 'all')
-
-    def disarm_n(self):
-        self.sender(b'f.arming(False)', str(self.disarm_spinBox.value()))
-
-    def off_leds(self):
-        self.sender(b'led.off()', 'all')
-
-    def land_led(self):
-        self.sender(b'led.off()', 'all')
-        self.sender(b'led.fill(255,0,0)', self.land_spinBox.value())
-        # print(1)
-
-    def disarm_led(self):
-        self.sender(b'led.off()', 'all')
-        self.sender(b'led.fill(0,255,0)', self.disarm_spinBox.value())
-
-    def take_off_led(self):
-        self.sender(b'led.off()', 'all')
-        self.sender(b'led.fill(0,0,255)', self.take_off_spinBox.value())
-
-    def on_leds(self):
-        self.sender(b'led.fill(0,0,255)', 'all')
-
-    def number_copters(self):
-        global copters
-        copters = self.swarm_size_spinBox.value()
-    
-    def upload_animation(self):
-        global afile
-        afile = easygui.fileopenbox(filetypes=["*.csv"],multiple=True)  # вызов окна проводника для выбора файла
-        
-    def start_animation(self):
-        global afile
-        global d_time
-        for counter, sub_file in enumerate(afile):
-            f = open(sub_file, 'r')
-            prog = f.read()
-            self.sender(b'programm' + bytes(prog, 'utf-8')+b'stop', str(counter))
-        time.sleep(0.1)
-        for i in range(len(afile)):
-            self.sender(bytes('begin_anim('+str(time.time()+d_time+10)+')','utf-8', str(counter)))
-
-        t1 = Thread(target=self.start_retime)
-        t1.daemon = True
-        t1.start()
-
-
-    def start_retime(self):
-        for i in range(11):
-            time.sleep(1)
-            self.time_to_start_label.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:16pt;\">"+str(10-i)+"</p></body></html>")
-        '''if i==10:
-            k=0
-            while True:
-                k+=1
-                time.sleep(0.2r)
-                self.time_to_start_label.setText("<html><head/><body><p align=\"center\">"+k*'.'+"</p></body></html>")
-                if k>3:
-                    k=0'''# for ... animation
-        self.time_to_start_label.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:11pt;\">Take off</p></body></html>")
-        time.sleep(2)
-        self.time_to_start_label.setText("<html><head/><body><p align=\"center\"><span style=\" font-size:11pt;\"></p></body></html>")
-
-                
-
-    def stop_swarm(self):
-        pass
-
-    def synch(self):
-        global d_time
-        self.sender(b'synch', 'all')
-        c = ntplib.NTPClient()
-        response = c.request('ntp1.stratum2.ru')
-        d_time =  response.tx_time-time.time()
-        print(d_time)
-
-    def show_3d(self):
-        global size_scene
-        global data
-        global copters
-        global coord
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        updateDialog = Dialog()
-        updateDialog.show()
-
-        while True:
-            s = str(self.console_textEdit.toPlainText())
-            #print(s)
-            if '>' in s:
-
-                print(s[:-2], s[s.index('>') - 1])
-                self.console_textEdit.setText('')
-                if s[s.index('>') - 1] == '0':
-                    self.sender(bytes(str(s[:s.index('>') - 1]), 'utf-8'), 'all')
-                    #print(s[:s.index('>') - 1], 'all')
+                if self._send_queue:
+                    msg = self._send_queue.popleft()
+                    print("Send", msg, "to", self.addr)
+                    self._send_all(msg)
                 else:
-                    self.sender(bytes(str(s[:s.index('>') - 1]), 'utf-8'), str(s[s.index('>') - 1]))
-                    #print('sender', s[s.index('>') - 1])
-            try:
+                    msg = "ping"
+                    #self._send_all(msg)
 
-                i = updateDialog.number_spinBox.value()
-                if i > 0:
-                    i -= 1
-
-                coord_drone = []
-                coord_drone = coord[i].split(',')
-
-                updateDialog.z_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    0] + "</span></p></body></html>")
-                updateDialog.x_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    1] + "</span></p></body></html>")
-                updateDialog.y_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    2] + "</span></p></body></html>")
-                updateDialog.mode_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    3] + "</span></p></body></html>")
-                updateDialog.armed_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    4] + "</span></p></body></html>")
-                updateDialog.frame_id_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    5] + "</span></p></body></html>")
-                updateDialog.voltage_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    6] + "</span></p></body></html>")
-                updateDialog.yaw2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    7] + "</span></p></body></html>")
-                updateDialog.pitch_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    8] + "</span></p></body></html>")
-                updateDialog.roll_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    9] + "</span></p></body></html>")
-                updateDialog.vx_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    10] + "</span></p></body></html>")
-                updateDialog.vy_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    11] + "</span></p></body></html>")
-                updateDialog.vz_2.setText("<html><head/><body><p><span style=\" color:#c8c8c8;\">" + coord_drone[
-                    12] + "</span></p></body></html>")
-            except Exception as e:
-                # print(e)
-                pass
-            try:
-
-                n = 0
-                # set size of scene
-
-                ax.set_xlim(0, size_scene[0])
-                ax.set_ylim(0, size_scene[1])
-                ax.set_zlim(0, size_scene[2])
-
-                ax.set_xlabel('x')
-                ax.set_ylabel('y')
-                ax.set_zlabel('z')
-
-                plt.pause(0.01)
-
-                ax.clear()
-                try:
-                    for i in coord:
-                        co = (0, 0, 0)
-                        n += 1
-
-                        if self.land_spinBox.value() == n:
-                            co = (1, 0, 0)
-                        if self.take_off_spinBox.value() == n:
-                            co = (1, 0, 0)
-                        if self.disarm_spinBox.value() == n:
-                            co = (1, 0, 0)
-
-                        ax.scatter(float(i.split(',')[0]), float(i.split(',')[1]), float(i.split(',')[2]), s=50, c=co,
-                                   marker='.')
-                        ax.text(float(i.split(',')[0]), float(i.split(',')[1]), float(i.split(',')[2]), str(n), size=10,
-                                zorder=1, color=(0, 0, 0))
-
-                except Exception as e:
-                    #print(e)
+                try:  # check if data in buffer
+                    check = self.socket.recv(BUFFER_SIZE, socket.MSG_PEEK)
+                    if check:
+                        received = self._receive_message()
+                        if received:
+                            received = received.decode("UTF-8")
+                            print("Recived", received, "from", self.addr)
+                            command, args = Client.parse_command(received)
+                            if command == "response":
+                                for key, value in self._request_queue.items():
+                                    if not value:
+                                        self._request_queue[key] = args[0]
+                                        print("Request successfully closed")
+                                        break
+                            else:
+                                self._received_queue.appendleft(received)
+                except socket.error:
                     pass
 
-                ax.set_xlim(0, size_scene[0])
-                ax.set_ylim(0, size_scene[1])
-                ax.set_zlim(0, size_scene[2])
-
-
-                ax.set_xlabel('x')
-                ax.set_ylabel('y')
-                ax.set_zlabel('z')
-
-                plt.draw()
-            except KeyboardInterrupt:
-                print('stop')
+            except socket.error as e:
+                print("Client error, disconnected", e)
+                self.connected = False
+                self.socket.close()
                 break
+            # time.sleep(0.05)
 
-        plt.show()
+    @staticmethod
+    def form_command(command: str, args=()):  # Change for different protocol
+        return " ".join([command, *args])
+
+    @staticmethod
+    def parse_command(command_input):
+        args = command_input.split()
+        command = args.pop(0)
+        return command, args
+
+    @requires_connect
+    def send(self, *messages):
+        for message in messages:
+            self._send_queue.append(bytes(message, "UTF-8"))
+
+    @staticmethod
+    def broadcast(message, force_all=False):
+        for client in Client.clients.values():
+            if (not client.malfunction) or force_all:
+                client.send(message)
+
+    @requires_connect
+    def send_file(self, filepath, dest_filename):
+        print("Sending file ", dest_filename)
+        self.send(Client.form_command("writefile", (dest_filename,)))
+        file = open(filepath, 'rb')
+        chunk = file.read(BUFFER_SIZE)
+        while chunk:
+            self._send_queue.append(chunk)
+            chunk = file.read(BUFFER_SIZE)
+        file.close()
+        self.send(Client.form_command("/endoffile"))
+        print("File sent")
+
+    @requires_connect
+    def get_response(self, requested_value):
+        self._request_queue[requested_value] = ""
+        self.send(Client.form_command("request", (requested_value, )))
+
+        while not self._request_queue[requested_value]:
+            pass
+
+        return self._request_queue.pop(requested_value)
 
 
-
-app = QApplication([])
-w = Widget()
-w.show()
-
-app.exec()
+# UI functions
+def stop_swarm():
+    Client.broadcast("stop")  # для тестирования
 
 
+def send_animations():
+    path = filedialog.askdirectory(title="Animation directory")
+    if path:
+        print("Selected directory:", path)
+        files = [file for file in glob.glob(path+'/*.csv')]
+        names = [os.path.basename(file).split(".")[0] for file in files]
+        print(files)
+        for file, name in zip(files, names):
+            for copter in Client.clients.values():
+                if name == copter.copter_id:
+                    copter.send_file(file, "animation.csv")  # TODO config
+                else:
+                    print("Filename not matches with any drone connected")
+    #dr = next(iter(Client.clients.values()))  # костыль для тестирования
+    #ANS = dr.get_response("someshit")
+    #print(ANS)
+
+
+def send_starttime(dt=60):
+    timenow = time.time()
+    print('Now:', time.ctime(timenow), "+ dt =", dt)
+    Client.broadcast(Client.form_command("starttime", (str(timenow+dt), )))
+
+
+# UI build here
+root = Tk()
+root.wm_title("Drone swarm operation server")
+root.style = ttk.Style()
+root.style.theme_use("vista")
+
+leftFrame = Frame(root)
+leftFrame.grid(row=0, column=0, padx=10, pady=10)
+rightFrame = Frame(root)
+rightFrame.grid(row=0, column=1, padx=10, pady=10)
+
+drone_list = ttkwidgets.CheckboxTreeview(leftFrame, columns=("addr", "connected"))
+#drone_list["columns"] = ("addr")
+#drone_list.column("name") #width=100
+#drone_list.column("addr")
+drone_list.heading("#0", text="Drone name")
+drone_list.heading("#1", text="Connection adress")
+drone_list.heading("#2", text="Connection status")
+drone_list.pack()
+
+button_frame = Frame(leftFrame, borderwidth=1, relief="solid")
+button_frame.pack(fill=BOTH, expand=True)
+
+stop_all_btn = ttk.Button(button_frame, text="Stop swarm", command=stop_swarm)
+stop_all_btn.pack(side=RIGHT, padx=5, pady=5)
+
+send_animation_btn = ttk.Button(button_frame, text="Send animations", command=send_animations)
+send_animation_btn.pack(side=RIGHT, padx=5, pady=5)
+
+send_starttime_btn = ttk.Button(button_frame, text="Start animation after...", command=send_starttime)
+send_starttime_btn.pack(side=RIGHT, padx=5, pady=5)
+
+
+def gui_update():
+    time.sleep(0.1)
+
+
+# reading config
+config = configparser.ConfigParser()
+config.read("server_config.ini")
+
+port = int(config['SERVER']['port'])
+BUFFER_SIZE = int(config['SERVER']['buffer_size'])
+NTP_HOST = config['NTP']['host']
+NTP_PORT = int(config['NTP']['port'])
+
+
+ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # socket.socket()  #
+ServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+host = socket.gethostname()
+ip = socket.gethostbyname_ex(host)[-1]
+
+print('Server started on', host, ip, ":", port)
+#print('Now:', time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
+print('Waiting for clients...')
+ServerSocket.bind((ip[-1], port))
+
+autoconnect_thread = threading.Thread(target=auto_connect)
+autoconnect_thread.daemon = True
+autoconnect_thread.start()
+
+
+if __name__ == '__main__':
+    try:
+        mainloop()
+    except KeyboardInterrupt:
+        print("Stopping server by keyboard interrupt")
+    finally:
+        ServerSocket.close()
+        print("Server shutdown")
