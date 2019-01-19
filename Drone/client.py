@@ -8,9 +8,9 @@ import threading
 import ConfigParser
 from contextlib import closing
 
-#import rospy
+import rospy
 
-#import play_animation
+import play_animation
 
 random.seed()
 
