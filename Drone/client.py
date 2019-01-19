@@ -120,7 +120,7 @@ running_animation_event = threading.Event()
 animation_thread = threading.Thread(target=animation_player, args=(running_animation_event, stop_animation_event))
 
 
-def start_animation():
+def start_animation(*args, **kwargs):
     play_animation.read_animation_file(animation_file)
     print("Starting animation!")
     resume_animation()
