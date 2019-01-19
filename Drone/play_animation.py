@@ -8,9 +8,9 @@ animation_file_path = 'drone.csv'
 frames = []
 
 
-def takeoff():
+def takeoff(h=1.75):
     LedLib.wipe_to(0, 255, 0)
-    FlightLib.takeoff(1.75)
+    FlightLib.takeoff(h)
 
 
 def land():
@@ -29,8 +29,8 @@ def do_next_animation(current_frame):
     )
 
 
-def read_animation_file():
-    with open(animation_file_path) as animation_file:
+def read_animation_file(filepath=animation_file_path):
+    with open(filepath) as animation_file:
         csv_reader = csv.reader(
             animation_file, delimiter=',', quotechar='|'
         )
