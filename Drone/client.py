@@ -4,6 +4,7 @@ import socket
 import struct
 import random
 import time
+import errno
 import threading
 import ConfigParser
 from contextlib import closing
@@ -202,13 +203,14 @@ try:
                         response = COPTER_ID
                     send_all(bytes(form_command("response", response)))
                     print("Request responded with:",  response)
-        except KeyboardInterrupt:
-            print("Interrupted")
         except socket.error as e:
-            print("Connection lost due error:", e)
-            print("Reconnecting...")
-            reconnect()
-            print("Re-connection successful")
+            if e.errno != errno.EINTR:
+                print("Connection lost due error:", e)
+                print("Reconnecting...")
+                reconnect()
+                print("Re-connection successful")
+            else:
+                print("Interrupted")
 except KeyboardInterrupt:
     print("Shutdown on keyboard interrupt")
 finally:
