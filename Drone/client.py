@@ -193,6 +193,9 @@ try:
                     dt = starttime - get_ntp_time(NTP_HOST, NTP_PORT)
                     print("Until start:", dt)
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
+                elif command == 'stop':
+                    FlightLib.takeoff(2)
+                    FlightLib.reach(5, 5, 2)
                 elif command == 'request':
                     request_target = args[0]
                     print("Got request for:", request_target)
