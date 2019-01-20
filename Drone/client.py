@@ -211,6 +211,7 @@ try:
                 print("Re-connection successful")
             else:
                 print("Interrupted")
+                raise KeyboardInterrupt
 except KeyboardInterrupt:
     print("Shutdown on keyboard interrupt")
 finally:
