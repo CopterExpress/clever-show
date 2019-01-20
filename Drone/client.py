@@ -202,7 +202,7 @@ try:
                         response = COPTER_ID
                     send_all(bytes(form_command("response", response)))
                     print("Request responded with:",  response)
-        except InterruptedError:
+        except KeyboardInterrupt:
             print("Interrupted")
         except socket.error as e:
             print("Connection lost due error:", e)
