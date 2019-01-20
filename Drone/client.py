@@ -102,7 +102,7 @@ def animation_player(running_event, stop_event):
     print("Animation thread activated")
     rate = rospy.Rate(1000 / 100)
     play_animation.takeoff(TAKEOFF_HEIGHT)
-    for current_frame in play_animation.frame():
+    for current_frame in play_animation.get_frames():
         running_event.wait()
         if stop_event.is_set():
             break
@@ -165,6 +165,9 @@ if COPTER_ID == 'default':
 
 TAKEOFF_HEIGHT = float(config.get('COPTER', 'takeoff_height'))
 
+USE_LEDS = bool(config.get('COPTER', 'use_leds'))
+play_animation.USE_LEDS = USE_LEDS
+
 print("Client started on copter:", COPTER_ID)
 print("NTP time:", time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
 print("System time", time.ctime(time.time()))
@@ -200,8 +203,9 @@ try:
                     send_all(bytes(form_command("response", response)))
                     print("Request responded with:",  response)
                     
-        except socket.error:
-            print("Connection lost... reconnecting")
+        except socket.error as e:
+            print("Connection lost due error:", e)
+            print("Reconnecting...")
             reconnect()
             print("Re-connection successful")
 except KeyboardInterrupt:

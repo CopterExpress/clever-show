@@ -6,17 +6,21 @@ from FlightLib.FlightLib import LedLib
 
 animation_file_path = 'drone.csv'
 frames = []
+USE_LEDS = True
 
 
 def takeoff(h=1.75):
-    LedLib.wipe_to(0, 255, 0)
-    FlightLib.takeoff(h)
+    if USE_LEDS:
+        LedLib.wipe_to(0, 255, 0)
+    FlightLib.takeoff(h, fixed_delay=True)
 
 
 def land():
-    LedLib.rainbow()
+    if USE_LEDS:
+        LedLib.blink(0, 255, 0)
     FlightLib.land()
-    LedLib.off()
+    if USE_LEDS:
+        LedLib.off()
 
 
 def do_next_animation(current_frame):
@@ -24,9 +28,10 @@ def do_next_animation(current_frame):
         round(float(current_frame['x']), 4), round(float(current_frame['y']), 4), round(float(current_frame['z']), 4),
         round(float(current_frame['yaw']), 4), speed=round(float(current_frame['speed']), 4)
     )
-    LedLib.fill(
-        int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
-    )
+    if USE_LEDS:
+        LedLib.fill(
+            int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
+        )
 
 
 def read_animation_file(filepath=animation_file_path):
@@ -49,7 +54,7 @@ def read_animation_file(filepath=animation_file_path):
             })
 
 
-def frame():
+def get_frames():
     global frames
     return frames
 
