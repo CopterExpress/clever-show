@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     read_animation_file()
 
-    first_frame = get_frames()[0]
+    first_frame = frames[0]
     takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
     #FlightLib.reach()
     for frame in frames:
