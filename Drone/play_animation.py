@@ -4,15 +4,15 @@ from FlightLib.FlightLib import FlightLib
 #FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
 
-animation_file_path = 'drone.csv'
+animation_file_path = 'animation.csv'
 frames = []
 USE_LEDS = True
 
 
-def takeoff(h=1.75):
+def takeoff(x, y, z):
     if USE_LEDS:
         LedLib.wipe_to(0, 255, 0)
-    FlightLib.takeoff(h, fixed_delay=True)
+    FlightLib.takeoff(x, y, z)
 
 
 def land():
@@ -61,6 +61,7 @@ def get_frames():
 
 if __name__ == '__main__':
     FlightLib.init('SingleCleverFlight')
+    LedLib.init_led()
 
     read_animation_file()
 

@@ -12,7 +12,6 @@ from contextlib import closing
 import rospy
 
 from FlightLib.FlightLib import FlightLib
-rospy.init_node('Swarm_client', anonymous=True)
 from FlightLib.FlightLib import LedLib
 
 import play_animation
@@ -102,7 +101,8 @@ def write_to_config(section, option, value):
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     rate = rospy.Rate(1000 / 100)
-    play_animation.takeoff(TAKEOFF_HEIGHT)
+    first_frame = play_animation.get_frames()[0]
+    play_animation.takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
     for current_frame in play_animation.get_frames():
         running_event.wait()
         if stop_event.is_set():
@@ -118,13 +118,14 @@ def animation_player(running_event, stop_event):
 
 stop_animation_event = threading.Event()
 running_animation_event = threading.Event()
-animation_thread = threading.Thread(target=animation_player, args=(running_animation_event, stop_animation_event))
 
 
 def start_animation(*args, **kwargs):
+    animation_thread = threading.Thread(target=animation_player, args=(running_animation_event, stop_animation_event))
     play_animation.read_animation_file(animation_file)
     print("Starting animation!")
-    resume_animation()
+    running_animation_event.set()
+    stop_animation_event.clear()
     animation_thread.start()
 
 
@@ -142,7 +143,8 @@ def stop_animation():
     stop_animation_event.set()
     running_animation_event.clear()
     print("Stopping animation")
-    animation_thread.join()
+#    animation_thread.join()
+
 
 
 CONFIG_PATH = "client_config.ini"
@@ -169,6 +171,10 @@ TAKEOFF_HEIGHT = float(config.get('COPTER', 'takeoff_height'))
 USE_LEDS = bool(config.get('COPTER', 'use_leds'))
 play_animation.USE_LEDS = USE_LEDS
 
+rospy.init_node('Swarm_client', anonymous=True)
+if USE_LEDS:
+    LedLib.init_led()
+
 print("Client started on copter:", COPTER_ID)
 print("NTP time:", time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
 print("System time", time.ctime(time.time()))
@@ -194,8 +200,9 @@ try:
                     print("Until start:", dt)
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
                 elif command == 'stop':
-                    FlightLib.takeoff(2)
-                    FlightLib.reach(5, 5, 2)
+                    pass
+                    #FlightLib.takeoff(2)
+                    #FlightLib.reach(5, 5, 2)
                 elif command == 'request':
                     request_target = args[0]
                     print("Got request for:", request_target)
