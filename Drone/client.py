@@ -168,7 +168,7 @@ if COPTER_ID == 'default':
 
 TAKEOFF_HEIGHT = float(config.get('COPTER', 'takeoff_height'))
 
-USE_LEDS = bool(config.get('COPTER', 'use_leds'))
+USE_LEDS = config.getboolean('COPTER', 'use_leds')
 play_animation.USE_LEDS = USE_LEDS
 
 rospy.init_node('Swarm_client', anonymous=True)
