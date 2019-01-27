@@ -61,7 +61,7 @@ def get_frames():
 
 if __name__ == '__main__':
     FlightLib.init('SingleCleverFlight')
-    LedLib.init_led()
+    #LedLib.init_led()
 
     read_animation_file()
 
