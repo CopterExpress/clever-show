@@ -1,5 +1,6 @@
 import time
 import csv
+import rospy
 from FlightLib.FlightLib import FlightLib
 #FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
@@ -60,7 +61,7 @@ def get_frames():
 
 
 if __name__ == '__main__':
-    FlightLib.init('SingleCleverFlight')
+    rospy.init_node('Animation_player', anonymous=True)
     #LedLib.init_led()
 
     read_animation_file()
