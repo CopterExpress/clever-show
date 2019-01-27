@@ -10,10 +10,10 @@ frames = []
 USE_LEDS = True
 
 
-def takeoff(x, y, z):
+def takeoff():  #x, y, z
     if USE_LEDS:
         LedLib.wipe_to(0, 255, 0)
-    FlightLib.takeoff(x, y, z)
+    FlightLib.takeoff()
 
 
 def land():
@@ -62,12 +62,13 @@ def get_frames():
 
 if __name__ == '__main__':
     rospy.init_node('Animation_player', anonymous=True)
-    #LedLib.init_led()
+    LedLib.init_led()
 
     read_animation_file()
 
-    first_frame = frames[0]
-    takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
+    #first_frame = frames[0]
+    #takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
+    takeoff()
     #FlightLib.reach()
     for frame in frames:
         time.sleep(0.1)
