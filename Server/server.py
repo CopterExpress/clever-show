@@ -211,7 +211,7 @@ def send_animations():
     #print(ANS)
 
 
-def send_starttime(dt=30):
+def send_starttime(dt=15):
     timenow = time.time()
     print('Now:', time.ctime(timenow), "+ dt =", dt)
     Client.broadcast(Client.form_command("starttime", (str(timenow+dt), )))

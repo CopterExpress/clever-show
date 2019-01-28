@@ -172,7 +172,6 @@ USE_LEDS = config.getboolean('COPTER', 'use_leds')
 play_animation.USE_LEDS = USE_LEDS
 
 rospy.init_node('Swarm_client', anonymous=True)
-print(USE_LEDS)
 if USE_LEDS:
     LedLib.init_led()
 
