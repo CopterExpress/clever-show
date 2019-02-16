@@ -15,3 +15,4 @@ git clone --recurse-submodules https://github.com/artem30801/CleverSwarm.git
 cd CleverSwarm
 git submodule foreach git pull origin master
 ```
+Для дальнейших интрукций перейдите на Wiki
