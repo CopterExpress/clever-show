@@ -16,14 +16,19 @@ import configparser
 # All imports sorted in pyramid
 
 
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
+
+
 def auto_connect():
     while True:
         ServerSocket.listen(1)
         c, addr = ServerSocket.accept()
         print("Got connection from:", str(addr))
-        #client_thread = threading.Thread(target=on_new_client, args=(c, addr))
-        #client_thread.start()
-
         if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
             client = Client(addr[0])
             print("New client")
@@ -115,7 +120,7 @@ class Client:
                     self._send_all(msg)
                 else:
                     msg = "ping"
-                    #self._send_all(msg)
+                    # self._send_all(msg)
 
                 try:  # check if data in buffer
                     check = self.socket.recv(BUFFER_SIZE, socket.MSG_PEEK)
@@ -206,9 +211,9 @@ def send_animations():
                     copter.send_file(file, "animation.csv")  # TODO config
                 else:
                     print("Filename not matches with any drone connected")
-    #dr = next(iter(Client.clients.values()))  # костыль для тестирования
-    #ANS = dr.get_response("someshit")
-    #print(ANS)
+    # dr = next(iter(Client.clients.values()))  # костыль для тестирования
+    # ANS = dr.get_response("someshit")
+    # print(ANS)
 
 
 def send_starttime(dt=15):
@@ -221,7 +226,7 @@ def send_starttime(dt=15):
 root = Tk()
 root.wm_title("Drone swarm operation server")
 root.style = ttk.Style()
-root.style.theme_use("vista")
+root.style.theme_use("default")
 
 leftFrame = Frame(root)
 leftFrame.grid(row=0, column=0, padx=10, pady=10)
@@ -229,9 +234,9 @@ rightFrame = Frame(root)
 rightFrame.grid(row=0, column=1, padx=10, pady=10)
 
 drone_list = ttkwidgets.CheckboxTreeview(leftFrame, columns=("addr", "connected"))
-#drone_list["columns"] = ("addr")
-#drone_list.column("name") #width=100
-#drone_list.column("addr")
+# drone_list["columns"] = ("addr")
+# drone_list.column("name") #width=100
+# drone_list.column("addr")
 drone_list.heading("#0", text="Drone name")
 drone_list.heading("#1", text="Connection adress")
 drone_list.heading("#2", text="Connection status")
@@ -264,15 +269,15 @@ NTP_HOST = config['NTP']['host']
 NTP_PORT = int(config['NTP']['port'])
 
 
-ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # socket.socket()  #
+ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 host = socket.gethostname()
-ip = socket.gethostbyname_ex(host)[-1]
+ip = get_ip_address()
 
 print('Server started on', host, ip, ":", port)
-#print('Now:', time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
+# print('Now:', time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
 print('Waiting for clients...')
-ServerSocket.bind((ip[-1], port))
+ServerSocket.bind((ip, port))
 
 autoconnect_thread = threading.Thread(target=auto_connect)
 autoconnect_thread.daemon = True
