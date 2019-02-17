@@ -101,8 +101,9 @@ def write_to_config(section, option, value):
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     rate = rospy.Rate(1000 / 100)
-    first_frame = play_animation.get_frames()[0]
-    play_animation.takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
+    # first_frame = play_animation.get_frames()[0]
+    # play_animation.takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
+    play_animation.takeoff()
     for current_frame in play_animation.get_frames():
         running_event.wait()
         if stop_event.is_set():
