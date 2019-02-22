@@ -1,22 +1,27 @@
 import time
 import csv
+import rospy
 from FlightLib.FlightLib import FlightLib
-FlightLib.init('SingleCleverFlight')
+#FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
 
-animation_file_path = 'drone.csv'
+animation_file_path = 'animation.csv'
 frames = []
+USE_LEDS = True
 
 
-def takeoff():
-    LedLib.wipe_to(0, 255, 0)
-    FlightLib.takeoff(1.75)
+def takeoff():  #x, y, z
+    if USE_LEDS:
+        LedLib.wipe_to(0, 255, 0)
+    FlightLib.takeoff()
 
 
 def land():
-    LedLib.rainbow()
+    if USE_LEDS:
+        LedLib.blink(0, 255, 0)
     FlightLib.land()
-    LedLib.off()
+    if USE_LEDS:
+        LedLib.off()
 
 
 def do_next_animation(current_frame):
@@ -24,13 +29,14 @@ def do_next_animation(current_frame):
         round(float(current_frame['x']), 4), round(float(current_frame['y']), 4), round(float(current_frame['z']), 4),
         round(float(current_frame['yaw']), 4), speed=round(float(current_frame['speed']), 4)
     )
-    LedLib.fill(
-        int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
-    )
+    if USE_LEDS:
+        LedLib.fill(
+            int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
+        )
 
 
-def read_animation_file():
-    with open(animation_file_path) as animation_file:
+def read_animation_file(filepath=animation_file_path):
+    with open(filepath) as animation_file:
         csv_reader = csv.reader(
             animation_file, delimiter=',', quotechar='|'
         )
@@ -49,14 +55,19 @@ def read_animation_file():
             })
 
 
-def frame():
+def get_frames():
     global frames
     return frames
 
 
 if __name__ == '__main__':
+    rospy.init_node('Animation_player', anonymous=True)
+    LedLib.init_led()
+
     read_animation_file()
 
+    #first_frame = frames[0]
+    #takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
     takeoff()
     #FlightLib.reach()
     for frame in frames:
