@@ -41,13 +41,13 @@ def read_animation_file(filepath=animation_file_path):
             animation_file, delimiter=',', quotechar='|'
         )
         for row in csv_reader:
-            frame_number, x, y, z, speed, red, green, blue, yaw = row
+            frame_number, x, y, z, yaw, red, green, blue = row
             frames.append({
                 'number': frame_number,
                 'x': x,
                 'y': y,
                 'z': z,
-                'speed': speed,
+                #'speed': speed,
                 'red': red,
                 'green': green,
                 'blue': blue,
