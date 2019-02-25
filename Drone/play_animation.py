@@ -25,14 +25,9 @@ def land():
 
 
 def do_next_animation(current_frame):
-    FlightLib.navto(
-        round(float(current_frame['x']), 4), round(float(current_frame['y']), 4), round(float(current_frame['z']), 4),
-        round(float(current_frame['yaw']), 4), speed=round(float(current_frame['speed']), 4)
-    )
+    FlightLib.navto(current_frame['x'], current_frame['y'], current_frame['z'], speed=current_frame['speed'])
     if USE_LEDS:
-        LedLib.fill(
-            int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
-        )
+        LedLib.fill(current_frame['green'], current_frame['red'], current_frame['blue'])
 
 
 def read_animation_file(filepath=animation_file_path):
@@ -42,16 +37,16 @@ def read_animation_file(filepath=animation_file_path):
         )
         for row in csv_reader:
             frame_number, x, y, z, yaw, red, green, blue = row
+            speed = FlightLib.get_distance()
             frames.append({
-                'number': frame_number,
-                'x': x,
-                'y': y,
-                'z': z,
-                #'speed': speed,
-                'red': red,
-                'green': green,
-                'blue': blue,
-                'yaw': yaw
+                'number': int(frame_number),
+                'x': float(x),
+                'y': float(y),
+                'z': float(z),
+                'speed': float(speed),
+                'red': int(red),
+                'green': int(green),
+                'blue': int(blue),
             })
 
 
