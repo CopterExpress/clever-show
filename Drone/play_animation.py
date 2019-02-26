@@ -60,14 +60,12 @@ if __name__ == '__main__':
     LedLib.init_led()
 
     read_animation_file()
-
+    rate = rospy.Rate(10)
     #first_frame = frames[0]
     #takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
     takeoff()
-    #FlightLib.reach()
+    FlightLib.reach(x=frames[0]['x'], y=frames[0]['y'], z=frames[0]['z'])
     for frame in frames:
-        time.sleep(0.1)
+        rate.sleep()
         do_next_animation(frame)
-
     land()
-    time.sleep(3)
