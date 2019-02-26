@@ -10,7 +10,7 @@ frames = []
 USE_LEDS = True
 
 
-def takeoff():  #x, y, z
+def takeoff():
     if USE_LEDS:
         LedLib.wipe_to(0, 255, 0)
     FlightLib.takeoff()
@@ -26,12 +26,16 @@ def land():
 
 def do_next_animation(current_frame):
     FlightLib.navto(
-        round(float(current_frame['x']), 4), round(float(current_frame['y']), 4), round(float(current_frame['z']), 4),
-        round(float(current_frame['yaw']), 4), speed=round(float(current_frame['speed']), 4)
+        round(float(current_frame['x']), 4),
+        round(float(current_frame['y']), 4),
+        round(float(current_frame['z']), 4),
+        round(float(current_frame['yaw']), 4),
     )
     if USE_LEDS:
         LedLib.fill(
-            int(current_frame['green']), int(current_frame['red']), int(current_frame['blue'])
+            int(current_frame['green']),
+            int(current_frame['red']),
+            int(current_frame['blue'])
         )
 
 
@@ -41,17 +45,16 @@ def read_animation_file(filepath=animation_file_path):
             animation_file, delimiter=',', quotechar='|'
         )
         for row in csv_reader:
-            frame_number, x, y, z, speed, red, green, blue, yaw = row
+            frame_number, x, y, z, yaw, red, green, blue,  = row
             frames.append({
                 'number': frame_number,
                 'x': x,
                 'y': y,
                 'z': z,
-                'speed': speed,
+                'yaw': yaw,
                 'red': red,
                 'green': green,
                 'blue': blue,
-                'yaw': yaw
             })
 
 
@@ -62,14 +65,17 @@ def get_frames():
 
 if __name__ == '__main__':
     rospy.init_node('Animation_player', anonymous=True)
-    LedLib.init_led()
+    if USE_LEDS:
+        LedLib.init_led()
 
     read_animation_file()
 
-    #first_frame = frames[0]
-    #takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
     takeoff()
-    #FlightLib.reach()
+    first_frame = frames[0]
+    FlightLib.reach(round(float(first_frame['x']), 4),
+                    round(float(first_frame['y']), 4),
+                    round(float(first_frame['z']), 4))
+
     for frame in frames:
         time.sleep(0.1)
         do_next_animation(frame)
