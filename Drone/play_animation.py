@@ -5,7 +5,7 @@ from FlightLib.FlightLib import FlightLib
 #FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
 
-animation_file_path = 'animation.csv'
+animation_file_path = 'test_animation/test_1.csv'
 frames = []
 USE_LEDS = True
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     #takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
     takeoff()
     FlightLib.reach(x=frames[0]['x'], y=frames[0]['y'], z=frames[0]['z'])
-    for frame in frames:
-        rate.sleep()
-        do_next_animation(frame)
+    #for frame in frames:
+    #    rate.sleep()
+    #    do_next_animation(frame)
     land()
