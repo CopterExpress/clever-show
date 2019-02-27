@@ -201,7 +201,7 @@ try:
                     print("Until start:", dt)
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
                 elif command == 'stop':
-                    pass
+                    stop_animation()
                     #FlightLib.takeoff(2)
                     #FlightLib.reach(5, 5, 2)
                 elif command == 'request':
