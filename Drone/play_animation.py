@@ -6,14 +6,13 @@ from FlightLib.FlightLib import FlightLib
 from FlightLib.FlightLib import LedLib
 
 animation_file_path = 'test_animation/test_1.csv'
-frames = []
 USE_LEDS = True
 
 
 def takeoff():
     if USE_LEDS:
         LedLib.wipe_to(255, 0, 0)
-    FlightLib.takeoff1()
+    FlightLib.takeoff1()  # TODO dont forget change back to takeoff
 
 
 def land():
@@ -24,20 +23,21 @@ def land():
         LedLib.off()
 
 
-def do_next_animation(current_frame, x0 = 0, y0 = 0):
-    FlightLib.navto(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw = 1.57)
+def animate_frame(current_frame, x0=0.0, y0=0.0):
+    FlightLib.navto(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw=1.57)
     if USE_LEDS:
         LedLib.fill(current_frame['red'], current_frame['green'], current_frame['blue'])
 
 
 def read_animation_file(filepath=animation_file_path):
+    imporetd_frames = []
     with open(filepath) as animation_file:
         csv_reader = csv.reader(
             animation_file, delimiter=',', quotechar='|'
         )
         for row in csv_reader:
             frame_number, x, y, z, yaw, red, green, blue = row
-            frames.append({
+            imporetd_frames.append({
                 'number': int(frame_number),
                 'x': float(x),
                 'y': float(y),
@@ -47,11 +47,7 @@ def read_animation_file(filepath=animation_file_path):
                 'green': int(green),
                 'blue': int(blue),
             })
-
-
-def get_frames():
-    global frames
-    return frames
+    return imporetd_frames
 
 
 if __name__ == '__main__':
@@ -60,12 +56,12 @@ if __name__ == '__main__':
         LedLib.init_led()
     X0 = 0.5
     Y0 = 1.0
-    read_animation_file()
+    frames = read_animation_file()
     rate = rospy.Rate(8)
     takeoff()
-    FlightLib.reach(x=frames[0]['x']+X0, y=frames[0]['y']+Y0, z=frames[0]['z'], yaw = 1.57)
+    FlightLib.reach(x=frames[0]['x']+X0, y=frames[0]['y']+Y0, z=frames[0]['z'], yaw=11.57)
     for frame in frames:
-        do_next_animation(frame, x0 = X0, y0 = Y0)
+        animate_frame(frame, x0=X0, y0=Y0)
         rate.sleep()
     land()
     time.sleep(1)
