@@ -40,7 +40,7 @@ def reconnect(t=2):
         print("Waiting for connection, attempt", attempt_count)
         try:
             clientSocket = socket.socket()
-            clientSocket.settimeout(3)
+            # clientSocket.settimeout(3)
             clientSocket.connect((host, port))
             connected = True
             print("Connection successful")

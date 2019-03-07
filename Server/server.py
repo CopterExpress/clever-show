@@ -37,14 +37,15 @@ def auto_connect():
         Client.clients[addr[0]].connect(c, addr)
 
 
-def ip_broadcast(ip):
+def ip_broadcast(ip, port):
     ip = ip
     broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     while True:
-        msg = bytes(Client.form_command("server_ip ", ip), "UTF-8")
+        msg = bytes(Client.form_command("server_ip ", ip, ), "UTF-8")
         broadcast_sock.sendto(msg, ('255.255.255.255', 8181))  #TODO to config
+        print("Broadcast sent")
         time.sleep(5)
 
 
@@ -325,6 +326,7 @@ autoconnect_thread.daemon = True
 autoconnect_thread.start()
 
 broadcast_thread = threading.Thread(target=ip_broadcast, args=(ip, port, ))
+broadcast_thread.start()
 
 if __name__ == '__main__':
     try:
