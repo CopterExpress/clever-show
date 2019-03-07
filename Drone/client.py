@@ -31,19 +31,36 @@ def get_ntp_time(host, port):
     return unpacked[10] + float(unpacked[11]) / 2**32 - NTP_DELTA
 
 
-def reconnect(t=1):
+def reconnect(t=2):
+    global clientSocket, host, port
     print("Trying to connect to", host, ":", port, "...")
     connected = False
-    global clientSocket
+    attempt_count = 0
     while not connected:
+        print("Waiting for connection, attempt", attempt_count)
         try:
             clientSocket = socket.socket()
+            clientSocket.settimeout(3)
             clientSocket.connect((host, port))
             connected = True
             print("Connection successful")
         except socket.error as e:
             print("Waiting for connection:", e)
             time.sleep(t)
+        attempt_count +=1
+        if attempt_count >= 15:
+            print("Too many attempts. Trying to get new server IP")
+            broadcst_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            broadcst_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            broadcst_client.bind(("", 8181))
+            while True:
+                data, addr = broadcst_client.recvfrom(1024)
+                print("Recieved broadcast message %s from %s"%(data, addr))
+                if parse_command(data.decode("UTF-8"))[0] == "server_ip":
+                    print("Binding to new IP: ", addr)
+                    host, port = addr
+                    broadcst_client.close()
+                    break
 
 
 def send_all(msg):
@@ -100,16 +117,15 @@ def write_to_config(section, option, value):
 
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
-    rate = rospy.Rate(1000 / 100)
-    # first_frame = play_animation.get_frames()[0]
-    # play_animation.takeoff(round(float(first_frame['x']), 4), round(float(first_frame['y']), 4), round(float(first_frame['z']), 4))
+    frames = play_animation.read_animation_file()
+    rate = rospy.Rate(1000 / 125)
     play_animation.takeoff()
-    for current_frame in play_animation.get_frames():
+    for frame in frames:
         running_event.wait()
         if stop_event.is_set():
             break
 
-        play_animation.do_next_animation(current_frame)
+        play_animation.animate_frame(frame)
         rate.sleep()
     else:
         play_animation.land()
@@ -200,16 +216,22 @@ try:
                     dt = starttime - get_ntp_time(NTP_HOST, NTP_PORT)
                     print("Until start:", dt)
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
+                elif command == 'takeoff':
+                    play_animation.takeoff()
                 elif command == 'stop':
                     stop_animation()
-                    #FlightLib.takeoff(2)
                     #FlightLib.reach(5, 5, 2)
+                elif command == 'land':
+                    FlightLib.land1()  # TODO dont forget change back to land
+                elif command == 'disarm':
+                    FlightLib.arming(False)
+
                 elif command == 'request':
                     request_target = args[0]
                     print("Got request for:", request_target)
                     response = ""
-                    if request_target == 'someshit':
-                        response = "dont_have_any"
+                    if request_target == 'test':
+                        response = "test_succsess"
                     elif request_target == 'id':
                         response = COPTER_ID
                     send_all(bytes(form_command("response", response)))

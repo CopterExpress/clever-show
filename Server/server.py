@@ -37,6 +37,17 @@ def auto_connect():
         Client.clients[addr[0]].connect(c, addr)
 
 
+def ip_broadcast(ip):
+    ip = ip
+    broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    while True:
+        msg = bytes(Client.form_command("server_ip ", ip), "UTF-8")
+        broadcast_sock.sendto(msg, ('255.255.255.255', 8181))  #TODO to config
+        time.sleep(5)
+
+
 NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
 NTP_QUERY = b'\x1b' + bytes(47)
 
@@ -77,7 +88,7 @@ class Client:
 
     def connect(self, client_socket, client_addr):
         print("Client connected")
-        self._send_queue = collections.deque()  # comment for resuming queue after reconnection
+        # self._send_queue = collections.deque()  # comment for resuming queue after reconnection
 
         self.socket = client_socket
         self.addr = client_addr
@@ -117,7 +128,12 @@ class Client:
                 if self._send_queue:
                     msg = self._send_queue.popleft()
                     print("Send", msg, "to", self.addr)
-                    self._send_all(msg)
+                    try:
+                        self._send_all(msg)
+                    except socket.error as e:
+                        print("Attempt to send failed")
+                        self._send_queue.appendleft(msg)
+                        raise e
                 else:
                     msg = "ping"
                     # self._send_all(msg)
@@ -142,7 +158,7 @@ class Client:
                     pass
 
             except socket.error as e:
-                print("Client error, disconnected", e)
+                print("Client error: {}, disconnected".format(e))
                 self.connected = False
                 self.socket.close()
                 break
@@ -165,9 +181,12 @@ class Client:
 
     @staticmethod
     def broadcast(message, force_all=False):
-        for client in Client.clients.values():
-            if (not client.malfunction) or force_all:
-                client.send(message)
+        if Client.clients:
+            for client in Client.clients.values():
+                if (not client.malfunction) or force_all:
+                    client.send(message)
+        else:
+            print("No clients were connected!")
 
     @requires_connect
     def send_file(self, filepath, dest_filename):
@@ -196,6 +215,18 @@ class Client:
 # UI functions
 def stop_swarm():
     Client.broadcast("stop")  # для тестирования
+
+
+def land_all():
+    Client.broadcast("land")
+
+
+def disarm_all():
+    Client.broadcast("disarm")
+
+
+def takeoff_all():
+    Client.broadcast("takeoff")
 
 
 def send_animations():
@@ -245,14 +276,24 @@ drone_list.pack()
 button_frame = Frame(leftFrame, borderwidth=1, relief="solid")
 button_frame.pack(fill=BOTH, expand=True)
 
+land_all_btn = ttk.Button(button_frame, text="Disarm all", command=disarm_all)
+land_all_btn.pack(side=RIGHT, padx=5, pady=5)
+
+land_all_btn = ttk.Button(button_frame, text="Land all", command=land_all)
+land_all_btn.pack(side=RIGHT, padx=5, pady=5)
+
 stop_all_btn = ttk.Button(button_frame, text="Stop swarm", command=stop_swarm)
 stop_all_btn.pack(side=RIGHT, padx=5, pady=5)
 
+
 send_animation_btn = ttk.Button(button_frame, text="Send animations", command=send_animations)
-send_animation_btn.pack(side=RIGHT, padx=5, pady=5)
+send_animation_btn.pack(side=LEFT, padx=5, pady=5)
+
+send_starttime_btn = Button(button_frame, bg='red', text="Takeoff all", command=takeoff_all)
+send_starttime_btn.pack(side=LEFT, padx=5, pady=5)
 
 send_starttime_btn = ttk.Button(button_frame, text="Start animation after...", command=send_starttime)
-send_starttime_btn.pack(side=RIGHT, padx=5, pady=5)
+send_starttime_btn.pack(side=LEFT, padx=5, pady=5)
 
 
 def gui_update():
@@ -283,6 +324,7 @@ autoconnect_thread = threading.Thread(target=auto_connect)
 autoconnect_thread.daemon = True
 autoconnect_thread.start()
 
+broadcast_thread = threading.Thread(target=ip_broadcast, args=(ip, port, ))
 
 if __name__ == '__main__':
     try:
