@@ -120,6 +120,8 @@ def animation_player(running_event, stop_event):
     frames = play_animation.read_animation_file()
     rate = rospy.Rate(1000 / 125)
     play_animation.takeoff()
+    play_animation.animate_frame(frames[0]) #Reach first point at the same time with others
+    rospy.sleep(5)
     for frame in frames:
         running_event.wait()
         if stop_event.is_set():

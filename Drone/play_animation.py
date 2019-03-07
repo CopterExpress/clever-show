@@ -5,7 +5,7 @@ from FlightLib.FlightLib import FlightLib
 #FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
 
-animation_file_path = 'test_animation/test_1.csv'
+animation_file_path = 'animation.csv'
 USE_LEDS = True
 
 
