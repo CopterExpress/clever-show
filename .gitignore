@@ -105,3 +105,4 @@ venv.bak/
 .vscode/settings.json
 Server/tests.py
 Drone/test_animation/
+Drone/animation.csv
