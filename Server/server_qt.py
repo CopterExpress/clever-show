@@ -307,6 +307,7 @@ if __name__ == "__main__":
     autoconnect_thread.start()
 
     broadcast_thread = threading.Thread(target=ip_broadcast, args=(ip, port,))
+    broadcast_thread.daemon = True
     broadcast_thread.start()
 
     sys.exit(app.exec_())
