@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>850</width>
+    <height>460</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Clever Drone Animation Player</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QPushButton" name="pushButton">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>20</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Preflight check</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_2">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>120</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Start animation</string>
+    </property>
+   </widget>
+   <widget class="QSpinBox" name="spinBox">
+    <property name="geometry">
+     <rect>
+      <x>760</x>
+      <y>70</y>
+      <width>50</width>
+      <height>40</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_3">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>170</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Pause</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_4">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>220</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Stop</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_5">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>280</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Takeoff</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_6">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>330</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Land</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_7">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>380</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Disarm</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>70</y>
+      <width>71</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Start after</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>820</x>
+      <y>70</y>
+      <width>10</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>s</string>
+    </property>
+   </widget>
+   <widget class="QTableView" name="tableView">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>20</y>
+      <width>640</width>
+      <height>400</height>
+     </rect>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>850</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuOptions">
+    <property name="title">
+     <string>Actions</string>
+    </property>
+    <addaction name="actionSend_Animations"/>
+    <addaction name="actionSend_Configurations"/>
+   </widget>
+   <addaction name="menuOptions"/>
+  </widget>
+  <action name="actionSend_Animations">
+   <property name="text">
+    <string>Send Animations</string>
+   </property>
+  </action>
+  <action name="actionSend_Configurations">
+   <property name="text">
+    <string>Send Configurations</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
