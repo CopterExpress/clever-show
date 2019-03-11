@@ -101,7 +101,7 @@ class Client:
         if self.copter_id is None:
             self.copter_id = self.get_response("id")
             print("Got copter id:", self.copter_id)
-            drone_list.insert("", "end", self.addr[0], text=self.copter_id)
+            # drone_list.insert("", "end", self.addr[0], text=self.copter_id) # TODO to qt
 
     def _send_all(self, msg):
         self.socket.sendall(struct.pack('>I', len(msg)) + msg)
@@ -212,7 +212,6 @@ class Client:
 
         return self._request_queue.pop(requested_value)
 
-
 # UI functions
 def stop_swarm():
     Client.broadcast("stop")  # для тестирования
@@ -231,7 +230,7 @@ def takeoff_all():
 
 
 def send_animations():
-    path = filedialog.askdirectory(title="Animation directory")
+    path = filedialog.askdirectory(title="Animation directory")  # TODO to QT
     if path:
         print("Selected directory:", path)
         files = [file for file in glob.glob(path+'/*.csv')]
@@ -283,7 +282,7 @@ broadcast_thread.start()
  
 class main_window(QtWidgets.QMainWindow):
     def __init__(self):
-        super(main_window, self).__init__()
+        super(MainWindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         model = QStandardItemModel()
