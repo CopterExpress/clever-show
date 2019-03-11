@@ -1,4 +1,9 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtGui import QStandardItem
+from PyQt5.QtGui import QStandardItemModel
+from PyQt5.QtCore import QModelIndex
+from PyQt5.QtCore import Qt
+from PyQt5.QtCore import pyqtSlot
  
 # Импортируем нашу форму.
 from server_gui import Ui_MainWindow
@@ -10,13 +15,15 @@ class main_window(QtWidgets.QMainWindow):
         super(main_window, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
- 
-        self.ui.tableWidget.setColumnCount(6)
-        self.ui.tableWidget.setRowCount(20)
-        self.ui.tableWidget.setHorizontalHeaderLabels(
+        model = QStandardItemModel()
+        item = QStandardItem()
+        model.setHorizontalHeaderLabels(
             ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time UTC')
         )
-        self.ui.tableWidget.horizontalHeader().setStretchLastSection(True)
+        model.setColumnCount(6)
+        model.setRowCount(20)
+        self.ui.tableView.setModel(model)
+        self.ui.tableView.horizontalHeader().setStretchLastSection(True)
  
  
 app = QtWidgets.QApplication([])
