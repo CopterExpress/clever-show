@@ -273,7 +273,22 @@ class MainWindow(QtWidgets.QMainWindow):
         model.setRowCount(20)
         self.ui.tableView.setModel(model)
         self.ui.tableView.horizontalHeader().setStretchLastSection(True)
-
+        self.ui.takeoff_button.clicked.connect(takeoff_all)
+        self.ui.land_button.clicked.connect(land_all)
+        self.ui.disarm_button.clicked.connect(disarm_all)
+        self.ui.start_button.clicked.connect(self.send_start_command)
+        self.ui.pause_button.clicked.connect(self.pause_resume_all)
+        self.ui.stop_button.clicked.connect(stop_swarm)
+        #self.ui.check_button.clicked.connect(self.preflight_checks)
+    def pause_resume_all(self):
+        if self.ui.pause_button.text() == 'Pause':
+            Client.broadcast('pause')
+            self.ui.pause_button.setText('Resume')
+        else:
+            Client.broadcast('resume')
+            self.ui.pause_button.setText('Pause') 
+    def send_start_command(self):
+        send_starttime(self.ui.start_delay_spin.value())
 
 # Pre-initialization
 # reading config
