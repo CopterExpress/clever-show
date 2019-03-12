@@ -220,6 +220,10 @@ try:
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
                 elif command == 'takeoff':
                     play_animation.takeoff()
+                elif command == 'pause'
+                    pause_animation()
+                elif command == 'resume'
+                    resume_animation()
                 elif command == 'stop':
                     stop_animation()
                     #FlightLib.reach(5, 5, 2)
@@ -227,7 +231,6 @@ try:
                     FlightLib.land1()  # TODO dont forget change back to land
                 elif command == 'disarm':
                     FlightLib.arming(False)
-
                 elif command == 'request':
                     request_target = args[0]
                     print("Got request for:", request_target)
