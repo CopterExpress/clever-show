@@ -5,6 +5,8 @@ from PyQt5.QtCore import QModelIndex
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSlot
 
+from PyQt5.QtWidgets import QFileDialog
+
 # Importing gui form
 from server_gui import Ui_MainWindow
 
@@ -186,6 +188,32 @@ class Client:
         for message in messages:
             self._send_queue.append(bytes(message, "UTF-8"))
 
+    @requires_connect
+    def get_response(self, requested_value):
+        self._request_queue[requested_value] = ""
+        self.send(Client.form_command("request", (requested_value,)))
+
+        while not self._request_queue[requested_value]:
+            pass
+
+        return self._request_queue.pop(requested_value)
+
+    @staticmethod
+    def send_to_selected(*messages):
+        if Client.clients:
+            for client in Client.clients.values():  # TODO change to selected
+                client.send(*messages)
+        else:
+            print("No clients were connected!")
+
+    @staticmethod
+    def request_to_selected(requested_value):
+        if Client.clients:
+            for client in Client.clients.values():  # TODO change to selected
+                client.get_response(requested_value)
+        else:
+            print("No clients were connected!")
+
     @staticmethod
     def broadcast(message, force_all=False):
         if Client.clients:
@@ -208,62 +236,29 @@ class Client:
         self.send(Client.form_command("/endoffile"))
         print("File sent")
 
-    @requires_connect
-    def get_response(self, requested_value):
-        self._request_queue[requested_value] = ""
-        self.send(Client.form_command("request", (requested_value, )))
-
-        while not self._request_queue[requested_value]:
-            pass
-
-        return self._request_queue.pop(requested_value)
-
-# UI functions
-def stop_swarm():
-    Client.broadcast("stop")  # для тестирования
-
-
-def land_all():
-    Client.broadcast("land")
-
-
-def disarm_all():
-    Client.broadcast("disarm")
-
-
-def takeoff_all():
-    Client.broadcast("takeoff")
-
-
-def send_animations():
-    path = filedialog.askdirectory(title="Animation directory")  # TODO to QT
-    if path:
-        print("Selected directory:", path)
-        files = [file for file in glob.glob(path+'/*.csv')]
-        names = [os.path.basename(file).split(".")[0] for file in files]
-        print(files)
-        for file, name in zip(files, names):
-            for copter in Client.clients.values():
-                if name == copter.copter_id:
-                    copter.send_file(file, "animation.csv")  # TODO config
-                else:
-                    print("Filename not matches with any drone connected")
-    # dr = next(iter(Client.clients.values()))  # костыль для тестирования
-    # ANS = dr.get_response("someshit")
-    # print(ANS)
-
-
-def send_starttime(dt=15):
-    timenow = time.time()
-    print('Now:', time.ctime(timenow), "+ dt =", dt)
-    Client.broadcast(Client.form_command("starttime", (str(timenow+dt), )))
-
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self.initUI()
+        self.show()
+
+    def initUI(self):
+        #Connecting
+        self.ui.check_button.clicked.connect(self.check_selected)
+        self.ui.start_button.clicked.connect(self.send_starttime)
+        self.ui.pause_button.clicked.connect(self.pause_all)
+        self.ui.stop_button.clicked.connect(self.stop_all)
+        self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
+        self.ui.land_button.clicked.connect(self.land_all)
+        self.ui.disarm_button.clicked.connect(self.disarm_all)
+
+        self.ui.action_send_animations.triggered.connect(self.send_animations)
+
+
+        #Initing table and table model
         model = QStandardItemModel()
         item = QStandardItem()
         model.setHorizontalHeaderLabels(
@@ -273,6 +268,58 @@ class MainWindow(QtWidgets.QMainWindow):
         model.setRowCount(20)
         self.ui.tableView.setModel(model)
         self.ui.tableView.horizontalHeader().setStretchLastSection(True)
+
+    @pyqtSlot()
+    def check_selected(self):
+        #Client.request_to_selected("selfcheck")
+        self.ui.start_button.setEnabled(True)
+        self.ui.takeoff_button.setEnabled(True)
+
+    @pyqtSlot()
+    def send_starttime(self):
+        dt = self.ui.start_delay_spin.value()
+        timenow = time.time()  # TODO add NTP
+        print('Now:', time.ctime(timenow), "+ dt =", dt)
+        Client.send_to_selected(Client.form_command("starttime", (str(timenow + dt),)))
+
+    @pyqtSlot()
+    def stop_all(self):
+        Client.broadcast("stop")
+
+    @pyqtSlot()
+    def pause_all(self):
+        Client.broadcast("pause")
+
+    @pyqtSlot()
+    def takeoff_selected(self):
+        Client.send_to_selected("takeoff")
+
+    @pyqtSlot()
+    def land_all(self):
+        Client.broadcast("land")
+
+    @pyqtSlot()
+    def disarm_all(self):
+        Client.broadcast("disarm")
+
+
+    @pyqtSlot()
+    def send_animations(self):
+        path = str(QFileDialog.getExistingDirectory(self, "Select Animation Directory"))
+        if path:
+            print("Selected directory:", path)
+            files = [file for file in glob.glob(path + '/*.csv')]
+            names = [os.path.basename(file).split(".")[0] for file in files]
+            print(files)
+            for file, name in zip(files, names):
+                for copter in Client.clients.values():
+                    if name == copter.copter_id:
+                        copter.send_file(file, "animation.csv")  # TODO config
+                    else:
+                        print("Filename not matches with any drone connected")
+        # dr = next(iter(Client.clients.values()))  # костыль для тестирования
+        # ANS = dr.get_response("someshit")
+        # print(ANS)
 
 
 # Pre-initialization
@@ -295,7 +342,6 @@ ip = get_ip_address()
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
-    window.show()
 
     print('Server started on', host, ip, ":", port)
     # print('Now:', time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
