@@ -6,171 +6,141 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>850</width>
-    <height>479</height>
+    <width>1257</width>
+    <height>770</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Clever Drone Animation Player</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QPushButton" name="check_button">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>20</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Preflight check</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="start_button">
-    <property name="enabled">
-     <bool>true</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>120</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Start animation</string>
-    </property>
-    <property name="flat">
-     <bool>false</bool>
-    </property>
-   </widget>
-   <widget class="QSpinBox" name="start_delay_spin">
-    <property name="geometry">
-     <rect>
-      <x>760</x>
-      <y>70</y>
-      <width>50</width>
-      <height>40</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="pause_button">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>170</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Pause</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="stop_button">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>220</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Stop</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="takeoff_button">
-    <property name="enabled">
-     <bool>true</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>280</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Takeoff</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="land_button">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>330</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Land</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="disarm_button">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>380</y>
-      <width>150</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Disarm</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="start_text">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>70</y>
-      <width>71</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Start after</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="secs_text">
-    <property name="geometry">
-     <rect>
-      <x>820</x>
-      <y>70</y>
-      <width>10</width>
-      <height>40</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>s</string>
-    </property>
-   </widget>
-   <widget class="QTableView" name="tableView">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>20</y>
-      <width>640</width>
-      <height>400</height>
-     </rect>
-    </property>
-   </widget>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetMaximumSize</enum>
+      </property>
+      <item>
+       <widget class="QTableView" name="tableView">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <property name="sizeConstraint">
+         <enum>QLayout::SetMaximumSize</enum>
+        </property>
+        <item>
+         <layout class="QFormLayout" name="formLayout">
+          <item row="1" column="0" colspan="2">
+           <widget class="QPushButton" name="check_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Preflight check</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="start_text">
+            <property name="text">
+             <string>Start after</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="start_delay_spin">
+            <property name="suffix">
+             <string> seconds</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QPushButton" name="start_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Start animation</string>
+            </property>
+            <property name="flat">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QPushButton" name="pause_button">
+            <property name="text">
+             <string>Pause</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" colspan="2">
+           <widget class="QPushButton" name="stop_button">
+            <property name="text">
+             <string>Stop</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="Line" name="line">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_2">
+          <item row="0" column="0" colspan="2">
+           <widget class="QPushButton" name="takeoff_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Takeoff</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QPushButton" name="land_button">
+            <property name="text">
+             <string>Land</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QPushButton" name="disarm_button">
+            <property name="text">
+             <string>Disarm</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>850</width>
-     <height>25</height>
+     <width>1257</width>
+     <height>39</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">

@@ -257,7 +257,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
 
-
         #Initing table and table model
         model = QStandardItemModel()
         item = QStandardItem()
