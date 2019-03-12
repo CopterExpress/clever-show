@@ -288,7 +288,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def pause_all(self):
-        Client.broadcast("pause")
+        if self.ui.pause_button.text() == 'Pause':
+            Client.broadcast('pause')
+            self.ui.pause_button.setText('Resume')
+        else:
+            Client.broadcast('resume')
+        self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
     def takeoff_selected(self):
