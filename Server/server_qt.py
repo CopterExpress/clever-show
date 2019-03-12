@@ -109,7 +109,7 @@ class Client:
         if self.copter_id is None:
             self.copter_id = self.get_response("id")
             print("Got copter id:", self.copter_id)
-            # drone_list.insert("", "end", self.addr[0], text=self.copter_id) # TODO to qt
+            model.appendRow((QStandardItem(self.copter_id), )) # TODO: get responses for another columns
 
     def _send_all(self, msg):
         self.socket.sendall(struct.pack('>I', len(msg)) + msg)
@@ -259,13 +259,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         #Initing table and table model
-        model = QStandardItemModel()
-        item = QStandardItem()
-        model.setHorizontalHeaderLabels(
-            ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time UTC')
-        )
-        model.setColumnCount(6)
-        model.setRowCount(20)
         self.ui.tableView.setModel(model)
         self.ui.tableView.horizontalHeader().setStretchLastSection(True)
 
@@ -326,6 +319,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # ANS = dr.get_response("someshit")
         # print(ANS)
 
+model = QStandardItemModel()
+model.setHorizontalHeaderLabels(
+    ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time UTC')
+)
+model.setColumnCount(6)
+model.setRowCount(0)
 
 # Pre-initialization
 # reading config
