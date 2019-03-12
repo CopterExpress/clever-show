@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'server_gui.ui'
 #
-# Created by: PyQt5 UI code generator 5.10.1
+# Created by: PyQt5 UI code generator 5.12
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -15,10 +16,11 @@ class Ui_MainWindow(object):
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.check_button = QtWidgets.QPushButton(self.centralwidget)
+        self.check_button.setEnabled(False)
         self.check_button.setGeometry(QtCore.QRect(680, 20, 150, 40))
         self.check_button.setObjectName("check_button")
         self.start_button = QtWidgets.QPushButton(self.centralwidget)
-        self.start_button.setEnabled(False)
+        self.start_button.setEnabled(True)
         self.start_button.setGeometry(QtCore.QRect(680, 120, 150, 40))
         self.start_button.setFlat(False)
         self.start_button.setObjectName("start_button")
@@ -32,7 +34,7 @@ class Ui_MainWindow(object):
         self.stop_button.setGeometry(QtCore.QRect(680, 220, 150, 40))
         self.stop_button.setObjectName("stop_button")
         self.takeoff_button = QtWidgets.QPushButton(self.centralwidget)
-        self.takeoff_button.setEnabled(False)
+        self.takeoff_button.setEnabled(True)
         self.takeoff_button.setGeometry(QtCore.QRect(680, 280, 150, 40))
         self.takeoff_button.setObjectName("takeoff_button")
         self.land_button = QtWidgets.QPushButton(self.centralwidget)
@@ -52,7 +54,7 @@ class Ui_MainWindow(object):
         self.tableView.setObjectName("tableView")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 850, 39))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 850, 25))
         self.menubar.setObjectName("menubar")
         self.menuOptions = QtWidgets.QMenu(self.menubar)
         self.menuOptions.setObjectName("menuOptions")
@@ -84,13 +86,4 @@ class Ui_MainWindow(object):
         self.action_send_animations.setText(_translate("MainWindow", "Send Animations"))
         self.action_send_configurations.setText(_translate("MainWindow", "Send Configurations"))
 
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())
 
