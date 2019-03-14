@@ -1,7 +1,7 @@
 import time
 import csv
 import rospy
-from FlightLib.FlightLib import FlightLib
+from FlightLib2 import FlightLib
 #FlightLib.init('SingleCleverFlight')
 from FlightLib.FlightLib import LedLib
 
@@ -9,22 +9,22 @@ animation_file_path = 'animation.csv'
 USE_LEDS = True
 
 
-def takeoff():
+def takeoff(z=1.0):
     if USE_LEDS:
         LedLib.wipe_to(255, 0, 0)
-    FlightLib.takeoff1()  # TODO dont forget change back to takeoff
+    FlightLib.takeoff(z=z, wait=True)  # TODO dont forget change back to takeoff
 
 
 def land():
     if USE_LEDS:
         LedLib.blink(255, 0, 0)
-    FlightLib.land1()
+    FlightLib.land()
     if USE_LEDS:
         LedLib.off()
 
 
 def animate_frame(current_frame, x0=0.0, y0=0.0):
-    FlightLib.navto(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw=1.57)
+    FlightLib.navto(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw=1.57)  # TODO yaw
     if USE_LEDS:
         LedLib.fill(current_frame['red'], current_frame['green'], current_frame['blue'])
 
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     frames = read_animation_file()
     rate = rospy.Rate(8)
     takeoff()
-    FlightLib.reach(x=frames[0]['x']+X0, y=frames[0]['y']+Y0, z=frames[0]['z'], yaw=11.57)
+    FlightLib.reach_point(x=frames[0]['x']+X0, y=frames[0]['y']+Y0, z=frames[0]['z'], yaw=11.57)
     for frame in frames:
         animate_frame(frame, x0=X0, y0=Y0)
         rate.sleep()

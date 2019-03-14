@@ -52,7 +52,7 @@ def ip_broadcast(ip, port):
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     while True:
         msg = bytes(Client.form_command("server_ip ", ip, ), "UTF-8")
-        broadcast_sock.sendto(msg, ('255.255.255.255', 8181))  #TODO to config
+        broadcast_sock.sendto(msg, ('255.255.255.255', broadcast_port))
         print("Broadcast sent")
         time.sleep(5)
 
@@ -109,7 +109,7 @@ class Client:
         if self.copter_id is None:
             self.copter_id = self.get_response("id")
             print("Got copter id:", self.copter_id)
-            model.appendRow((QStandardItem(self.copter_id), )) # TODO: get responses for another columns
+            model.appendRow((QStandardItem(self.copter_id), ))  # TODO: get responses for another columns
 
     def _send_all(self, msg):
         self.socket.sendall(struct.pack('>I', len(msg)) + msg)
@@ -230,7 +230,7 @@ class Client:
         file = open(filepath, 'rb')
         chunk = file.read(BUFFER_SIZE)
         while chunk:
-            self._send_queue.append(chunk)
+            self._send_queue.append(chunk)  # TODO os.sendfile
             chunk = file.read(BUFFER_SIZE)
         file.close()
         self.send(Client.form_command("/endoffile"))
@@ -270,7 +270,10 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_starttime(self):
         dt = self.ui.start_delay_spin.value()
-        timenow = time.time()  # TODO add NTP
+        if USE_NTP:
+            timenow = get_ntp_time(NTP_HOST, NTP_PORT)
+        else:
+            timenow = time.time()
         print('Now:', time.ctime(timenow), "+ dt =", dt)
         Client.send_to_selected(Client.form_command("starttime", (str(timenow + dt),)))
 
@@ -299,7 +302,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def disarm_all(self):
         Client.broadcast("disarm")
 
-
     @pyqtSlot()
     def send_animations(self):
         path = str(QFileDialog.getExistingDirectory(self, "Select Animation Directory"))
@@ -318,6 +320,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # ANS = dr.get_response("someshit")
         # print(ANS)
 
+
 model = QStandardItemModel()
 model.setHorizontalHeaderLabels(
     ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time UTC')
@@ -331,10 +334,11 @@ config = configparser.ConfigParser()
 config.read("server_config.ini")
 
 port = int(config['SERVER']['port'])
+broadcast_port = int(config['SERVER']['broadcast_port'])
 BUFFER_SIZE = int(config['SERVER']['buffer_size'])
+USE_NTP = bool(config['NTP']['use_ntp'])
 NTP_HOST = config['NTP']['host']
 NTP_PORT = int(config['NTP']['port'])
-
 
 ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -347,7 +351,13 @@ if __name__ == "__main__":
     window = MainWindow()
 
     print('Server started on', host, ip, ":", port)
-    # print('Now:', time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
+
+    if USE_NTP:
+        now = time.ctime(get_ntp_time(NTP_HOST, NTP_PORT))
+    else:
+        now = time.time()
+    print('Now:', time.ctime(now))
+
     print('Waiting for clients...')
     ServerSocket.bind((ip, port))
 

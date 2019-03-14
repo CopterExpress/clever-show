@@ -5,18 +5,28 @@ import struct
 import random
 import time
 import errno
+import logging
 import threading
 import ConfigParser
 from contextlib import closing
 
 import rospy
 
-from FlightLib.FlightLib import FlightLib
-from FlightLib.FlightLib import LedLib
+#from FlightLib.FlightLib import FlightLib
+from FlightLib2 import FlightLib
+from FlightLib.FlightLib import LedLib  # TODO new ledlib
 
 import play_animation
 
 random.seed()
+
+logging.basicConfig(  # TODO all prints as logs
+    level=logging.INFO,
+    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
+    handlers=[
+        logging.FileHandler("client_logs"),
+        logging.StreamHandler()
+    ])
 
 NTP_PACKET_FORMAT = "!12I"
 NTP_DELTA = 2208988800L # 1970-01-01 00:00:00
@@ -52,7 +62,7 @@ def reconnect(t=2):
             print("Too many attempts. Trying to get new server IP")
             broadcst_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             broadcst_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            broadcst_client.bind(("", 8181))
+            broadcst_client.bind(("", broadcast_port))
             while True:
                 data, addr = broadcst_client.recvfrom(1024)
                 print("Recieved broadcast message %s from %s"%(data, addr))
@@ -64,7 +74,7 @@ def reconnect(t=2):
 
 
 def send_all(msg):
-        clientSocket.sendall(struct.pack('>I', len(msg)) + msg)
+    clientSocket.sendall(struct.pack('>I', len(msg)) + msg)
 
 
 def recive_all(n):
@@ -87,7 +97,7 @@ def recive_message():
 
 
 def form_command(command, args=()):
-        return " ".join([command, args])
+    return " ".join([command, args])
 
 
 def parse_command(command_input):
@@ -121,7 +131,7 @@ def animation_player(running_event, stop_event):
     rate = rospy.Rate(1000 / 125)
     play_animation.takeoff()
     play_animation.animate_frame(frames[0]) #Reach first point at the same time with others
-    rospy.sleep(5)
+    rospy.sleep(5)  # TODO change to flightlib reach_point
     for frame in frames:
         running_event.wait()
         if stop_event.is_set():
@@ -164,37 +174,44 @@ def stop_animation():
 #    animation_thread.join()
 
 
+def selfcheck():
+    telemetry = FlightLib.get_telemetry('body')
+    return FlightLib.selfcheck(), telemetry.voltage
+
 
 CONFIG_PATH = "client_config.ini"
 config = ConfigParser.ConfigParser()
 config.read(CONFIG_PATH)
 
-
-port = int(config.get('SERVER', 'port'))
+broadcast_port = config.getint('SERVER', 'broadcast_port')
+port = config.getint('SERVER', 'port')
 host = config.get('SERVER', 'host')
-BUFFER_SIZE = int(config.get('SERVER', 'buffer_size'))
+BUFFER_SIZE = config.getint('SERVER', 'buffer_size')
+USE_NTP = config.getboolean('NTP', 'use_ntp')
 NTP_HOST = config.get('NTP', 'host')
-NTP_PORT = int(config.get('NTP', 'port'))
+NTP_PORT = config.getint('NTP', 'port')
 
 files_directory = config.get('FILETRANSFER', 'files_directory')
-animation_file = config.get('COPTER', 'animation_file')
+animation_file = config.get('FILETRANSFER', 'animation_file')
 
-COPTER_ID = config.get('COPTER', 'id')
+TAKEOFF_HEIGHT = config.getfloat('COPTERS', 'takeoff_height')
+TAKEOFF_TIME = config.getint('COPTERS', 'takeoff_time')
+
+USE_LEDS = config.getboolean('PRIVATE', 'use_leds')
+play_animation.USE_LEDS = USE_LEDS
+
+COPTER_ID = config.get('PRIVATE', 'id')
 if COPTER_ID == 'default':
     COPTER_ID = 'copter' + str(random.randrange(9999)).zfill(4)
-    write_to_config('COPTER', 'id', COPTER_ID)
-
-TAKEOFF_HEIGHT = float(config.get('COPTER', 'takeoff_height'))
-
-USE_LEDS = config.getboolean('COPTER', 'use_leds')
-play_animation.USE_LEDS = USE_LEDS
+    write_to_config('PRIVATE', 'id', COPTER_ID)
 
 rospy.init_node('Swarm_client', anonymous=True)
 if USE_LEDS:
     LedLib.init_led()
 
 print("Client started on copter:", COPTER_ID)
-print("NTP time:", time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
+if USE_NTP:
+    print("NTP time:", time.ctime(get_ntp_time(NTP_HOST, NTP_PORT)))
 print("System time", time.ctime(time.time()))
 
 reconnect()
@@ -225,9 +242,9 @@ try:
                     resume_animation()
                 elif command == 'stop':
                     stop_animation()
-                    #FlightLib.reach(5, 5, 2)
+                    FlightLib.interrupt()
                 elif command == 'land':
-                    FlightLib.land1()  # TODO dont forget change back to land
+                    play_animation.land()  # TODO dont forget change back to land
                 elif command == 'disarm':
                     FlightLib.arming(False)
 
@@ -239,6 +256,8 @@ try:
                         response = "test_succsess"
                     elif request_target == 'id':
                         response = COPTER_ID
+                    elif request_target == 'selfcheck':
+                        response = selfcheck()
                     send_all(bytes(form_command("response", response)))
                     print("Request responded with:",  response)
         except socket.error as e:
