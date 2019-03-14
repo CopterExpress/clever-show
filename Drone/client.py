@@ -125,6 +125,7 @@ def animation_player(running_event, stop_event):
     for frame in frames:
         running_event.wait()
         if stop_event.is_set():
+            running_animation_event.clear()
             break
 
         play_animation.animate_frame(frame)
@@ -141,7 +142,6 @@ running_animation_event = threading.Event()
 
 def start_animation(*args, **kwargs):
     animation_thread = threading.Thread(target=animation_player, args=(running_animation_event, stop_animation_event))
-    play_animation.read_animation_file(animation_file)
     print("Starting animation!")
     running_animation_event.set()
     stop_animation_event.clear()
@@ -160,7 +160,6 @@ def pause_animation():
 
 def stop_animation():
     stop_animation_event.set()
-    running_animation_event.clear()
     print("Stopping animation")
 #    animation_thread.join()
 
@@ -220,6 +219,10 @@ try:
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
                 elif command == 'takeoff':
                     play_animation.takeoff()
+                elif command == 'pause':
+                    pause_animation()
+                elif command == 'resume':
+                    resume_animation()
                 elif command == 'stop':
                     stop_animation()
                     #FlightLib.reach(5, 5, 2)
