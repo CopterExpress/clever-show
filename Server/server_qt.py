@@ -15,6 +15,7 @@ import os
 import sys
 import glob
 import time
+import json
 import struct
 import socket
 import threading
@@ -48,7 +49,7 @@ def auto_connect():
 
 
 def ip_broadcast(server_ip, server_port):
-    msg = bytes(Client.form_command("server_ip ", (server_ip, str(server_port))), "UTF-8")
+    msg = bytes(Client.form_message("server_ip ", {"host": server_ip, "port": str(server_port)}), "UTF-8")
     broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -154,12 +155,12 @@ class Client:
                         received = self._receive_message()
                         if received:
                             received = received.decode("UTF-8")
-                            print("Recived", received, "from", self.addr)
-                            command, args = Client.parse_command(received)
+                            print("Received", received, "from", self.addr)
+                            command, args = Client.parse_message(received)
                             if command == "response":
                                 for key, value in self._request_queue.items():
                                     if not value:
-                                        self._request_queue[key] = args[0]
+                                        self._request_queue[key] = args['value']
                                         print("Request successfully closed")
                                         break
                             else:
@@ -175,14 +176,26 @@ class Client:
             # time.sleep(0.05)
 
     @staticmethod
-    def form_command(command: str, args=()):  # Change for different protocol
-        return " ".join([command, *args])
+    def form_message(command: str, dict_arguments: dict = None):
+        if dict_arguments is None:
+            dict_arguments = {}
+        msg_dict = {command: str(dict_arguments).replace(",", '').replace("'", '')[1:-1]}
+        msg = json.dumps(msg_dict)
+        return msg
 
     @staticmethod
-    def parse_command(command_input):
-        args = command_input.split()
-        command = args.pop(0)
-        return command, args
+    def parse_message(msg):
+        try:
+            j_message = json.loads(msg)
+        except json.decoder.JSONDecodeError:
+            print("Json string not in correct format")
+            return None
+
+        str_command = list(j_message.keys())[0]
+
+        arguments = list(j_message.values())[0].replace(":", '').split()
+        dict_arguments = collections.OrderedDict(zip(arguments[::2], arguments[1::2]))
+        return str_command, dict_arguments
 
     @requires_connect
     def send(self, *messages):
@@ -192,7 +205,7 @@ class Client:
     @requires_connect
     def get_response(self, requested_value):
         self._request_queue[requested_value] = ""
-        self.send(Client.form_command("request", (requested_value,)))
+        self.send(Client.form_message("request", {"value": requested_value}))
 
         while not self._request_queue[requested_value]:
             pass
@@ -227,14 +240,14 @@ class Client:
     @requires_connect
     def send_file(self, filepath, dest_filename):
         print("Sending file ", dest_filename)
-        self.send(Client.form_command("writefile", (dest_filename,)))
+        self.send(Client.form_message("writefile", {"filename": dest_filename}))
         file = open(filepath, 'rb')
         chunk = file.read(BUFFER_SIZE)
         while chunk:
             self._send_queue.append(chunk)  # TODO os.sendfile
             chunk = file.read(BUFFER_SIZE)
         file.close()
-        self.send(Client.form_command("/endoffile"))
+        self.send(Client.form_message("/endoffile"))
         print("File sent")
 
 
@@ -276,7 +289,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             timenow = time.time()
         print('Now:', time.ctime(timenow), "+ dt =", dt)
-        Client.send_to_selected(Client.form_command("starttime", (str(timenow + dt),)))
+        Client.send_to_selected(Client.form_message("starttime", {"time": str(timenow + dt)}))
 
     @pyqtSlot()
     def stop_all(self):
