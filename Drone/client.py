@@ -208,6 +208,8 @@ COPTER_ID = config.get('PRIVATE', 'id')
 if COPTER_ID == 'default':
     COPTER_ID = 'copter' + str(random.randrange(9999)).zfill(4)
     write_to_config('PRIVATE', 'id', COPTER_ID)
+elif COPTER_ID == '/hostname':
+    COPTER_ID = socket.gethostname()
 
 rospy.init_node('Swarm_client', anonymous=True)
 if USE_LEDS:
