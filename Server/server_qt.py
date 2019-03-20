@@ -24,12 +24,14 @@ import configparser
 # All imports sorted in pyramid
 
 # Functions
+
+
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
-    ip = s.getsockname()[0]
+    my_ip = s.getsockname()[0]
     s.close()
-    return ip
+    return my_ip
 
 
 def auto_connect():
@@ -46,15 +48,14 @@ def auto_connect():
 
 
 def ip_broadcast(ip, port):
-    ip = ip
+    msg = bytes(Client.form_command("server_ip ", (ip, str(port))), "UTF-8")
     broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     while True:
-        msg = bytes(Client.form_command("server_ip ", ip, ), "UTF-8")
         broadcast_sock.sendto(msg, ('255.255.255.255', broadcast_port))
         print("Broadcast sent")
-        time.sleep(5)
+        time.sleep(10)
 
 
 NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
@@ -353,7 +354,7 @@ if __name__ == "__main__":
     print('Server started on', host, ip, ":", port)
 
     if USE_NTP:
-        now = time.ctime(get_ntp_time(NTP_HOST, NTP_PORT))
+        now = get_ntp_time(NTP_HOST, NTP_PORT)
     else:
         now = time.time()
     print('Now:', time.ctime(now))

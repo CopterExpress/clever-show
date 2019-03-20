@@ -41,7 +41,7 @@ def get_ntp_time(host, port):
     return unpacked[10] + float(unpacked[11]) / 2**32 - NTP_DELTA
 
 
-def reconnect(t=2):
+def reconnect(timeout=2, attempt_limit=10):
     global clientSocket, host, port
     print("Trying to connect to", host, ":", port, "...")
     connected = False
@@ -50,28 +50,32 @@ def reconnect(t=2):
         print("Waiting for connection, attempt", attempt_count)
         try:
             clientSocket = socket.socket()
-            # clientSocket.settimeout(3)
+            clientSocket.settimeout(timeout)
             clientSocket.connect((host, port))
             connected = True
             print("Connection successful")
+            clientSocket.settimeout(None)
         except socket.error as e:
-            print("Waiting for connection:", e)
-            time.sleep(t)
-        attempt_count +=1
-        if attempt_count >= 15:
+            print("Waiting for connection, can not connect:", e)
+            time.sleep(timeout)
+        attempt_count += 1
+
+        if attempt_count >= attempt_limit:
             print("Too many attempts. Trying to get new server IP")
             broadcst_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             broadcst_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             broadcst_client.bind(("", broadcast_port))
             while True:
                 data, addr = broadcst_client.recvfrom(1024)
-                print("Recieved broadcast message %s from %s"%(data, addr))
-                if parse_command(data.decode("UTF-8"))[0] == "server_ip":
-                    print("Binding to new IP: ", addr)
-                    host, port = addr
+                print("Recieved broadcast message %s from %s" % (data, addr))
+                comm, args = parse_command(data.decode("UTF-8"))
+                print(comm, args)
+                if comm == "server_ip":
+                    host, port = args[0], int(args[1])
+                    print("Binding to new IP: ", host, port)
                     broadcst_client.close()
+                    attempt_count = 0
                     break
-
 
 def send_all(msg):
     clientSocket.sendall(struct.pack('>I', len(msg)) + msg)
