@@ -254,6 +254,10 @@ try:
                 print("Command from server:", command, args)
                 if command == "writefile":
                     recive_file(list(args.values)[0])
+                elif command == 'config_write':
+                    write_to_config(args['section'], args['option'], args['value'])
+                elif command == 'config_reload':
+                    load_config()
                 elif command == "starttime":
                     starttime = float(list(args.values)[0])
                     print("Starting on:", time.ctime(starttime))
@@ -279,7 +283,7 @@ try:
                     print("Got request for:", request_target)
                     response = ""
                     if request_target == 'test':
-                        response = "test_succsess"
+                        response = "test_success"
                     elif request_target == 'id':
                         response = COPTER_ID
                     elif request_target == 'selfcheck':

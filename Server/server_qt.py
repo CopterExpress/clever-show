@@ -270,6 +270,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.disarm_button.clicked.connect(self.disarm_all)
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
+        self.ui.action_send_configurations.triggered.connect(self.send_configurations)
 
         #Initing table and table model
         self.ui.tableView.setModel(model)
@@ -330,9 +331,22 @@ class MainWindow(QtWidgets.QMainWindow):
                         copter.send_file(file, "animation.csv")  # TODO config
                     else:
                         print("Filename not matches with any drone connected")
-        # dr = next(iter(Client.clients.values()))  # костыль для тестирования
-        # ANS = dr.get_response("someshit")
-        # print(ANS)
+
+    @pyqtSlot()
+    def send_configurations(self):
+        path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt .cfg)")[0]
+        if path:
+            print("Selected file:", path)
+            sendable_config = configparser.ConfigParser()
+            sendable_config.read(path)
+            for section in sendable_config.sections():
+                for option in dict(sendable_config.items(section)):
+                    value = sendable_config[section][option]
+                    print("Got item from config:", section, option, value)
+                    Client.send_to_selected(
+                        Client.form_message('config_write', {'section': section, 'option': option, 'value': value})
+                    )
+            Client.send_to_selected(Client.form_message("config_reload"))
 
 
 model = QStandardItemModel()
