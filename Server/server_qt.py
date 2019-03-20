@@ -47,8 +47,8 @@ def auto_connect():
         Client.clients[addr[0]].connect(c, addr)
 
 
-def ip_broadcast(ip, port):
-    msg = bytes(Client.form_command("server_ip ", (ip, str(port))), "UTF-8")
+def ip_broadcast(server_ip, server_port):
+    msg = bytes(Client.form_command("server_ip ", (server_ip, str(server_port))), "UTF-8")
     broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
