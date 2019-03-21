@@ -203,7 +203,7 @@ def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco
         reach_attitude(z=z, frame_id=frame_id_descend, timeout=timeout_descend, freq=freq)
     landing()
 
-    telemetry = get_telemetry(frame_id='aruco_map')
+    telemetry = get_telemetry(frame_id=frame_id_land)
     rate = rospy.Rate(1000 / wait_ms)
     time_start = rospy.get_rostime()
 
@@ -213,7 +213,7 @@ def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco
             interrupt_event.clear()
             break
 
-        telemetry = get_telemetry(frame_id='aruco_map')
+        telemetry = get_telemetry(frame_id=frame_id_land)
         module_logger.info("Landing...")
         time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
 
@@ -233,7 +233,7 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
             timeout_arm=750,  timeout_takeoff=5000, wait=False, emergency_land=True):
     module_logger.info("Starting takeoff!")
     module_logger.info("Arming, going to OFFBOARD mode")
-    navigate(frame_id=frame_id_takeoff, speed=speed_takeoff, auto_arm=True)
+    navigate(frame_id=frame_id, speed=speed_takeoff, auto_arm=True)
 
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
@@ -257,7 +257,7 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
 
     module_logger.info("Armed!")
 
-    result = reach_point(z=z, speed=speed, frame_id=frame_id_takeoff, timeout=timeout_takeoff, freq=freq, wait=wait)
+    result = reach_point(z=z, speed=speed, frame_id=frame_id, timeout=timeout_takeoff, freq=freq, wait=wait)
     if result:
         module_logger.info("Takeoff succeeded!")
     else:
