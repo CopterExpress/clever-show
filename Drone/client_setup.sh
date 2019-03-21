@@ -50,6 +50,13 @@ sed -i "/127.0.1.1/c 127.0.1.1       $3" /etc/hosts
 sed -i "/ROS_HOSTNAME/c ROS_HOSTNAME=\'$3\'" /home/pi/.bashrc
 sed -i "/ROS_HOSTNAME/c ROS_HOSTNAME=$3" /lib/systemd/system/roscore.env
 
+# set ssh message
+cat << EOF | tee /etc/motd
+
+$3
+
+EOF
+
 # add sudoers variables to make sudo works with ros (for led strip)
 grep -qxF 'Defaults        env_keep += "ROS_LOG_DIR"' /etc/sudoers || cat << EOT >> /etc/sudoers
 
