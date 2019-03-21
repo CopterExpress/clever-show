@@ -213,7 +213,7 @@ def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco
             interrupt_event.clear()
             break
 
-        telemetry = get_telemetry(frame_id='aruco_map')
+        telemetry = get_telemetry(frame_id=frame_id_land)
         module_logger.info("Landing...")
         time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
 

@@ -110,7 +110,11 @@ def form_message(str_command, dict_arguments):
 def parse_message(msg):
     try:
         j_message = json.loads(msg)
+<<<<<<< HEAD
     except ValueError:
+=======
+    except json.JSONDecodeError:
+>>>>>>> 32c16bb2060a6cc7e46d6cea84d07a0c86094270
         print("Json string not in correct format")
         return None, None
 
@@ -253,13 +257,21 @@ try:
                 command, args = parse_message(message)
                 print("Command from server:", command, args)
                 if command == "writefile":
+<<<<<<< HEAD
                     recive_file(list(args.values())[0])
+=======
+                    recive_file(list(args.values)[0]) #TODO repace
+>>>>>>> 32c16bb2060a6cc7e46d6cea84d07a0c86094270
                 elif command == 'config_write':
                     write_to_config(args['section'], args['option'], args['value'])
                 elif command == 'config_reload':
                     load_config()
                 elif command == "starttime":
+<<<<<<< HEAD
                     starttime = float(list(args.values())[0])
+=======
+                    starttime = float(list(args.values)[0]) #TODO repace
+>>>>>>> 32c16bb2060a6cc7e46d6cea84d07a0c86094270
                     print("Starting on:", time.ctime(starttime))
                     dt = starttime - get_ntp_time(NTP_HOST, NTP_PORT)
                     print("Until start:", dt)
