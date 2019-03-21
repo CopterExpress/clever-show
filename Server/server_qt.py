@@ -18,6 +18,7 @@ import time
 import json
 import struct
 import socket
+import random
 import threading
 import collections
 import configparser
@@ -49,14 +50,39 @@ def auto_connect():
 
 
 def ip_broadcast(server_ip, server_port):
-    msg = bytes(Client.form_message("server_ip ", {"host": server_ip, "port": str(server_port)}), "UTF-8")
+    msg = bytes(Client.form_message(
+        "server_ip", {"host": server_ip, "port": str(server_port), "id": SERVER_TID}
+    ), "UTF-8")
     broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     while True:
+        time.sleep(10)
         broadcast_sock.sendto(msg, ('255.255.255.255', broadcast_port))
         print("Broadcast sent")
-        time.sleep(10)
+
+
+def broadcast_listener():
+    broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        broadcast_client.bind(("", broadcast_port))
+    except OSError:
+        print("Another server is running on this computer, shutting down!")
+        #error_dialog = QtWidgets.QErrorMessage()
+        #error_dialog.showMessage('Another server detected on this computer, shutting down!')
+        sys.exit()
+
+    while True:
+        data, addr = broadcast_client.recvfrom(1024)
+        command, args = Client.parse_message(data.decode("UTF-8"))
+        if command == "server_ip":
+            if args["id"] != SERVER_TID:
+                print("Another server detected on network, shutting down")
+                #error_dialog = QtWidgets.QErrorMessage()
+                #error_dialog.showMessage('Another server detected on network, shutting down!')
+                #return
+                sys.exit()
 
 
 NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
@@ -368,6 +394,9 @@ USE_NTP = bool(config['NTP']['use_ntp'])
 NTP_HOST = config['NTP']['host']
 NTP_PORT = int(config['NTP']['port'])
 
+random.seed()
+SERVER_TID = str(random.randint(0, 9999)).zfill(4)
+
 ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 ServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 host = socket.gethostname()
@@ -396,5 +425,9 @@ if __name__ == "__main__":
     broadcast_thread = threading.Thread(target=ip_broadcast, args=(ip, port,))
     broadcast_thread.daemon = True
     broadcast_thread.start()
+
+    listener_thread = threading.Thread(target=broadcast_listener)
+    listener_thread.daemon = True
+    listener_thread.start()
 
     sys.exit(app.exec_())
