@@ -166,7 +166,7 @@ def reach_attitude(z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLERANCE, fram
 
     module_logger.info('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
     current_telem = get_telemetry(frame_id=frame_id)
-    navigate(frame_id=frame_id, x=current_telem.x, y=current_telem.xy, z=z, yaw=yaw, speed=speed)
+    navigate(frame_id=frame_id, x=current_telem.x, y=current_telem.y, z=z, yaw=yaw, speed=speed)
 
     # waiting for completion
     telemetry = get_telemetry(frame_id=frame_id)
@@ -204,7 +204,7 @@ def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco
     landing()
 
     telemetry = get_telemetry(frame_id='aruco_map')
-    rate = rospy.Rate(1000 / wait_ms)
+    rate = rospy.Rate(freq)
     time_start = rospy.get_rostime()
 
     while telemetry.armed:
@@ -233,7 +233,7 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
             timeout_arm=750,  timeout_takeoff=5000, wait=False, emergency_land=True):
     module_logger.info("Starting takeoff!")
     module_logger.info("Arming, going to OFFBOARD mode")
-    navigate(frame_id=frame_id_takeoff, speed=speed_takeoff, auto_arm=True)
+    navigate(frame_id=frame_id, speed=speed, auto_arm=True)
 
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
@@ -245,11 +245,11 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
             interrupt_event.clear()
             return None
 
-        telemetry = get_telemetry(frame_id=frame_id_takeoff)
+        telemetry = get_telemetry(frame_id=frame_id)
         module_logger.info("Arming...")
         time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
 
-        if timeout is not None:
+        if timeout_arm is not None:
             if time_passed >= timeout_arm:
                 module_logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed / 1000))
                 return False
@@ -257,7 +257,7 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
 
     module_logger.info("Armed!")
 
-    result = reach_point(z=z, speed=speed, frame_id=frame_id_takeoff, timeout=timeout_takeoff, freq=freq, wait=wait)
+    result = reach_point(z=z, speed=speed, frame_id=frame_id, timeout=timeout_takeoff, freq=freq, wait=wait)
     if result:
         module_logger.info("Takeoff succeeded!")
     else:
