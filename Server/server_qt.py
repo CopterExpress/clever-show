@@ -69,8 +69,10 @@ def broadcast_listener():
         broadcast_client.bind(("", broadcast_port))
     except OSError:
         print("Another server is running on this computer, shutting down!")
-        #error_dialog = QtWidgets.QErrorMessage()
-        #error_dialog.showMessage('Another server detected on this computer, shutting down!')
+        # error_dialog = QtWidgets.QErrorMessage()
+        # error_dialog.setModal(True)
+        # error_dialog.showMessage('Another server detected on network, shutting down!')
+        # error_dialog.exec_()
         sys.exit()
 
     while True:
@@ -79,9 +81,10 @@ def broadcast_listener():
         if command == "server_ip":
             if args["id"] != SERVER_TID:
                 print("Another server detected on network, shutting down")
-                #error_dialog = QtWidgets.QErrorMessage()
-                #error_dialog.showMessage('Another server detected on network, shutting down!')
-                #return
+                # error_dialog = QtWidgets.QErrorMessage()
+                # error_dialog.setModal(True)
+                # error_dialog.showMessage('Another server detected on network, shutting down!')
+                # error_dialog.exec_()
                 sys.exit()
 
 
@@ -308,6 +311,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.setEnabled(True)
         self.ui.takeoff_button.setEnabled(True)
 
+
     @pyqtSlot()
     def send_starttime(self):
         dt = self.ui.start_delay_spin.value()
@@ -320,28 +324,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def stop_all(self):
-        Client.broadcast("stop")
+        Client.broadcast(Client.form_message("stop"))
 
     @pyqtSlot()
     def pause_all(self):
         if self.ui.pause_button.text() == 'Pause':
-            Client.broadcast('pause')
+            Client.broadcast(Client.form_message('pause'))
             self.ui.pause_button.setText('Resume')
         else:
-            Client.broadcast('resume')
+            Client.broadcast(Client.form_message('resume'))
         self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
     def takeoff_selected(self):
-        Client.send_to_selected("takeoff")
+        Client.send_to_selected(Client.form_message("takeoff"))
 
     @pyqtSlot()
     def land_all(self):
-        Client.broadcast("land")
+        Client.broadcast(Client.form_message("land"))
 
     @pyqtSlot()
     def disarm_all(self):
-        Client.broadcast("disarm")
+        Client.broadcast(Client.form_message("disarm"))
 
     @pyqtSlot()
     def send_animations(self):
@@ -390,7 +394,7 @@ config.read("server_config.ini")
 port = int(config['SERVER']['port'])
 broadcast_port = int(config['SERVER']['broadcast_port'])
 BUFFER_SIZE = int(config['SERVER']['buffer_size'])
-USE_NTP = bool(config['NTP']['use_ntp'])
+USE_NTP = config.getboolean('NTP', 'use_ntp')
 NTP_HOST = config['NTP']['host']
 NTP_PORT = int(config['NTP']['port'])
 
@@ -410,6 +414,7 @@ if __name__ == "__main__":
     print('Server started on', host, ip, ":", port)
 
     if USE_NTP:
+        print("Using NTP time:")
         now = get_ntp_time(NTP_HOST, NTP_PORT)
     else:
         now = time.time()
@@ -428,6 +433,6 @@ if __name__ == "__main__":
 
     listener_thread = threading.Thread(target=broadcast_listener)
     listener_thread.daemon = True
-    listener_thread.start()
+    #listener_thread.start()
 
     sys.exit(app.exec_())
