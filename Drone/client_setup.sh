@@ -106,5 +106,8 @@ sed -i "0,/^host/s/\(^h.*\)/host = $4/" client_config.ini
 sed -i '/Restart=/c Restart=on-failure\
 RestartSec=3' /lib/systemd/system/roscore.service
 
+# install python pause module
+pip install pause
+
 # restart clever
 reboot
