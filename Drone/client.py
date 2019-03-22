@@ -133,14 +133,30 @@ def recive_file(filename):
                     break
                 file.write(data)
 
+def wait_start(start_time):
+    while start_time > time.time():
+        time.sleep(1)
 
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     frames = play_animation.read_animation_file()
     rate = rospy.Rate(1000 / 125)
-    play_animation.takeoff()
-    play_animation.animate_frame(frames[0]) #Reach first point at the same time with others
-    rospy.sleep(5)  # TODO change to flightlib reach_point
+
+    print("Takeoff")
+    play_animation.takeoff(TAKEOFF_HEIGHT)
+    takeoff_time = starttime + TAKEOFF_TIME
+    dt = takeoff_time - time.time()
+    print("Wait until takeoff " + str(dt) + "s: " + time.ctime(takeoff_time))
+    wait_start(takeoff_time)
+
+    print("Reach first point")
+    play_animation.reach_frame(frames[0]) #Reach first point at the same time with others
+    rfp_time = takeoff_time + RFP_TIME
+    dt = rfp_time - time.time()
+    print("Wait reaching first point " + str(dt) + "s: " + time.ctime(rfp_time))
+    wait_start(rfp_time)
+
+    print("Start animation at " + str(time.time()))
     for frame in frames:
         running_event.wait()
         if stop_event.is_set():
@@ -199,7 +215,7 @@ def load_config():
     global broadcast_port, port, host, BUFFER_SIZE
     global USE_NTP, NTP_HOST, NTP_PORT
     global files_directory, animation_file
-    global TAKEOFF_HEIGHT, TAKEOFF_TIME
+    global TAKEOFF_HEIGHT, TAKEOFF_TIME, RFP_TIME
     global  USE_LEDS, COPTER_ID
     CONFIG_PATH = "client_config.ini"
     config = ConfigParser.ConfigParser()
@@ -217,7 +233,8 @@ def load_config():
     animation_file = config.get('FILETRANSFER', 'animation_file')
 
     TAKEOFF_HEIGHT = config.getfloat('COPTERS', 'takeoff_height')
-    TAKEOFF_TIME = config.getint('COPTERS', 'takeoff_time')
+    TAKEOFF_TIME = config.getfloat('COPTERS', 'takeoff_time')
+    RFP_TIME = config.getfloat('COPTERS', 'reach_first_point_time')
 
     USE_LEDS = config.getboolean('PRIVATE', 'use_leds')
     play_animation.USE_LEDS = USE_LEDS
@@ -259,9 +276,12 @@ try:
                 elif command == 'config_reload':
                     load_config()
                 elif command == "starttime":
+                    global starttime
                     starttime = float(list(args.values())[0])
                     print("Starting on:", time.ctime(starttime))
-                    dt = starttime - get_ntp_time(NTP_HOST, NTP_PORT)
+                    dt = starttime - time.time()
+                    if USE_NTP:
+                        dt = starttime - get_ntp_time(NTP_HOST, NTP_PORT)
                     print("Until start:", dt)
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
                 elif command == 'takeoff':
