@@ -237,7 +237,8 @@ def takeoff(z=1.0,  speed=0.8, frame_id='body', freq=FREQUENCY,
 
     # Arming check
     #arming(True)
-    navigate(frame_id=frame_id, speed=speed, auto_arm=True)
+    set_rates(thrust=0.1, auto_arm=True)
+    #navigate(frame_id=frame_id, speed=speed, auto_arm=True)
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
     time_start = rospy.get_rostime()
