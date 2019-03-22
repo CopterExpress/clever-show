@@ -133,38 +133,41 @@ def recive_file(filename):
                     break
                 file.write(data)
 
-def wait_start(start_time):
-    while start_time > time.time():
-        time.sleep(1)
+def wait_until(certain_time):
+    while certain_time > time.time():
+        continue
 
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     frames = play_animation.read_animation_file()
-    rate = rospy.Rate(1000 / 125)
+    #rate = rospy.Rate(1000 / 125)
+    delay_time = 0.1
 
     print("Takeoff")
     play_animation.takeoff(TAKEOFF_HEIGHT)
     takeoff_time = starttime + TAKEOFF_TIME
     dt = takeoff_time - time.time()
     print("Wait until takeoff " + str(dt) + "s: " + time.ctime(takeoff_time))
-    wait_start(takeoff_time)
+    wait_until(takeoff_time)
 
     print("Reach first point")
     play_animation.reach_frame(frames[0]) #Reach first point at the same time with others
     rfp_time = takeoff_time + RFP_TIME
     dt = rfp_time - time.time()
     print("Wait reaching first point " + str(dt) + "s: " + time.ctime(rfp_time))
-    wait_start(rfp_time)
+    wait_until(rfp_time)
 
+    next_frame_time = rfp_time + 0.5
     print("Start animation at " + str(time.time()))
+    wait_until(next_frame_time)
     for frame in frames:
-        running_event.wait()
+        #running_event.wait()
+        play_animation.animate_frame(frame)
+        next_frame_time += delay_time
         if stop_event.is_set():
             running_animation_event.clear()
             break
-
-        play_animation.animate_frame(frame)
-        rate.sleep()
+        wait_until(next_frame_time)
     else:
         play_animation.land()
         print("Animation ended")
