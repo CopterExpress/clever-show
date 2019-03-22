@@ -229,12 +229,14 @@ def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco
         return True
 
 
-def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
-            timeout_arm=750,  timeout_takeoff=5000, wait=False, emergency_land=True):
+def takeoff(z=1.0,  speed=0.8, frame_id='body', freq=FREQUENCY,
+            timeout_arm=2000,  timeout_takeoff=5000, wait=False, tolerance=TOLERANCE, emergency_land=False):
     module_logger.info("Starting takeoff!")
+    print("Starting takeoff!")
     module_logger.info("Arming, going to OFFBOARD mode")
-    navigate(frame_id=frame_id, speed=speed, auto_arm=True)
 
+    # Arming check
+    arming(True)
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
     time_start = rospy.get_rostime()
@@ -246,6 +248,9 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
             return None
 
         telemetry = get_telemetry(frame_id=frame_id)
+        if telemetry.armed:
+            break
+        
         module_logger.info("Arming...")
         time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
 
@@ -256,15 +261,36 @@ def takeoff(z=1.0,  speed=0.5, frame_id='body', freq=FREQUENCY,
         rate.sleep()
 
     module_logger.info("Armed!")
+    print("Armed!")
+    
+    # Reach height
+    telemetry = get_telemetry(frame_id=frame_id)
+    z0 = get_telemetry().z
+    navigate(z=z, speed=speed, frame_id=frame_id, auto_arm=True)
+    current_height = abs(get_telemetry().z - z0 - z)
+    while current_height > tolerance or wait:
+        if interrupt_event.is_set():
+            module_logger.warning("Flight function interrupted!")
+            interrupt_event.clear()
+            return None
 
-    result = reach_point(z=z, speed=speed, frame_id=frame_id, timeout=timeout_takeoff, freq=freq, wait=wait)
-    if result:
-        module_logger.info("Takeoff succeeded!")
-    else:
-        module_logger.warning("Takeoff navigation failed")
-        if emergency_land:
-            module_logger.info("Preforming emergency land")
-            land(descend=False)
+        current_height = abs(get_telemetry().z - z0 - z)
+        if current_height < tolerance:
+            break
+        module_logger.info("Takeoff...")
 
-    return result
+        time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
+        #print(time_passed)
 
+        if timeout_takeoff is not None:
+            if time_passed >= timeout_takeoff:
+                module_logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                if emergency_land:
+                    module_logger.info("Preforming emergency land")
+                    land(descend=False)
+                return False
+        rate.sleep()
+
+    module_logger.info("Takeoff succeeded!")
+    print ("Takeoff succeeded!")
+    return True
