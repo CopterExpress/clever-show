@@ -200,7 +200,7 @@ def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco
          timeout_descend=5000, timeout_land=7500, freq=FREQUENCY):
     if descend:
         module_logger.info("Descending to: | z: {:.3f}".format(z))
-        reach_attitude(z=z, frame_id=frame_id_descend, timeout=timeout_descend, freq=freq)
+        reach_attitude(z=z, frame_id=frame_id_descend, timeout=timeout_descend, freq=freq, yaw=1.57) #TODO yaw
     landing()
 
     telemetry = get_telemetry(frame_id='aruco_map')
