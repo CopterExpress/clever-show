@@ -236,7 +236,8 @@ def takeoff(z=1.0,  speed=0.8, frame_id='body', freq=FREQUENCY,
     module_logger.info("Arming, going to OFFBOARD mode")
 
     # Arming check
-    arming(True)
+    #arming(True)
+    navigate(frame_id=frame_id, speed=speed, auto_arm=True)
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
     time_start = rospy.get_rostime()
