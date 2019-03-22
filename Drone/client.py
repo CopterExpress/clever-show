@@ -13,6 +13,7 @@ from contextlib import closing
 from collections import OrderedDict
 
 import rospy
+import pause
 
 #from FlightLib.FlightLib import FlightLib
 from FlightLib2 import FlightLib
@@ -133,33 +134,29 @@ def recive_file(filename):
                     break
                 file.write(data)
 
-def wait_until(certain_time):
-    while certain_time > time.time():
-        continue
 
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     frames = play_animation.read_animation_file()
-    #rate = rospy.Rate(1000 / 125)
-    delay_time = 0.1
+    rate = rospy.Rate(1000 / 125)
+    delay_time = 0.125
 
     print("Takeoff")
-    play_animation.takeoff(TAKEOFF_HEIGHT)
+    play_animation.takeoff(z=TAKEOFF_HEIGHT, safe_takeoff=SAFE_TAKEOFF)
     takeoff_time = starttime + TAKEOFF_TIME
     dt = takeoff_time - time.time()
     print("Wait until takeoff " + str(dt) + "s: " + time.ctime(takeoff_time))
-    wait_until(takeoff_time)
+    pause.until(takeoff_time)
 
     print("Reach first point")
     play_animation.reach_frame(frames[0]) #Reach first point at the same time with others
     rfp_time = takeoff_time + RFP_TIME
     dt = rfp_time - time.time()
     print("Wait reaching first point " + str(dt) + "s: " + time.ctime(rfp_time))
-    wait_until(rfp_time)
+    pause.until(rfp_time)
 
-    next_frame_time = rfp_time + 0.5
+    next_frame_time = rfp_time
     print("Start animation at " + str(time.time()))
-    wait_until(next_frame_time)
     for frame in frames:
         #running_event.wait()
         play_animation.animate_frame(frame)
@@ -167,7 +164,8 @@ def animation_player(running_event, stop_event):
         if stop_event.is_set():
             running_animation_event.clear()
             break
-        wait_until(next_frame_time)
+        #rate.sleep()
+        pause.until(next_frame_time)
     else:
         play_animation.land()
         print("Animation ended")
@@ -218,7 +216,7 @@ def load_config():
     global broadcast_port, port, host, BUFFER_SIZE
     global USE_NTP, NTP_HOST, NTP_PORT
     global files_directory, animation_file
-    global TAKEOFF_HEIGHT, TAKEOFF_TIME, RFP_TIME
+    global TAKEOFF_HEIGHT, TAKEOFF_TIME, SAFE_TAKEOFF, RFP_TIME
     global  USE_LEDS, COPTER_ID
     CONFIG_PATH = "client_config.ini"
     config = ConfigParser.ConfigParser()
@@ -238,6 +236,7 @@ def load_config():
     TAKEOFF_HEIGHT = config.getfloat('COPTERS', 'takeoff_height')
     TAKEOFF_TIME = config.getfloat('COPTERS', 'takeoff_time')
     RFP_TIME = config.getfloat('COPTERS', 'reach_first_point_time')
+    SAFE_TAKEOFF = config.getboolean('COPTERS', 'safe_takeoff')
 
     USE_LEDS = config.getboolean('PRIVATE', 'use_leds')
     play_animation.USE_LEDS = USE_LEDS
@@ -288,7 +287,7 @@ try:
                     print("Until start:", dt)
                     rospy.Timer(rospy.Duration(dt), start_animation, oneshot=True)
                 elif command == 'takeoff':
-                    play_animation.takeoff()
+                    play_animation.takeoff(safe_takeoff=SAFE_TAKEOFF)
                 elif command == 'pause':
                     pause_animation()
                 elif command == 'resume':
