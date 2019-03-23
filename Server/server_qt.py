@@ -114,7 +114,13 @@ model.setHorizontalHeaderLabels(
 )
 model.setColumnCount(6)
 model.setRowCount(0)
-# Client.on_connect =     model.appendRow((QStandardItem(self.copter_id), ))  # TODO: get responses for another columns
+
+
+def client_connected(self):
+    model.appendRow((QStandardItem(self.copter_id),))  # TODO: get responses for another columns
+
+
+Client.on_connect = client_connected
 
 
 if __name__ == "__main__":

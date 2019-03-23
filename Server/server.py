@@ -13,7 +13,7 @@ import configparser
 # All imports sorted in pyramid
 
 random.seed()
-
+# TODO add logging
 BUFFER_SIZE = 1024
 
 
@@ -57,6 +57,7 @@ class Server:
     def load_config(self):
         self.port = int(self.config['SERVER']['port'])
         self.broadcast_port = int(self.config['SERVER']['broadcast_port'])
+        self.BROADCAST_DELAY = int(self.config['SEVER']['broadcast_delay'])
         self.BUFFER_SIZE = int(self.config['SERVER']['buffer_size'])
 
         self.USE_NTP = self.config.getboolean('NTP', 'use_ntp')
@@ -117,7 +118,7 @@ class Server:
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         while self.broadcast_thread_running.is_set():
-            time.sleep(10)
+            time.sleep(self.BROADCAST_DELAY)
             broadcast_sock.sendto(msg, ('255.255.255.255', self.broadcast_port))
             print("Broadcast sent")
         broadcast_sock.close()
@@ -170,6 +171,7 @@ class Client:
     resume_quee = True
     clients = {}
     on_connect = None  # Use as callback functions
+    on_first_connect = None
     on_disconnect = None
 
     def __init__(self, ip):
@@ -190,18 +192,23 @@ class Client:
     def connect(self, client_socket, client_addr):
         print("Client connected")
         if not Client.resume_quee:
-            self._send_queue = collections.deque()  # comment for resuming queue after reconnection
+            self._send_queue = collections.deque()
 
         self.socket = client_socket
         self.addr = client_addr
 
         self.socket.setblocking(0)
         self.connected = True
-        client_thread = threading.Thread(target=self._run, args=())
+        client_thread = threading.Thread(target=self._run, name="Client {} thread".format(self.addr))
         client_thread.start()
         if self.copter_id is None:
             self.copter_id = self.get_response("id")
             print("Got copter id:", self.copter_id)
+            if Client.on_first_connect:
+                Client.on_first_connect(self)
+
+        if Client.on_connect:
+            Client.on_connect(self)
 
     def _send_all(self, msg):
         self.socket.sendall(struct.pack('>I', len(msg)) + msg)
@@ -259,6 +266,8 @@ class Client:
                 print("Client error: {}, disconnected".format(e))
                 self.connected = False
                 self.socket.close()
+                if Client.on_disconnect:
+                    Client.on_disconnect(self)
                 break
             # time.sleep(0.05)
 
@@ -276,7 +285,7 @@ class Client:
             j_message = json.loads(msg)
         except json.decoder.JSONDecodeError:
             print("Json string not in correct format")
-            return None
+            return None, None
 
         str_command = list(j_message.keys())[0]
 
@@ -323,7 +332,7 @@ class Client:
     @staticmethod
     @requires_any_connected
     def request_to_selected(requested_value):
-        for client in Client.clients.values():  # TODO change to selected
+        for client in Client.clients.values():
             if client.connected and client.selected:
                 client.get_response(requested_value)
 
