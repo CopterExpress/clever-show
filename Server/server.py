@@ -182,6 +182,8 @@ class Client:
         self._received_queue = collections.deque()
         self._request_queue = collections.OrderedDict()
 
+        self._send_lock = threading.Lock()
+
         self.copter_id = None
         self.selected = False  # Use to select copters for certain purposes
 
@@ -234,13 +236,15 @@ class Client:
         while self.connected:
             try:
                 if self._send_queue:
-                    msg = self._send_queue.popleft()
+                    with self._send_lock:
+                        msg = self._send_queue.popleft()
                     print("Send", msg, "to", self.addr)
                     try:
                         self._send_all(msg)
                     except socket.error as e:
                         print("Attempt to send failed")
-                        self._send_queue.appendleft(msg)
+                        with self._send_lock:
+                            self._send_queue.appendleft(msg)
                         raise e
 
                 try:  # check if data in buffer
@@ -253,7 +257,7 @@ class Client:
                             command, args = Client.parse_message(received)
                             if command == "response":
                                 for key, value in self._request_queue.items():
-                                    if not value:
+                                    if not value:  # TODO redo to value name
                                         self._request_queue[key] = args['value']
                                         print("Request successfully closed")
                                         break
@@ -296,7 +300,8 @@ class Client:
     @requires_connect
     def send(self, *messages):
         for message in messages:
-            self._send_queue.append(bytes(message, "UTF-8"))
+            with self._send_lock:
+                self._send_queue.append(bytes(message, "UTF-8"))
 
     @requires_connect
     def get_response(self, requested_value):
@@ -316,7 +321,8 @@ class Client:
         with open(filepath, 'rb') as file:
             chunk = file.read(BUFFER_SIZE)
             while chunk:
-                self._send_queue.append(chunk)  # TODO lock!!!!!
+                with self._send_lock:
+                    self._send_queue.append(chunk)
                 chunk = file.read(BUFFER_SIZE)
 
         self.send(Client.form_message("/endoffile"))  # TODO mb remove
