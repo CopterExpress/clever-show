@@ -6,15 +6,22 @@ import json
 import struct
 import socket
 import random
+import logging
 import threading
 import collections
 import configparser
 
-# All imports sorted in pyramid
+# All imports sorted in pyramid just because
 
 random.seed()
-# TODO add logging
-BUFFER_SIZE = 1024
+
+logging.basicConfig(  # TODO all prints as logs
+    level=logging.INFO,
+    format="%(asctime)s [%(name)-7.7s] [%(threadName)-18.18s] [%(levelname)-7.7s]  %(message)s",
+    handlers=[
+        logging.FileHandler("server_logs.log"),
+        logging.StreamHandler()
+    ])
 
 
 class ConfigOption:
@@ -25,6 +32,8 @@ class ConfigOption:
 
 
 class Server:
+    BUFFER_SIZE = 1024
+
     def __init__(self, server_id=None, config_path="server_config.ini"):
 
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
@@ -43,45 +52,51 @@ class Server:
 
         # Init threads
         self.autoconnect_thread = threading.Thread(target=self._auto_connect, daemon=True,
-                                                   name='Client auto-connect thread')
+                                                   name='Client auto-connect')
         self.autoconnect_thread_running = threading.Event()  # Can be used for manual thread killing
 
         self.broadcast_thread = threading.Thread(target=self._ip_broadcast, daemon=True,
-                                                 name='IP message broadcast sender thread')
+                                                 name='IP broadcast sender')
         self.broadcast_thread_running = threading.Event()
 
         self.listener_thread = threading.Thread(target=self._broadcast_listen, daemon=True,
-                                                name='IP message broadcast listener thread')
+                                                name='IP broadcast listener')
         self.listener_thread_running = threading.Event()
 
     def load_config(self):
         self.port = int(self.config['SERVER']['port'])
         self.broadcast_port = int(self.config['SERVER']['broadcast_port'])
-        self.BROADCAST_DELAY = int(self.config['SEVER']['broadcast_delay'])
-        self.BUFFER_SIZE = int(self.config['SERVER']['buffer_size'])
+        self.BROADCAST_DELAY = int(self.config['SERVER']['broadcast_delay'])
+        Server.BUFFER_SIZE = int(self.config['SERVER']['buffer_size'])
 
         self.USE_NTP = self.config.getboolean('NTP', 'use_ntp')
         self.NTP_HOST = self.config['NTP']['host']
         self.NTP_PORT = int(self.config['NTP']['port'])
 
     def start(self):  # do_auto_connect=True, do_ip_broadcast=True, do_listen_broadcast=False
-        print("Starting server!")
+        logging.info("Starting server with id: {} on {} !".format(self.id, self.ip))
+        logging.info("Starting server socket!")
         self.server_socket.bind((self.ip, self.port))
 
+        logging.info("Starting client autoconnect thread!")
         self.autoconnect_thread_running.set()
         self.autoconnect_thread.start()
 
+        logging.info("Starting broadcast sender thread!")
         self.broadcast_thread_running.set()
         self.broadcast_thread.start()
 
+        logging.info("(not) Starting broadcast listener thread!")
         self.listener_thread_running.set()
         # listener_thread.start()
 
     def stop(self):
+        logging.info("Stopping server")
         self.autoconnect_thread_running.clear()
         self.broadcast_thread_running.clear()
         self.listener_thread_running.clear()
         self.server_socket.close()
+        logging.info("Server stopped")
 
     @staticmethod
     def get_ip_address():
@@ -99,37 +114,44 @@ class Server:
         return int.from_bytes(msg[-8:], 'big') / 2 ** 32 - NTP_DELTA
 
     def _auto_connect(self):
+        logging.info("Client autoconnect thread started!")
         while self.autoconnect_thread_running.is_set():
             self.server_socket.listen(1)
             c, addr = self.server_socket.accept()
-            print("Got connection from:", str(addr))
+            logging.info("Got connection from: {}".format(str(addr)))
             if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
                 client = Client(addr[0])
-                print("New client")
+                logging.info("New client")
             else:
-                print("Reconnected client")
+                logging.info("Reconnected client")
             Client.clients[addr[0]].connect(c, addr)
+        logging.info("Client autoconnect thread stopped!")
 
     def _ip_broadcast(self):
+        logging.info("Broadcast sender thread started!")
         msg = bytes(Client.form_message(
             "server_ip", {"host": self.ip, "port": str(self.port), "id": self.id}
         ), "UTF-8")
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        logging.info("Formed broadcast message: {}".format(msg))
+
         while self.broadcast_thread_running.is_set():
             time.sleep(self.BROADCAST_DELAY)
             broadcast_sock.sendto(msg, ('255.255.255.255', self.broadcast_port))
-            print("Broadcast sent")
+            logging.debug("Broadcast sent")
         broadcast_sock.close()
+        logging.info("Broadcast sender thread stopped, socked closed!")
 
     def _broadcast_listen(self):
+        logging.info("Broadcast listener thread started!")
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         try:
             broadcast_client.bind(("", self.broadcast_port))
         except OSError:
-            print("Another server is running on this computer, shutting down!")
+            logging.critical("Another server is running on this computer, shutting down!")
             sys.exit()
 
         while self.listener_thread_running.is_set():
@@ -137,8 +159,10 @@ class Server:
             command, args = Client.parse_message(data.decode("UTF-8"))
             if command == "server_ip":
                 if args["id"] != self.id:
-                    print("Another server detected on network, shutting down")
+                    logging.critical("Another server detected on network, shutting down")
                     sys.exit()
+        broadcast_client.close()
+        logging.info("Broadcast listener thread stopped, socked closed!")
 
     def send_starttime(self, dt=0):
         if self.USE_NTP:
@@ -154,7 +178,7 @@ def requires_connect(f):
         if args[0].connected:
             return f(*args, **kwargs)
         else:
-            print("Function requires client to be connected!")
+            logging.warning("Function requires client to be connected!")
     return wrapper
 
 
@@ -163,13 +187,15 @@ def requires_any_connected(f):
         if Client.clients:
             return f(*args, **kwargs)
         else:
-            print("No clients were connected!")
+            logging.warning("No clients were connected!")
     return wrapper
 
 
 class Client:
     resume_quee = True
+
     clients = {}
+
     on_connect = None  # Use as callback functions
     on_first_connect = None
     on_disconnect = None
@@ -218,7 +244,7 @@ class Client:
     def _receive_all(self, n):
         data = b''
         while len(data) < n:
-            packet = self.socket.recv(min(n - len(data), BUFFER_SIZE))
+            packet = self.socket.recv(min(n - len(data), Server.BUFFER_SIZE))
             if not packet:
                 return None
             data += packet
@@ -248,7 +274,7 @@ class Client:
                         raise e
 
                 try:  # check if data in buffer
-                    check = self.socket.recv(BUFFER_SIZE, socket.MSG_PEEK)
+                    check = self.socket.recv(Server.BUFFER_SIZE, socket.MSG_PEEK)
                     if check:
                         received = self._receive_message()
                         if received:
@@ -316,14 +342,14 @@ class Client:
     @requires_connect
     def send_file(self, filepath, dest_filename):
         print("Sending file ", dest_filename)
-        chunk_count = math.ceil(os.path.getsize(filepath) / BUFFER_SIZE)
+        chunk_count = math.ceil(os.path.getsize(filepath) / Server.BUFFER_SIZE)
         self.send(Client.form_message("writefile", {"filesize": chunk_count, "filename": dest_filename}))
         with open(filepath, 'rb') as file:
-            chunk = file.read(BUFFER_SIZE)
+            chunk = file.read(Server.BUFFER_SIZE)
             while chunk:
                 with self._send_lock:
                     self._send_queue.append(chunk)
-                chunk = file.read(BUFFER_SIZE)
+                chunk = file.read(Server.BUFFER_SIZE)
 
         self.send(Client.form_message("/endoffile"))  # TODO mb remove
         print("File sent")
