@@ -116,8 +116,10 @@ model.setColumnCount(6)
 model.setRowCount(0)
 
 
-def client_connected(self):
-    model.appendRow((QStandardItem(self.copter_id),))  # TODO: get responses for another columns
+def client_connected(self: Client):
+    batt = self.get_response("batt_voltage")
+    model.appendRow((QStandardItem(self.copter_id), QStandardItem(batt)))  # TODO: get responses for another columns
+
 
 
 Client.on_connect = client_connected

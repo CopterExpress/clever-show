@@ -132,12 +132,14 @@ def recive_file(filename):
                     print("File received")
                     break
                 file.write(data)
+            else:
+                break
 
 
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     frames = play_animation.read_animation_file()
-    rate = rospy.Rate(1000 / 125)
+    # rate = rospy.Rate(1000 / 125)
     delay_time = 0.125
 
     print("Takeoff")
@@ -200,8 +202,7 @@ def stop_animation():
 
 
 def selfcheck():
-    telemetry = FlightLib.get_telemetry('body')
-    return FlightLib.selfcheck(), telemetry.voltage
+    return FlightLib.selfcheck()
 
 
 def write_to_config(section, option, value):
@@ -215,7 +216,7 @@ def load_config():
     global broadcast_port, port, host, BUFFER_SIZE
     global USE_NTP, NTP_HOST, NTP_PORT
     global files_directory, animation_file
-    global TAKEOFF_HEIGHT, TAKEOFF_TIME, SAFE_TAKEOFF, RFP_TIME
+    global FRAME_ID, TAKEOFF_HEIGHT, TAKEOFF_TIME, SAFE_TAKEOFF, RFP_TIME
     global  USE_LEDS, COPTER_ID
     CONFIG_PATH = "client_config.ini"
     config = ConfigParser.ConfigParser()
@@ -232,6 +233,7 @@ def load_config():
     files_directory = config.get('FILETRANSFER', 'files_directory')
     animation_file = config.get('FILETRANSFER', 'animation_file')
 
+    FRAME_ID = config.get('COPTERS', 'frame_id') # TODO in play_animation
     TAKEOFF_HEIGHT = config.getfloat('COPTERS', 'takeoff_height')
     TAKEOFF_TIME = config.getfloat('COPTERS', 'takeoff_time')
     RFP_TIME = config.getfloat('COPTERS', 'reach_first_point_time')
@@ -308,9 +310,11 @@ try:
                     elif request_target == 'id':
                         response = COPTER_ID
                     elif request_target == 'selfcheck':
-                        response = selfcheck()
+                        response = FlightLib.selfcheck()
                     elif request_target == 'batt_voltage':
-                        pass # TODO
+                        response = FlightLib.get_telemetry('body').voltage
+                    elif request_target == 'cell_voltage':
+                        response = FlightLib.get_telemetry('body').cell_voltage
 
                     send_all(bytes(form_message("response",
                                                 {"status": "ok", "value": response, "value_name": str(request_target)})))
