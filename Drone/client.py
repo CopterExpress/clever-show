@@ -10,7 +10,6 @@ import logging
 import threading
 import ConfigParser
 from contextlib import closing
-from collections import OrderedDict
 
 import rospy
 import pause
@@ -118,7 +117,7 @@ def parse_message(msg):
     str_command = list(j_message.keys())[0]
 
     arguments = list(j_message.values())[0].replace(":", '').split()
-    dict_arguments = OrderedDict(zip(arguments[::2], arguments[1::2]))
+    dict_arguments = dict(zip(arguments[::2], arguments[1::2]))
     return str_command, dict_arguments
 
 
