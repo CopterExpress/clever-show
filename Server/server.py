@@ -17,7 +17,7 @@ random.seed()
 
 logging.basicConfig(  # TODO all prints as logs
     level=logging.INFO,
-    format="%(asctime)s [%(name)-7.7s] [%(threadName)-18.18s] [%(levelname)-7.7s]  %(message)s",
+    format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
     handlers=[
         logging.FileHandler("server_logs.log"),
         logging.StreamHandler()
@@ -283,10 +283,12 @@ class Client:
                             command, args = Client.parse_message(received)
                             if command == "response":
                                 for key, value in self._request_queue.items():
-                                    if not value:  # TODO redo to value name
+                                    if not value and key == args["value_name"]:
                                         self._request_queue[key] = args['value']
                                         print("Request successfully closed")
                                         break
+                                else:
+                                    print("Unexpected request")
                             else:
                                 self._received_queue.appendleft(received)
                 except socket.error:

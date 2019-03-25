@@ -207,7 +207,7 @@ def selfcheck():
 
 def write_to_config(section, option, value):
     config.set(section, option, value)
-    with open(CONFIG_PATH, 'w') as file:
+    with open(CONFIG_PATH, 'w') as file:  # TODO as separate function
         config.write(file)
 
 
@@ -272,14 +272,14 @@ try:
                 command, args = parse_message(message)
                 print("Command from server:", command, args)
                 if command == "writefile":
-                    recive_file(list(args.values())[0])
+                    recive_file(args['filename'])
                 elif command == 'config_write':
                     write_to_config(args['section'], args['option'], args['value'])
                 elif command == 'config_reload':
                     load_config()
                 elif command == "starttime":
                     global starttime
-                    starttime = float(list(args.values())[0])
+                    starttime = float(args['time'])
                     print("Starting on:", time.ctime(starttime))
                     dt = starttime - time.time()
                     if USE_NTP:
@@ -310,8 +310,13 @@ try:
                         response = COPTER_ID
                     elif request_target == 'selfcheck':
                         response = selfcheck()
-                    send_all(bytes(form_message("response", {"status": "ok", "value": response})))
+                    elif request_target == 'batt_voltage':
+                        pass # TODO
+
+                    send_all(bytes(form_message("response",
+                                                {"status": "ok", "value": response, "value_name": request_target})))
                     print("Request responded with:",  response)
+
         except socket.error as e:
             if e.errno != errno.EINTR:
                 print("Connection lost due error:", e)
