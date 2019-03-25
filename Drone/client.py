@@ -314,7 +314,7 @@ try:
                         pass # TODO
 
                     send_all(bytes(form_message("response",
-                                                {"status": "ok", "value": response, "value_name": request_target})))
+                                                {"status": "ok", "value": response, "value_name": str(request_target)})))
                     print("Request responded with:",  response)
 
         except socket.error as e:
