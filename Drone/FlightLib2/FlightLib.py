@@ -129,7 +129,7 @@ def navto(x, y, z, yaw=float('nan'), frame_id='aruco_map'):
 
 
 def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLERANCE, frame_id='aruco_map',
-          freq=FREQUENCY, timeout=5000, wait=False):
+                freq=FREQUENCY, timeout=5000, wait=False):
 
     module_logger.info('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     navigate(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, speed=speed)
@@ -162,7 +162,7 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLE
 
 
 def reach_attitude(z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLERANCE, frame_id='aruco_map',
-          freq=FREQUENCY, timeout=5000, wait=False):
+                   freq=FREQUENCY, timeout=5000, wait=False):
 
     module_logger.info('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
     current_telem = get_telemetry(frame_id=frame_id)
@@ -188,8 +188,6 @@ def reach_attitude(z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLERANCE, fram
             if time_passed >= timeout:
                 module_logger.warning('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed / 1000))
                 return wait
-        else:
-            return True
         rate.sleep()
     else:
         module_logger.info("Attitude reached!")
@@ -236,9 +234,7 @@ def takeoff(z=1.0,  speed=0.8, frame_id='body', freq=FREQUENCY,
     module_logger.info("Arming, going to OFFBOARD mode")
 
     # Arming check
-    #arming(True)
     set_rates(thrust=0.1, auto_arm=True)
-    #navigate(frame_id=frame_id, speed=speed, auto_arm=True)
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
     time_start = rospy.get_rostime()
@@ -250,16 +246,16 @@ def takeoff(z=1.0,  speed=0.8, frame_id='body', freq=FREQUENCY,
             return None
 
         telemetry = get_telemetry(frame_id=frame_id)
-        if telemetry.armed:
-            break
-        
         module_logger.info("Arming...")
         time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
 
         if timeout_arm is not None:
             if time_passed >= timeout_arm:
-                module_logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed / 1000))
-                return False
+                if not telemetry.armed:
+                    module_logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                    return False
+                else:
+                    break
         rate.sleep()
 
     module_logger.info("Armed!")
@@ -277,22 +273,21 @@ def takeoff(z=1.0,  speed=0.8, frame_id='body', freq=FREQUENCY,
             return None
 
         current_height = abs(get_telemetry().z - z0 - z)
-        if current_height < tolerance:
-            break
         module_logger.info("Takeoff...")
-
         time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
-        #print(time_passed)
 
         if timeout_takeoff is not None:
             if time_passed >= timeout_takeoff:
-                module_logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed / 1000))
-                if emergency_land:
-                    module_logger.info("Preforming emergency land")
-                    land(descend=False)
-                return False
+                if not wait:
+                    module_logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                    if emergency_land:
+                        module_logger.info("Preforming emergency land")
+                        land(descend=False)
+                    return False
+                else:
+                    break
         rate.sleep()
 
     module_logger.info("Takeoff succeeded!")
-    print ("Takeoff succeeded!")
+    print("Takeoff succeeded!")
     return True

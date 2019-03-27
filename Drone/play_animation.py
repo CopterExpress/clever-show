@@ -31,6 +31,7 @@ def animate_frame(current_frame, x0=0.0, y0=0.0):
     if USE_LEDS:
         LedLib.fill(current_frame['red'], current_frame['green'], current_frame['blue'])
 
+
 def reach_frame(current_frame, x0=0.0, y0=0.0, timeout=5000):
     FlightLib.reach_point(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw=1.57, timeout=timeout)  # TODO yaw
     if USE_LEDS:
