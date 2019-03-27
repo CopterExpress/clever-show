@@ -107,4 +107,5 @@ Server/tests.py
 Server/convert_ui.sh
 Drone/test_animation/
 Drone/animation.csv
-Drove/client_logs
+Drone/client_logs
+images/
