@@ -50,15 +50,20 @@ class MainWindow(QtWidgets.QMainWindow):
             item = model.item(row_num, 0)
             if item.isCheckable() and item.checkState() == Qt.Checked:
                 print("Copter {} checked".format(model.item(row_num, 0).text()))
-                batt_total = Client.get_by_id(item.text()).get_response("batt_voltage")
-                batt_cell = Client.get_by_id(item.text()).get_response("cell_voltage")
+                batt_total = float(Client.get_by_id(item.text()).get_response("batt_voltage"))
+                batt_cell = float(Client.get_by_id(item.text()).get_response("cell_voltage"))
                 selfcheck = Client.get_by_id(item.text()).get_response("selfcheck")
 
                 batt_percent = (batt_cell-3.2)/(4.2-3.2)
 
-                model.setData(model.index(0, 2), "{} V.".format(round(batt_total, 3)))
-                model.setData(model.index(0, 3), "{} %".format(round(batt_percent, 3)))
-                model.setData(model.index(0, 3), selfcheck)
+                model.setData(model.index(row_num, 2), "{} V.".format(round(batt_total, 3)))
+                model.setData(model.index(row_num, 3), "{} %".format(round(batt_percent, 3)))
+                if selfcheck != "OK":
+                    print(selfcheck)
+                    model.setData(model.index(row_num, 4), str(selfcheck))
+                else:
+                    print("Everything ok")
+                    model.setData(model.index(row_num, 4), str(selfcheck))
 
         self.ui.start_button.setEnabled(True)
         self.ui.takeoff_button.setEnabled(True)

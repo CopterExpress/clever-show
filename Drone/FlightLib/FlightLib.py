@@ -96,7 +96,7 @@ def check_angular_speeds():
 def check_angles():
     failures = []
     telemetry = get_telemetry(frame_id='body')
-    angle_limit = math.radians(1)
+    angle_limit = math.radians(5)
     if abs(telemetry.pitch) >= angle_limit:
         failures.append("Pitch estimation: {:.3f} rad;{:.3f} degrees".format(telemetry.pitch,
                                                                              math.degrees(telemetry.pitch)))
