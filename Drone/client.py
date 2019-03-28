@@ -14,9 +14,8 @@ from contextlib import closing
 import rospy
 import pause
 
-#from FlightLib.FlightLib import FlightLib
-from FlightLib2 import FlightLib
-from FlightLib.FlightLib import LedLib  # TODO new ledlib
+from FlightLib import FlightLib
+from FlightLib import LedLib
 
 import play_animation
 

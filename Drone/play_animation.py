@@ -1,9 +1,9 @@
 import time
 import csv
 import rospy
-from FlightLib2 import FlightLib
+from FlightLib import FlightLib
 #FlightLib.init('SingleCleverFlight')
-from FlightLib.FlightLib import LedLib
+from FlightLib import LedLib
 
 animation_file_path = 'animation.csv'
 USE_LEDS = True
