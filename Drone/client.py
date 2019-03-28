@@ -42,7 +42,7 @@ def get_ntp_time(ntp_host, ntp_port):
     return unpacked[10] + float(unpacked[11]) / 2**32 - NTP_DELTA
 
 
-def reconnect(timeout=2, attempt_limit=10):
+def reconnect(timeout=2, attempt_limit=5):
     global clientSocket, host, port
     print("Trying to connect to", host, ":", port, "...")
     connected = False
@@ -57,8 +57,12 @@ def reconnect(timeout=2, attempt_limit=10):
             print("Connection successful")
             clientSocket.settimeout(None)
         except socket.error as e:
-            print("Waiting for connection, can not connect:", e)
-            time.sleep(timeout)
+            if e.errno != errno.EINTR:
+                print("Waiting for connection, can not connect:", e)
+                time.sleep(timeout)
+            else:
+                print("Shutting down on keyboard interrupt")
+                raise KeyboardInterrupt
         attempt_count += 1
 
         if attempt_count >= attempt_limit:
@@ -74,6 +78,8 @@ def reconnect(timeout=2, attempt_limit=10):
                     host, port = args["host"], int(args["port"])
                     print("Binding to new IP: ", host, port)
                     broadcast_client.close()
+                    write_to_config("SERVER", "port", port)
+                    write_to_config("SERVER", "host", host)
                     attempt_count = 0
                     break
 
