@@ -307,7 +307,7 @@ class Client:
     def form_message(command: str, dict_arguments: dict = None):
         if dict_arguments is None:
             dict_arguments = {}
-        msg_dict = {command: str(dict_arguments).replace(",", '').replace("'", '')[1:-1]}
+        msg_dict = {command: dict_arguments}
         msg = json.dumps(msg_dict)
         return msg
 
@@ -315,14 +315,12 @@ class Client:
     def parse_message(msg):
         try:
             j_message = json.loads(msg)
-        except json.decoder.JSONDecodeError:
+        except ValueError:
             print("Json string not in correct format")
             return None, None
-
         str_command = list(j_message.keys())[0]
+        dict_arguments = list(j_message.values())[0]
 
-        arguments = list(j_message.values())[0].replace(":", '').split()
-        dict_arguments = collections.OrderedDict(zip(arguments[::2], arguments[1::2]))
         return str_command, dict_arguments
 
     @requires_connect
