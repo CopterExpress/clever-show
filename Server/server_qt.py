@@ -35,6 +35,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
+        self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
 
         #Initing table and table model
         self.ui.tableView.setModel(model)
@@ -43,6 +44,16 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def check_selected(self):
         #Client.request_to_selected("selfcheck")
+        #for row_num in range(model.rowCount()):
+        #    item = model.index(row_num, 0)
+        #    data = model.itemData(item)
+        #    print(item.data())
+        #    print(item, data)
+        #    if data.isCheckable() and data.checkState() == Qt.Checked:
+        #        print("Copter checked")
+        #        batt = Client.get_by_id(data.text()).get_response("batt_voltage")
+        #        model.setData(model.index(0, 2), batt)
+
         self.ui.start_button.setEnabled(True)
         self.ui.takeoff_button.setEnabled(True)
 
@@ -107,6 +118,15 @@ class MainWindow(QtWidgets.QMainWindow):
                     options.append(ConfigOption(section, option, value))
             Client.send_config_options(*options)
 
+    @pyqtSlot()
+    def send_aruco(self):
+        path = QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Configs (*.txt)")[0]
+        if path:
+            filename = os.path.basename(path)
+            print("Selected file:", path, filename)
+            for copter in Client.clients.values():
+                copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+
 
 model = QStandardItemModel()
 model.setHorizontalHeaderLabels(
@@ -117,11 +137,9 @@ model.setRowCount(0)
 
 
 def client_connected(self: Client):
-    batt = self.get_response("batt_voltage")
-    model.appendRow((QStandardItem(self.copter_id), ))  # TODO: get responses for another columns
-    model.setData(model.index(0, 2), batt)
-
-
+    copter_id_item = QStandardItem(self.copter_id)
+    copter_id_item.setCheckable(True)
+    model.appendRow((copter_id_item, ))  # TODO: get responses for another columns
 
 
 Client.on_connect = client_connected

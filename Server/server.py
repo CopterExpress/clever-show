@@ -385,6 +385,12 @@ class Client:
                                     {'section': option.section, 'option': option.option, 'value': option.value}))
         Client.send_to_selected(Client.form_message("config_reload"))
 
+    @staticmethod
+    def get_by_id(copter_id):
+        for copter in Client.clients.values():
+            if copter.copter_id == copter_id:
+                return copter
+
 
 if __name__ == '__main__':
     server = Server()

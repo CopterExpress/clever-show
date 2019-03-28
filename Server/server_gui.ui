@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1257</width>
-    <height>770</height>
+    <width>1239</width>
+    <height>706</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -102,7 +102,7 @@
         </item>
         <item>
          <layout class="QFormLayout" name="formLayout_2">
-          <item row="0" column="0" colspan="2">
+          <item row="1" column="0" colspan="2">
            <widget class="QPushButton" name="takeoff_button">
             <property name="enabled">
              <bool>true</bool>
@@ -112,17 +112,24 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="0" colspan="2">
+          <item row="2" column="0" colspan="2">
            <widget class="QPushButton" name="land_button">
             <property name="text">
              <string>Land</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0" colspan="2">
+          <item row="3" column="0" colspan="2">
            <widget class="QPushButton" name="disarm_button">
             <property name="text">
              <string>Disarm</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QPushButton" name="leds_button">
+            <property name="text">
+             <string>Test leds</string>
             </property>
            </widget>
           </item>
@@ -139,7 +146,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1257</width>
+     <width>1239</width>
      <height>39</height>
     </rect>
    </property>
@@ -149,6 +156,7 @@
     </property>
     <addaction name="action_send_animations"/>
     <addaction name="action_send_configurations"/>
+    <addaction name="action_send_Aruco_map"/>
    </widget>
    <addaction name="menuOptions"/>
   </widget>
@@ -160,6 +168,11 @@
   <action name="action_send_configurations">
    <property name="text">
     <string>Send Configurations</string>
+   </property>
+  </action>
+  <action name="action_send_Aruco_map">
+   <property name="text">
+    <string>Send Aruco map</string>
    </property>
   </action>
  </widget>
