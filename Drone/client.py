@@ -317,7 +317,8 @@ try:
                     elif request_target == 'id':
                         response = COPTER_ID
                     elif request_target == 'selfcheck':
-                        response = FlightLib.selfcheck()
+                        check = FlightLib.selfcheck()
+                        response = check if check else "OK"
                     elif request_target == 'batt_voltage':
                         response = FlightLib.get_telemetry('body').voltage
                     elif request_target == 'cell_voltage':
