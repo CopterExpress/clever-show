@@ -49,7 +49,7 @@ def get_distance3d(x1, y1, z1, x2, y2, z2):
 def check(check_name):
     def inner(f):
         def wrapper(*args, **kwargs):
-            result, failures = f(*args, **kwargs)
+            failures = f(*args, **kwargs)
             if failures:
                 msgs = []
                 for failure in failures:
@@ -111,9 +111,15 @@ def check_angles():
 
 def selfcheck():
     msgs = []
-    msgs.extend(check_linear_speeds())
-    msgs.extend(check_angular_speeds())
-    msgs.extend(check_angles())
+    linear_speeds = check_linear_speeds()
+    angular_speeds = check_angular_speeds()
+    angles = check_angles()
+    if linear_speeds:
+        msgs.extend(linear_speeds)
+    if angular_speeds:
+        msgs.extend(angular_speeds)
+    if angles:
+        msgs.extend(angles)
 
     return msgs
 
