@@ -49,7 +49,7 @@ def get_distance3d(x1, y1, z1, x2, y2, z2):
 def check(check_name):
     def inner(f):
         def wrapper(*args, **kwargs):
-            result, failures = f(*args, **kwargs)
+            failures = f(*args, **kwargs)
             if failures:
                 msgs = []
                 for failure in failures:
