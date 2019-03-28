@@ -1,7 +1,0 @@
-[submodule "Drone/FlightLib"]
-	path = Drone/FlightLib
-	url = https://github.com/artem30801/CleverFlightLib.git
-	#url = https://github.com/goldarte/CleverFlightLib.git
-[submodule "blender-csv-animation"]
-	path = blender-csv-animation
-	url = https://github.com/artem30801/blender-csv-animation
