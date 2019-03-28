@@ -305,6 +305,10 @@ try:
                     play_animation.land()
                 elif command == 'disarm':
                     FlightLib.arming(False)
+                elif command == 'led_test':
+                    LedLib.fill(255, 255, 255)
+                    time.sleep(2)
+                    LedLib.off()
 
                 elif command == 'request':
                     request_target = args['value']
