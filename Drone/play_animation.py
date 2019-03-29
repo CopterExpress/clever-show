@@ -1,9 +1,12 @@
 import time
 import csv
 import rospy
+import logging
 from FlightLib import FlightLib
-#FlightLib.init('SingleCleverFlight')
 from FlightLib import LedLib
+
+module_logger = logging.getLogger("Animation player")
+
 
 animation_file_path = 'animation.csv'
 USE_LEDS = True
@@ -39,24 +42,29 @@ def reach_frame(current_frame, x0=0.0, y0=0.0, timeout=5000):
 
 
 def read_animation_file(filepath=animation_file_path):
-    imporetd_frames = []
-    with open(filepath) as animation_file:
-        csv_reader = csv.reader(
-            animation_file, delimiter=',', quotechar='|'
-        )
-        for row in csv_reader:
-            frame_number, x, y, z, yaw, red, green, blue = row
-            imporetd_frames.append({
-                'number': int(frame_number),
-                'x': float(x),
-                'y': float(y),
-                'z': float(z),
-                'yaw': float(yaw),
-                'red': int(red),
-                'green': int(green),
-                'blue': int(blue),
-            })
-    return imporetd_frames
+    imported_frames = []
+    try:
+        animation_file = open(filepath)
+    except IOError:
+        logging.error("File {} can't be opened".format(filepath))
+    else:
+        with animation_file:
+            csv_reader = csv.reader(
+                animation_file, delimiter=',', quotechar='|'
+            )
+            for row in csv_reader:
+                frame_number, x, y, z, yaw, red, green, blue = row
+                imported_frames.append({
+                    'number': int(frame_number),
+                    'x': float(x),
+                    'y': float(y),
+                    'z': float(z),
+                    'yaw': float(yaw),
+                    'red': int(red),
+                    'green': int(green),
+                    'blue': int(blue),
+                })
+        return imported_frames
 
 
 if __name__ == '__main__':

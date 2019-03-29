@@ -26,7 +26,7 @@ logging.basicConfig(  # TODO all prints as logs
     level=logging.INFO,
     format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
     handlers=[
-        logging.FileHandler("client_logs"),
+        logging.FileHandler("client_logs.log"),
         logging.StreamHandler()
     ])
 
@@ -143,7 +143,10 @@ def recive_file(filename):
 def animation_player(running_event, stop_event):
     print("Animation thread activated")
     frames = play_animation.read_animation_file()
-    # rate = rospy.Rate(1000 / 125)
+    if not frames:
+        logging.error("Animation is empty, shutting down animation player")
+        return
+
     delay_time = 0.125
 
     print("Takeoff")

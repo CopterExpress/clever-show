@@ -11,7 +11,7 @@ from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import CommandBool
 from std_srvs.srv import Trigger
 
-module_logger = logging.getLogger("FlightLib.FlightLib")
+module_logger = logging.getLogger("FlightLib")
 
 # create proxy service
 navigate = rospy.ServiceProxy('navigate', srv.Navigate)
