@@ -1,13 +1,11 @@
 import glob
 
 from PyQt5 import QtWidgets
-from PyQt5.QtGui import QStandardItem
-from PyQt5.QtGui import QStandardItemModel
-from PyQt5.QtCore import QModelIndex
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+#from PyQt5.QtCore import QModelIndex
+from PyQt5.QtCore import Qt, pyqtSlot
 
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 # Importing gui form
 from server_gui import Ui_MainWindow
@@ -69,16 +67,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.setEnabled(True)
         self.ui.takeoff_button.setEnabled(True)
 
-
     @pyqtSlot()
     def send_starttime(self):
         dt = self.ui.start_delay_spin.value()
-        for row_num in range(model.rowCount()):
-            item = model.item(row_num, 0)
-            if item.isCheckable() and item.checkState() == Qt.Checked:
-                if True:  # TODO checks for batt/selfckeck here
-                    copter = Client.get_by_id(item.text())
-                    server.send_starttime(copter, dt)
+        reply = QMessageBox.question(
+            self, "Confirm operation",
+            "This operation will takeoff selected copters and start animation after {} seconds. Proceed?".format(dt),
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            print("Accepted")
+            for row_num in range(model.rowCount()):
+                item = model.item(row_num, 0)
+                if item.isCheckable() and item.checkState() == Qt.Checked:
+                    if True:  # TODO checks for batt/selfckeck here
+                        copter = Client.get_by_id(item.text())
+                        server.send_starttime(copter, dt)
+        else:
+            print("Cancelled")
 
     @pyqtSlot()
     def stop_all(self):
@@ -104,12 +110,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def takeoff_selected(self):
-        for row_num in range(model.rowCount()):
-            item = model.item(row_num, 0)
-            if item.isCheckable() and item.checkState() == Qt.Checked:
-                if True:  # TODO checks for batt/selfckeck here
-                    copter = Client.get_by_id(item.text())
-                    copter.send(Client.form_message("takeoff"))
+        reply = QMessageBox.question(
+            self, "Confirm operation",
+            "This operation will takeoff copters immediately. Proceed?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            print("Accepted")
+            for row_num in range(model.rowCount()):
+                item = model.item(row_num, 0)
+                if item.isCheckable() and item.checkState() == Qt.Checked:
+                    if True:  # TODO checks for batt/selfckeck here
+                        copter = Client.get_by_id(item.text())
+                        copter.send(Client.form_message("takeoff"))
+        else:
+            print("Cancelled")
 
     @pyqtSlot()
     def land_all(self):
