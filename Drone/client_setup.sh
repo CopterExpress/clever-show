@@ -4,6 +4,11 @@
 # $3 - hostname of rpi
 # $4 - server ip 
 
+if [ $(whoami) != "root" ]; then
+  echo -e "\nThis should be run as root!\n"
+  exit 1
+fi
+
 # check if enough arguments
 if [[ $# -ne 4 ]] ; then
     echo -e "\nPlease, enter arguments: router ssid, wifi password, copter id and server ip"
