@@ -4,6 +4,11 @@
 # $3 - hostname of rpi
 # $4 - server ip 
 
+if [ $(whoami) != "root" ]; then
+  echo -e "\nThis should be run as root!\n"
+  exit 1
+fi
+
 # check if enough arguments
 if [[ $# -ne 4 ]] ; then
     echo -e "\nPlease, enter arguments: router ssid, wifi password, copter id and server ip"
@@ -82,14 +87,14 @@ if ! [ -f "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt" ] ; t
 fi
 
 # install samba and winbind (for hostname resolving)
-apt-get -y install samba
-apt-get -y install winbind
+# apt-get -y install samba
+# apt-get -y install winbind
 
 # set /etc/nsswitch.conf
 sed -i '/hosts:/c hosts:         files dns wins' /etc/nsswitch.conf
 
 # install chrony (for time syncing)
-apt-get -y install chrony
+# apt-get -y install chrony
 
 # configure chrony as client
 cat << EOF | tee /etc/chrony/chrony.conf

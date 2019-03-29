@@ -181,7 +181,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 item = model.item(row_num, 0)
                 if item.isCheckable() and item.checkState() == Qt.Checked:
                     copter = Client.get_by_id(item.text())
-                    copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+                    copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt", clever_restart=True)
 
 
 model = QStandardItemModel()
@@ -198,7 +198,7 @@ def client_connected(self: Client):
     model.appendRow((copter_id_item, ))
 
 
-Client.on_connect = client_connected
+Client.on_first_connect = client_connected
 
 
 if __name__ == "__main__":

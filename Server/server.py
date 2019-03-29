@@ -344,10 +344,10 @@ class Client:
             return self._request_queue.pop(requested_value)
 
     @requires_connect
-    def send_file(self, filepath, dest_filename):
+    def send_file(self, filepath, dest_filename, clever_restart = False):
         print("Sending file ", dest_filename)
         chunk_count = math.ceil(os.path.getsize(filepath) / Server.BUFFER_SIZE)
-        self.send(Client.form_message("writefile", {"filesize": chunk_count, "filename": dest_filename}))
+        self.send(Client.form_message("writefile", {"filesize": chunk_count, "filename": dest_filename, "clever_restart": clever_restart}))
         with open(filepath, 'rb') as file:
             chunk = file.read(Server.BUFFER_SIZE)
             while chunk:
