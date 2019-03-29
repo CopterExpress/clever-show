@@ -164,13 +164,13 @@ class Server:
         broadcast_client.close()
         logging.info("Broadcast listener thread stopped, socked closed!")
 
-    def send_starttime(self, dt=0):
+    def send_starttime(self, copter, dt=0):
         if self.USE_NTP:
             timenow = Server.get_ntp_time(self.NTP_HOST, self.NTP_PORT)
         else:
             timenow = time.time()
         print('Now:', time.ctime(timenow), "+ dt =", dt)
-        Client.send_to_selected(Client.form_message("starttime", {"time": str(timenow + dt)}))
+        copter.send(Client.form_message("starttime", {"time": str(timenow + dt)}))
 
 
 def requires_connect(f):
@@ -211,7 +211,7 @@ class Client:
         self._send_lock = threading.Lock()
 
         self.copter_id = None
-        self.selected = False  # Use to select copters for certain purposes
+        self.selected = False  # Use to select copters for certain purposes DEPRECATED
 
         Client.clients[ip] = self
 
@@ -356,14 +356,14 @@ class Client:
 
     @staticmethod
     @requires_any_connected
-    def send_to_selected(message):
+    def send_to_selected(message):  # DEPRECATED
         for client in Client.clients.values():
             if client.connected and client.selected:
                 client.send(message)
 
     @staticmethod
     @requires_any_connected
-    def request_to_selected(requested_value):
+    def request_to_selected(requested_value):  # DEPRECATED
         for client in Client.clients.values():
             if client.connected and client.selected:
                 client.get_response(requested_value)
@@ -375,13 +375,12 @@ class Client:
             if client.connected or force_all:
                 client.send(message)
 
-    @staticmethod
-    def send_config_options(*options: ConfigOption):
+    def send_config_options(self, *options: ConfigOption):
         for option in options:
-            Client.send_to_selected(
+            self.send(
                 Client.form_message('config_write',
                                     {'section': option.section, 'option': option.option, 'value': option.value}))
-        Client.send_to_selected(Client.form_message("config_reload"))
+        self.send(Client.form_message("config_reload"))
 
     @staticmethod
     def get_by_id(copter_id):

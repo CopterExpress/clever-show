@@ -50,11 +50,12 @@ class MainWindow(QtWidgets.QMainWindow):
             item = model.item(row_num, 0)
             if item.isCheckable() and item.checkState() == Qt.Checked:
                 print("Copter {} checked".format(model.item(row_num, 0).text()))
-                batt_total = float(Client.get_by_id(item.text()).get_response("batt_voltage"))
-                batt_cell = float(Client.get_by_id(item.text()).get_response("cell_voltage"))
-                selfcheck = Client.get_by_id(item.text()).get_response("selfcheck")
+                copter = Client.get_by_id(item.text())
+                batt_total = float(copter.get_response("batt_voltage"))
+                batt_cell = float(copter.get_response("cell_voltage"))
+                selfcheck = copter.get_response("selfcheck")
 
-                batt_percent = (batt_cell-3.2)/(4.2-3.2)
+                batt_percent = ((batt_cell-3.2)/(4.2-3.2))*100
 
                 model.setData(model.index(row_num, 2), "{} V.".format(round(batt_total, 3)))
                 model.setData(model.index(row_num, 3), "{} %".format(round(batt_percent, 3)))
@@ -72,7 +73,12 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_starttime(self):
         dt = self.ui.start_delay_spin.value()
-        server.send_starttime(dt)
+        for row_num in range(model.rowCount()):
+            item = model.item(row_num, 0)
+            if item.isCheckable() and item.checkState() == Qt.Checked:
+                if True:  # TODO checks for batt/selfckeck here
+                    copter = Client.get_by_id(item.text())
+                    server.send_starttime(copter, dt)
 
     @pyqtSlot()
     def stop_all(self):
@@ -89,11 +95,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def test_leds(self):
-        Client.send_to_selected(Client.form_message("led_test"))
+        for row_num in range(model.rowCount()):
+            item = model.item(row_num, 0)
+            if item.isCheckable() and item.checkState() == Qt.Checked:
+                if True:  # TODO checks for batt/selfckeck here
+                    copter = Client.get_by_id(item.text())
+                    copter.send(Client.form_message("led_test"))
 
     @pyqtSlot()
     def takeoff_selected(self):
-        Client.send_to_selected(Client.form_message("takeoff"))
+        for row_num in range(model.rowCount()):
+            item = model.item(row_num, 0)
+            if item.isCheckable() and item.checkState() == Qt.Checked:
+                if True:  # TODO checks for batt/selfckeck here
+                    copter = Client.get_by_id(item.text())
+                    copter.send(Client.form_message("takeoff"))
 
     @pyqtSlot()
     def land_all(self):
@@ -112,11 +128,14 @@ class MainWindow(QtWidgets.QMainWindow):
             names = [os.path.basename(file).split(".")[0] for file in files]
             print(files)
             for file, name in zip(files, names):
-                for copter in Client.clients.values():
-                    if name == copter.copter_id:
-                        copter.send_file(file, "animation.csv")  # TODO config
-                    else:
-                        print("Filename not matches with any drone connected")
+                for row_num in range(model.rowCount()):
+                    item = model.item(row_num, 0)
+                    if item.isCheckable() and item.checkState() == Qt.Checked:
+                        copter = Client.get_by_id(item.text())
+                        if name == copter.copter_id:
+                            copter.send_file(file, "animation.csv")  # TODO config
+                        else:
+                            print("Filename not matches with any drone connected")
 
     @pyqtSlot()
     def send_configurations(self):
@@ -131,7 +150,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     value = sendable_config[section][option]
                     print("Got item from config:", section, option, value)
                     options.append(ConfigOption(section, option, value))
-            Client.send_config_options(*options)
+            for row_num in range(model.rowCount()):
+                item = model.item(row_num, 0)
+                if item.isCheckable() and item.checkState() == Qt.Checked:
+                    copter = Client.get_by_id(item.text())
+                    copter.send_config_options(*options)
 
     @pyqtSlot()
     def send_aruco(self):
@@ -139,8 +162,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if path:
             filename = os.path.basename(path)
             print("Selected file:", path, filename)
-            for copter in Client.clients.values():
-                copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+            for row_num in range(model.rowCount()):
+                item = model.item(row_num, 0)
+                if item.isCheckable() and item.checkState() == Qt.Checked:
+                    copter = Client.get_by_id(item.text())
+                    copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
 
 
 model = QStandardItemModel()
@@ -154,7 +180,7 @@ model.setRowCount(0)
 def client_connected(self: Client):
     copter_id_item = QStandardItem(self.copter_id)
     copter_id_item.setCheckable(True)
-    model.appendRow((copter_id_item, ))  # TODO: get responses for another columns
+    model.appendRow((copter_id_item, ))
 
 
 Client.on_connect = client_connected
