@@ -158,7 +158,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_aruco(self):
-        path = QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Configs (*.txt)")[0]
+        path = QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Aruco map files (*.txt)")[0]
         if path:
             filename = os.path.basename(path)
             print("Selected file:", path, filename)

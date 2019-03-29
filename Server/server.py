@@ -209,6 +209,7 @@ class Client:
         self._request_queue = collections.OrderedDict()
 
         self._send_lock = threading.Lock()
+        self._request_lock = threading.Lock()
 
         self.copter_id = None
         self.selected = False  # Use to select copters for certain purposes DEPRECATED
@@ -264,11 +265,11 @@ class Client:
                 if self._send_queue:
                     with self._send_lock:
                         msg = self._send_queue.popleft()
-                    print("Send", msg, "to", self.addr)
                     try:
                         self._send_all(msg)
+                        print("Send", msg, "to", self.addr)
                     except socket.error as e:
-                        print("Attempt to send failed")
+                        logging.warning("Attempt to send failed: {}".format(e))
                         with self._send_lock:
                             self._send_queue.appendleft(msg)
                         raise e
@@ -282,20 +283,21 @@ class Client:
                             print("Received", received, "from", self.addr)
                             command, args = Client.parse_message(received)
                             if command == "response":
-                                for key, value in self._request_queue.items():
-                                    if not value and key == args["value_name"]:
-                                        self._request_queue[key] = args['value']
-                                        print("Request successfully closed")
-                                        break
-                                else:
-                                    print("Unexpected request")
+                                with self._request_lock:
+                                    for key, value in self._request_queue.items():
+                                        if not value and key == args["value_name"]:
+                                            self._request_queue[key] = args['value']
+                                            print("Request successfully closed")
+                                            break
+                                    else:
+                                        print("Unexpected request")
                             else:
                                 self._received_queue.appendleft(received)
                 except socket.error:
                     pass
 
             except socket.error as e:
-                print("Client error: {}, disconnected".format(e))
+                logging.warning("Client error: {}, disconnected".format(e))
                 self.connected = False
                 self.socket.close()
                 if Client.on_disconnect:
@@ -331,13 +333,15 @@ class Client:
 
     @requires_connect
     def get_response(self, requested_value):
-        self._request_queue[requested_value] = ""
+        with self._request_lock:
+            self._request_queue[requested_value] = ""
         self.send(Client.form_message("request", {"value": requested_value}))
 
         while not self._request_queue[requested_value]:
             pass
 
-        return self._request_queue.pop(requested_value)
+        with self._request_lock:
+            return self._request_queue.pop(requested_value)
 
     @requires_connect
     def send_file(self, filepath, dest_filename):
