@@ -159,7 +159,7 @@ def animation_player(running_event, stop_event):
     pause.until(takeoff_time)
 
     print("Reach first point")
-    play_animation.reach_frame(frames[0]) #Reach first point at the same time with others
+    play_animation.reach_frame(frames[0], x0=X0+X0_COMMON, y0=Y0+Y0_COMMON) #Reach first point at the same time with others
     rfp_time = takeoff_time + RFP_TIME
     dt = rfp_time - time.time()
     print("Wait reaching first point " + str(dt) + "s: " + time.ctime(rfp_time))
@@ -169,7 +169,7 @@ def animation_player(running_event, stop_event):
     print("Start animation at " + str(time.time()))
     for frame in frames:
         #running_event.wait()
-        play_animation.animate_frame(frame)
+        play_animation.animate_frame(frame, x0=X0+X0_COMMON, y0=Y0+Y0_COMMON)
         next_frame_time += delay_time
         if stop_event.is_set():
             running_animation_event.clear()
@@ -227,6 +227,7 @@ def load_config():
     global files_directory, animation_file
     global FRAME_ID, TAKEOFF_HEIGHT, TAKEOFF_TIME, SAFE_TAKEOFF, RFP_TIME
     global  USE_LEDS, COPTER_ID
+    global X0, X0_COMMON, Y0, Y0_COMMON
     CONFIG_PATH = "client_config.ini"
     config = ConfigParser.ConfigParser()
     config.read(CONFIG_PATH)
@@ -247,6 +248,11 @@ def load_config():
     TAKEOFF_TIME = config.getfloat('COPTERS', 'takeoff_time')
     RFP_TIME = config.getfloat('COPTERS', 'reach_first_point_time')
     SAFE_TAKEOFF = config.getboolean('COPTERS', 'safe_takeoff')
+
+    X0_COMMON = config.getfloat('COPTERS', 'x0_common')
+    Y0_COMMON = config.getfloat('COPTERS', 'y0_common')
+    X0 = config.getfloat('PRIVATE', 'x0')
+    Y0 = config.getfloat('PRIVATE', 'y0')
 
     USE_LEDS = config.getboolean('PRIVATE', 'use_leds')
     play_animation.USE_LEDS = USE_LEDS
