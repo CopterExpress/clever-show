@@ -92,6 +92,7 @@ def recive_all(n):
     data = b''
     while len(data) < n:
         packet = clientSocket.recv(min(n - len(data), BUFFER_SIZE))
+        print("Receiving packet {}; full data is {}".format(packet, data))
         if not packet:
             return None
         data += packet
@@ -101,6 +102,7 @@ def recive_all(n):
 def recive_message():
     raw_msglen = recive_all(4)
     if not raw_msglen:
+        print("No valid msg")
         return None
     msglen = struct.unpack('>I', raw_msglen)[0]
     msg = recive_all(msglen)

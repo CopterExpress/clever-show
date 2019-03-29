@@ -246,6 +246,7 @@ class Client:
         data = b''
         while len(data) < n:
             packet = self.socket.recv(min(n - len(data), Server.BUFFER_SIZE))
+            print("Receiving packet {}; full data is {}".format(packet, data))
             if not packet:
                 return None
             data += packet
@@ -254,6 +255,7 @@ class Client:
     def _receive_message(self):
         raw_msglen = self._receive_all(4)
         if not raw_msglen:
+            print("No valid msg")
             return None
         msglen = struct.unpack('>I', raw_msglen)[0]
         msg = self._receive_all(msglen)
