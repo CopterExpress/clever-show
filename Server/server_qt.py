@@ -183,7 +183,7 @@ def client_connected(self: Client):
     model.appendRow((copter_id_item, ))
 
 
-Client.on_connect = client_connected
+Client.on_first_connect = client_connected
 
 
 if __name__ == "__main__":
