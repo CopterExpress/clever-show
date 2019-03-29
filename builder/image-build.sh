@@ -90,8 +90,6 @@ for dir in ${REPO_DIR}/*; do
   fi;
 done
 
-chown -Rf pi:pi /home/pi/CleverSwarm/
-
 umount -fR ${MOUNT_POINT}
 losetup -d ${DEV_IMAGE}
 

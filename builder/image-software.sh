@@ -53,6 +53,9 @@ my_travis_retry() {
   return $result
 }
 
+echo_stamp "Change repo owner to pi"
+chown -Rf pi:pi /home/pi/CleverSwarm/
+
 echo_stamp "Update apt cache"
 apt-get update -qq
 
