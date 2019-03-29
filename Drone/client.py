@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 import sys
 import socket
 import struct
@@ -277,6 +278,8 @@ try:
                 print("Command from server:", command, args)
                 if command == "writefile":
                     recive_file(args['filename'])
+                    if bool(args['clever_restart']):
+                        os.system("systemctl restart clever")
                 elif command == 'config_write':
                     write_to_config(args['section'], args['option'], args['value'])
                 elif command == 'config_reload':
