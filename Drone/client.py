@@ -4,6 +4,7 @@ import random
 import socket
 import struct
 import logging
+import selectors2 as selectors
 import ConfigParser
 from contextlib import closing
 
@@ -22,6 +23,7 @@ logging.basicConfig(  # TODO all prints as logs
 
 class Client:
     def __init__(self, config_path="client_config.ini"):
+        self.selector = selectors.DefaultSelector()
         self.client_socket = None
         self.server_host = None
         self.server_port = None
@@ -81,7 +83,6 @@ class Client:
         unpacked = struct.unpack(NTP_PACKET_FORMAT, msg[0:struct.calcsize(NTP_PACKET_FORMAT)])
         return unpacked[10] + float(unpacked[11]) / 2 ** 32 - NTP_DELTA
 
-
     def reconnect(self, timeout=2, attempt_limit=5):
         logging.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
         attempt_count = 0
@@ -103,6 +104,8 @@ class Client:
                 self.connected = True
                 #self.client_socket.settimeout(None)
                 self.client_socket.setblocking(False)
+                events = selectors.EVENT_READ | selectors.EVENT_WRITE
+                self.selector.register(self.client_socket, events, data=None)
                 logging.info("Connection to server successful!")
                 break
 
@@ -110,7 +113,6 @@ class Client:
                 logging.info("Too many attempts. Trying to get new server IP")
                 self.broadcast_bind()
                 attempt_count = 0
-
 
     def broadcast_bind(self):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -135,17 +137,38 @@ class Client:
         finally:
             broadcast_client.close()
 
+    def service_connection(self, key, mask):
+        sock = key.fileobj
+        data = key.data
+        if mask & selectors.EVENT_READ:
+            recv_data = sock.recv(1024)  # Should be ready to read
+            if recv_data:
+                print("received", repr(recv_data), "from connection", )
+            if not recv_data:
+                print("closing connection",)
+                self.selector.unregister(sock)
+                self.client_socket.close()
+        if mask & selectors.EVENT_READ:
+            pass
+
+
     def mainloop(self):
-        while True:
-            #'''
-            message = Message()
-            print("Recieving message:")
-            while not message.content:
-                message.income_raw += self.client_socket.recv(1)
-                print(message.income_raw)
-                message.process_message()
-            print(message.content)
-             #           '''
+        #self.client_socket.send("104771313759739")
+        try:
+            while True:
+                events = self.selector.select(timeout=1)
+                if events:
+                    for key, mask in events:
+                        self.service_connection(key, mask)
+                        pass
+
+                if not self.selector.get_map():
+                    logging.warning("No active connections left")
+                    self.reconnect()
+        except KeyboardInterrupt:
+            print("caught keyboard interrupt, exiting")
+        finally:
+            self.selector.close()
 
 
 if __name__ == "__main__":
