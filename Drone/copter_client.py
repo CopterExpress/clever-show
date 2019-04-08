@@ -45,11 +45,13 @@ class CopterClient(client.Client):
         self.LAND_TIME = self.config.getfloat('COPTERS', 'land_time')
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
+        self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
         self.X0 = self.config.getfloat('PRIVATE', 'x0')
         self.Y0 = self.config.getfloat('PRIVATE', 'y0')
+        self.Z0 = self.config.getfloat('PRIVATE', 'z0')
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
         self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
 
@@ -224,6 +226,21 @@ def _command_reset_start(**kwargs):
     client.active_client.rewrite_config()
     client.active_client.load_config()
     print ("Reset start to {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+
+@messaging.message_callback("set_z_to_ground")
+def _command_set_z(**kwargs):
+    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    client.active_client.config.set('PRIVATE', 'z0', telem.z)
+    client.active_client.rewrite_config()
+    client.active_client.load_config()
+    print ("Set z offset to {:.2f}".format(client.active_client.Z0))
+
+@messaging.message_callback("reset_z_offset")
+def _command_reset_z(**kwargs):
+    client.active_client.config.set('PRIVATE', 'z0', 0)
+    client.active_client.rewrite_config()
+    client.active_client.load_config()
+    print ("Reset z offset to {:.2f}".format(client.active_client.Z0))
 
 
 @messaging.message_callback("update_repo")
