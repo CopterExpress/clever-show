@@ -8,6 +8,10 @@ import selectors2 as selectors
 import ConfigParser
 from contextlib import closing
 
+import os,sys,inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir) 
 
 from messaging_lib import Message
 random.seed()

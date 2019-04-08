@@ -116,7 +116,7 @@ class Server:
         logging.info("Client processor (selector) thread started!")
         self.server_socket.listen()
         self.server_socket.setblocking(False)
-        self.sel.register(self.server_socket, selectors.EVENT_READ, data=None)
+        self.sel.register(self.server_socket, selectors.EVENT_READ | selectors.EVENT_WRITE, data=None)
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select(timeout=None)
@@ -275,6 +275,8 @@ class Client:
         self.socket = client_socket
         self.addr = client_addr
 
+        self._set_selector_events_mask('rw')
+
         self.connected = True
 
         if self.copter_id is None:
@@ -319,7 +321,7 @@ class Client:
             if (not self._send_buffer) and self._send_queue:
                 message = self._send_queue.popleft()
                 self._send_buffer += message
-                self._set_selector_events_mask('rw')
+                # self._set_selector_events_mask('rw')
 
     def process_received(self):
         if self._received_queue:
@@ -363,8 +365,8 @@ class Client:
 
     def write(self):
         self._write()
-        if not (self._send_buffer and self._send_queue):
-            self._set_selector_events_mask("r")
+        # if not (self._send_buffer and self._send_queue):
+        #     self._set_selector_events_mask("r")
 
     def _read(self):
         try:
