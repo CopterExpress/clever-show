@@ -7,6 +7,7 @@ import logging
 import collections
 import ConfigParser
 import selectors2 as selectors
+import threading
 
 from contextlib import closing
 
@@ -205,10 +206,19 @@ class Client(object):
                             if isinstance(error, OSError):
                                 if error.errno == errno.EINTR:
                                     raise KeyboardInterrupt
+            else:
+                time.sleep(0.001)
 
             if not self.selector.get_map():
                 logger.warning("No active connections left!")
                 return
+
+            time.sleep(0.001)
+
+    #def connection_processor(self):
+    #    while not self._shutdown_event.is_set():
+    #        self._running_event.wait()
+    #        self._process_connections()
 
 
 @messaging.request_callback("id")
