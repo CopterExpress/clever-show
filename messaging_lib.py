@@ -282,7 +282,7 @@ class ConnectionManager(object):
             self._send_response(command, request_id, value)
 
     def _process_response(self, message):
-        request_id, requested_value = message.content["requst_id"], message.content["requested_value"]
+        request_id, requested_value = message.content["request_id"], message.content["requested_value"]
         with self._request_lock:
             for key, value in self._request_queue.items():
                 if (key == request_id) and (value.requested_value == requested_value):
