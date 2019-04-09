@@ -130,7 +130,7 @@ class MessageManager:
                 self._process_content()
 
 
-def message_callback(string_command):
+def request_callback(string_command):
     def inner(f):
         ConnectionManager.requests_callbacks.update({string_command: f})
 
@@ -206,7 +206,6 @@ class ConnectionManager(object):
             self.socket = None
 
     def process_events(self, mask):
-        print(self.socket, self.selector, mask)
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
@@ -262,14 +261,25 @@ class ConnectionManager(object):
     def _process_message(self, message):
         command = message.content["command"]
         args = message.content["args"]
-        self.messages_callbacks[command](**args)
+        try:
+            self.messages_callbacks[command](**args)
+        except KeyError:
+            logging.warning("Command {} does not exist!".format(command))
+        except Exception as error:
+            logging.error("Error during command {} execution: {}".format(command, error))
 
     def _process_request(self, message):
         command = message.content["requested_value"]
         request_id = message.content["request_id"]
         args = message.content["args"]
-        value = self.requests_callbacks[command](**args)
-        self._send_response(command, request_id, value)
+        try:
+            value = self.requests_callbacks[command](**args)
+        except KeyError:
+            logging.warning("Request {} does not exist!".format(command))
+        except Exception as error:  # TODO send response error\cancel
+            logging.error("Error during command {} execution: {}".format(command, error))
+        else:
+            self._send_response(command, request_id, value)
 
     def _process_response(self, message):
         request_id, requested_value = message.content["requst_id"], message.content["requested_value"]

@@ -27,6 +27,7 @@ logging.basicConfig(  # TODO all prints as logs
 
 
 class Client:
+    active_client = None
     def __init__(self, config_path="client_config.ini"):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
@@ -44,6 +45,8 @@ class Client:
         self.config_path = config_path
         self.config = ConfigParser.ConfigParser()
         self.load_config()
+
+        Client.active_client = self
 
     def load_config(self):
         self.config.read(self.config_path)
@@ -91,7 +94,17 @@ class Client:
         unpacked = struct.unpack(NTP_PACKET_FORMAT, msg[0:struct.calcsize(NTP_PACKET_FORMAT)])
         return unpacked[10] + float(unpacked[11]) / 2 ** 32 - NTP_DELTA
 
-    def reconnect(self, timeout=2, attempt_limit=5):
+    def start(self):
+        try:
+            while True:
+                self._reconnect()
+                self._process_connections()
+
+        except (KeyboardInterrupt, errno.EINTR):
+            logging.critical("Caught interrupt, exiting!")
+            self.selector.close()
+
+    def _reconnect(self, timeout=2, attempt_limit=5):
         logging.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
         attempt_count = 0
         while not self.connected:
@@ -118,12 +131,14 @@ class Client:
                 self.broadcast_bind()
                 attempt_count = 0
 
+
     def _connect(self):
         self.connected = True
         self.client_socket.setblocking(False)
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         self.selector.register(self.client_socket, events, data=self.server_connection)
         self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
+        self._process_connections()
 
 
     def broadcast_bind(self):
@@ -149,29 +164,34 @@ class Client:
         finally:
             broadcast_client.close()
 
-    def mainloop(self):
-        try:
-            while True:
-                events = self.selector.select(timeout=1)
-                if events:
-                    for key, mask in events:
-                        if key.data is None:
-                            pass
-                        else:
-                            connection = key.data
+    def _process_connections(self):
+        while True:
+            events = self.selector.select(timeout=1)
+            if events:
+                for key, mask in events:
+                    if key.data is None:
+                        pass
+                    else:
+                        connection = key.data
+                        try:
                             connection.process_events(mask)
+                        except Exception as error:
+                            logging.error(
+                                "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
+                            )
+                            self.server_connection.close()
+                            self.connected = False
+                            break
 
-                if not self.selector.get_map():
-                    logging.warning("No active connections left!")
-                    #self.reconnect()
-        except (KeyboardInterrupt, errno.EINTR):
-            logging.critical("Caught interrupt, exiting!")
-        finally:
-            self.selector.close()
+            if not self.selector.get_map():
+                logging.warning("No active connections left!")
+                return
 
-# TODO class connection
+@messaging.request_callback("id")
+def response_id():
+    return Client.active_client.client_id
+
 
 if __name__ == "__main__":
     client = Client()
-    client.reconnect()
-    client.mainloop()
+    client.start()
