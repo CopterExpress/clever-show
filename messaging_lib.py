@@ -164,7 +164,7 @@ class ConnectionManager(object):
         self._request_lock = threading.Lock()
 
         self.BUFFER_SIZE = 1024
-        self.resume_queue = True
+        self.resume_queue = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', 'rw'."""
