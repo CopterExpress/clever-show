@@ -4,6 +4,7 @@ import random
 import socket
 import struct
 import logging
+import collections
 import selectors2 as selectors
 import ConfigParser
 from contextlib import closing
@@ -13,7 +14,7 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
-from messaging_lib import Message
+import messaging_lib as messaging
 random.seed()
 
 logging.basicConfig(  # TODO all prints as logs
@@ -29,6 +30,9 @@ class Client:
     def __init__(self, config_path="client_config.ini"):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
+
+        self.server_connection = messaging.ConnectionManager()
+
         self.server_host = None
         self.server_port = None
         self.broadcast_port = None
@@ -70,7 +74,7 @@ class Client:
 
         self.client_id = self.config.get('PRIVATE', 'id')
         if self.client_id == 'default':
-            client_id = 'copter' + str(random.randrange(9999)).zfill(4)
+            self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
             #write_to_config('PRIVATE', 'id', client_id)
         elif self.client_id == '/hostname':
             self.client_id = socket.gethostname()
@@ -105,11 +109,6 @@ class Client:
                     logging.critical("Shutting down on keyboard interrupt")
                     raise KeyboardInterrupt
             else:
-                self.connected = True
-                #self.client_socket.settimeout(None)
-                self.client_socket.setblocking(False)
-                events = selectors.EVENT_READ | selectors.EVENT_WRITE
-                self.selector.register(self.client_socket, events, data=None)
                 logging.info("Connection to server successful!")
                 break
 
@@ -118,14 +117,20 @@ class Client:
                 self.broadcast_bind()
                 attempt_count = 0
 
+    def _connect(self):
+        self.connected = True
+        self.client_socket.setblocking(False)
+        events = selectors.EVENT_READ | selectors.EVENT_WRITE
+        self.selector.register(self.client_socket, events, data=None)
+
     def broadcast_bind(self):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         broadcast_client.bind(("", self.broadcast_port))
         try:
             while True:
-                data, addr = broadcast_client.recvfrom(1024)
-                message = Message()
+                data, addr = broadcast_client.recvfrom(self.BUFFER_SIZE)
+                message = messaging.MessageManager()
                 message.income_raw = data
                 message.process_message()
                 if message.content:
@@ -141,39 +146,25 @@ class Client:
         finally:
             broadcast_client.close()
 
-    def service_connection(self, key, mask):
-        sock = key.fileobj
-        data = key.data
-        if mask & selectors.EVENT_READ:
-            recv_data = sock.recv(1024)  # Should be ready to read
-            if recv_data:
-                print("received", repr(recv_data), "from connection", )
-            if not recv_data:
-                print("closing connection",)
-                self.selector.unregister(sock)
-                self.client_socket.close()
-        if mask & selectors.EVENT_READ:
-            pass
-
-
     def mainloop(self):
-        #self.client_socket.send("104771313759739")
         try:
             while True:
                 events = self.selector.select(timeout=1)
                 if events:
                     for key, mask in events:
-                        self.service_connection(key, mask)
-                        pass
+                        if key.data is None:
+                            connection = key.data
+                            connection.process_events(mask)
 
                 if not self.selector.get_map():
-                    logging.warning("No active connections left")
+                    logging.warning("No active connections left!")
                     self.reconnect()
-        except KeyboardInterrupt:
-            print("caught keyboard interrupt, exiting")
+        except (KeyboardInterrupt, errno.EINTR):
+            logging.critical("Caught interrupt, exiting!")
         finally:
             self.selector.close()
 
+# TODO class connection
 
 if __name__ == "__main__":
     client = Client()
