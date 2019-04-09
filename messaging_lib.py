@@ -13,7 +13,8 @@ except:
     import selectors2 as selectors
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
-                                                           "callback", "callback_args", "callback_kwargs"
+                                                           "callback", "callback_args", "callback_kwargs",
+                                                           #"obj",
                                                            ])
 
 
@@ -286,12 +287,29 @@ class ConnectionManager(object):
         with self._request_lock:
             for key, value in self._request_queue.items():
                 if (key == request_id) and (value.requested_value == requested_value):
+                    print(54)
                     request = self._request_queue.pop(key)
-                    request.value = message.content["value"]
+                    print(request)
+                    value = message.content["value"]
+                    print(45)
                     logging.debug(
                         "Request successfully closed with value {}".format(message.content["value"])
                     )
-                    request.callback(request.value, *request.callback_args, **request.callback_kwargs)
+                    '''
+                                        if request.obj:
+                        obj = request.obj
+                        f = request.callback
+                        
+                        obj.f(request.value, *request.callback_args, **request.callback_kwargs)
+
+                    else:
+                        f = request.callback
+                        f(request.value, *request.callback_args, **request.callback_kwargs)
+                    '''
+                    f = request.callback
+                    print(f)
+                    f(value, *request.callback_args, **request.callback_kwargs)
+
                     break
             else:
                 logging.warning("Unexpected  response!")
@@ -311,6 +329,7 @@ class ConnectionManager(object):
         with self._send_lock:
             if (not self._send_buffer) and self._send_queue:
                 message = self._send_queue.popleft()
+                print(self._send_queue)
                 self._send_buffer += message
         if self._send_buffer:
             self._write()
@@ -332,13 +351,14 @@ class ConnectionManager(object):
         else:
             logging.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
             self._send_buffer = self._send_buffer[sent:]
+            print(self._send_buffer)
 
     def _send(self, data):
         with self._send_lock:
             self._send_queue.append(data)
 
     def get_response(self, requested_value, callback, request_args=None,  # timeout=30,
-                     callback_args=(), callback_kwargs=None):
+                     callback_args=(), callback_kwargs=None, obj=None):
         if request_args is None:
             request_args = {}
         if callback_kwargs is None:
@@ -353,6 +373,7 @@ class ConnectionManager(object):
                 callback=callback,
                 callback_args=callback_args,
                 callback_kwargs=callback_kwargs,
+                #obj=obj
             )
         self._send(MessageManager.create_request(requested_value, request_id, request_args))
 

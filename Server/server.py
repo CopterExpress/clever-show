@@ -257,7 +257,7 @@ class Client(messaging.ConnectionManager):
             self.on_connect(self)
 
     def _got_id(self, value):
-        logging.info("Got copter id: {} for client {}".format(self.copter_id, self.addr))
+        logging.info("Got copter id: {} for client {}".format(value, self.addr))
         self.copter_id = value
         if Client.on_first_connect:
             Client.on_first_connect(self)
@@ -290,7 +290,7 @@ class Client(messaging.ConnectionManager):
     def broadcast(message, force_all=False):
         for client in Client.clients.values():
             if client.connected or force_all:
-                client.send(message)
+                client._send(message)
 
     @classmethod
     @requires_any_connected
