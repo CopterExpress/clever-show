@@ -69,7 +69,7 @@ class MessageManager:
         if args is None:
             args = {}
         contents = {"requested_value": requested_value,
-                    "requst_id": request_id,
+                    "request_id": request_id,
                     "args": args,
                     }
         message = cls.create_message(cls._json_encode(contents), "json", "request")
@@ -78,7 +78,7 @@ class MessageManager:
     @classmethod
     def create_response(cls, requested_value, request_id, value):
         contents = {"requested_value": requested_value,
-                    "requst_id": request_id,
+                    "request_id": request_id,
                     "value": value,
                     }
         message = cls.create_message(cls._json_encode(contents), "json", "response")

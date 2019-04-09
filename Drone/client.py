@@ -110,6 +110,7 @@ class Client:
                     raise KeyboardInterrupt
             else:
                 logging.info("Connection to server successful!")
+                self._connect()
                 break
 
             if attempt_count >= attempt_limit:
@@ -121,7 +122,9 @@ class Client:
         self.connected = True
         self.client_socket.setblocking(False)
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
-        self.selector.register(self.client_socket, events, data=None)
+        self.selector.register(self.client_socket, events, data=self.server_connection)
+        self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
+
 
     def broadcast_bind(self):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -153,12 +156,14 @@ class Client:
                 if events:
                     for key, mask in events:
                         if key.data is None:
+                            pass
+                        else:
                             connection = key.data
                             connection.process_events(mask)
 
                 if not self.selector.get_map():
                     logging.warning("No active connections left!")
-                    self.reconnect()
+                    #self.reconnect()
         except (KeyboardInterrupt, errno.EINTR):
             logging.critical("Caught interrupt, exiting!")
         finally:
