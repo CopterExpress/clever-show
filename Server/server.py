@@ -95,9 +95,13 @@ class Server:
 
     @staticmethod
     def get_ip_address():
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ip_socket:
-            ip_socket.connect(("8.8.8.8", 80))
-            return ip_socket.getsockname()[0]
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ip_socket:
+                ip_socket.connect(("8.8.8.8", 80))
+                return ip_socket.getsockname()[0]
+        except OSError:
+            logging.warning("No network connection detected, starting on localhost")
+            return "localhost"
 
     @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
@@ -107,6 +111,13 @@ class Server:
             ntp_socket.sendto(NTP_QUERY, (ntp_host, ntp_port))
             msg, _ = ntp_socket.recvfrom(1024)
         return int.from_bytes(msg[-8:], 'big') / 2 ** 32 - NTP_DELTA
+
+    def time_now(self):
+        if self.USE_NTP:
+            timenow = self.get_ntp_time(self.NTP_HOST, self.NTP_PORT)
+        else:
+            timenow = time.time()
+        return timenow
 
     # noinspection PyArgumentList
     def _client_processor(self):
@@ -189,13 +200,6 @@ class Server:
             broadcast_client.close()
             logging.info("Broadcast listener thread stopped, socked closed!")
 
-    def time_now(self):
-        if self.USE_NTP:
-            timenow = Server.get_ntp_time(self.NTP_HOST, self.NTP_PORT)
-        else:
-            timenow = time.time()
-        return timenow
-
     def send_starttime(self, copter, dt=0):
         timenow = self.time_now()
         print('Now:', time.ctime(timenow), "+ dt =", dt)
@@ -270,20 +274,19 @@ class Client(messaging.ConnectionManager):
 
         super(Client, self).close()
 
-
     @requires_connect
     def _send(self, data):
         super(Client, self)._send(data)
         logging.debug("Queued data to send: {}".format(data))
 
-    def send_config_options(self, *options: ConfigOption):
+    def send_config_options(self, *options: ConfigOption, reload_config=True):
         logging.info("Sending config options: {} to {}".format(options, self.addr))
-        for option in options:
-            self.send_message(
-                'config_write',
-                {'section': option.section, 'option': option.option, 'value': option.value}
-            )
-        self.send_message("config_reload")
+        sending_options = [{'section': option.section, 'option': option.option, 'value': option.value}
+                           for option in options]
+        print(sending_options)
+        self.send_message(
+            'config_write', {"options": sending_options, "reload": reload_config}
+        )
 
     @staticmethod
     @requires_any_connected

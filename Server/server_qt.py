@@ -165,7 +165,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for section in sendable_config.sections():
                 for option in dict(sendable_config.items(section)):
                     value = sendable_config[section][option]
-                    print("Got item from config:", section, option, value)
+                    logging.debug("Got item from config:".format(section, option, value))
                     options.append(ConfigOption(section, option, value))
             for row_num in range(model.rowCount()):
                 item = model.item(row_num, 0)
@@ -184,7 +184,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if item.isCheckable() and item.checkState() == Qt.Checked:
                     copter = Client.get_by_id(item.text())
                     copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
-                    # clever_restart=True
+                    copter.send_message("service_restart", {"name": "clever"})
 
 
 model = QStandardItemModel()

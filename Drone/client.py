@@ -5,17 +5,17 @@ import socket
 import struct
 import logging
 import collections
-import selectors2 as selectors
 import ConfigParser
+import selectors2 as selectors
+
 from contextlib import closing
 
-import os,sys,inspect
+import os,sys,inspect  # Add parent dir to PATH to import messaging_lib
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
 import messaging_lib as messaging
-random.seed()
 
 logging.basicConfig(  # TODO all prints as logs
     level=logging.DEBUG, # INFO
@@ -25,9 +25,11 @@ logging.basicConfig(  # TODO all prints as logs
         logging.StreamHandler()
     ])
 
+ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 
-class Client:
-    active_client = None
+active_client = None  # maybe needs to be refactored
+
+class Client(object):
     def __init__(self, config_path="client_config.ini"):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
@@ -46,7 +48,8 @@ class Client:
         self.config = ConfigParser.ConfigParser()
         self.load_config()
 
-        Client.active_client = self
+        global active_client
+        active_client = self
 
     def load_config(self):
         self.config.read(self.config_path)
@@ -59,28 +62,26 @@ class Client:
         self.NTP_HOST = self.config.get('NTP', 'host')
         self.NTP_PORT = self.config.getint('NTP', 'port')
 
-        files_directory = self.config.get('FILETRANSFER', 'files_directory')
-
-        #FRAME_ID = self.config.get('COPTERS', 'frame_id')  # TODO in play_animation
-        #self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
-        #self.TAKEOFF_TIME = self.config.getfloat('COPTERS', 'takeoff_time')
-        #self.RFP_TIME = self.config.getfloat('COPTERS', 'reach_first_point_time')
-        #self.SAFE_TAKEOFF = self.config.getboolean('COPTERS', 'safe_takeoff')
-
-        #self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
-        #self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
-        #self.X0 = self.config.getfloat('PRIVATE', 'x0')
-        #self.Y0 = self.config.getfloat('PRIVATE', 'y0')
-
-        #self.USE_LEDS = config.getboolean('PRIVATE', 'use_leds')
-        #play_animation.USE_LEDS = USE_LEDS  # TODO in copter_client
+        self.files_directory = self.config.get('FILETRANSFER', 'files_directory')
 
         self.client_id = self.config.get('PRIVATE', 'id')
         if self.client_id == 'default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
-            #write_to_config('PRIVATE', 'id', client_id)
+            self.write_config(False, 'PRIVATE', 'id', self.client_id)
         elif self.client_id == '/hostname':
             self.client_id = socket.gethostname()
+
+    def rewrite_config(self):
+        with open(self.config_path, 'w') as file:
+            self.config.write(file)
+
+    def write_config(self, reload_config=True, *config_options):
+        for config_option in config_options:
+            self.config.set(config_option.section, config_option.option, config_option.value)
+        self.rewrite_config()
+
+        if reload_config:
+            self.load_config()
 
     @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
@@ -94,13 +95,20 @@ class Client:
         unpacked = struct.unpack(NTP_PACKET_FORMAT, msg[0:struct.calcsize(NTP_PACKET_FORMAT)])
         return unpacked[10] + float(unpacked[11]) / 2 ** 32 - NTP_DELTA
 
+    def time_now(self):
+        if self.USE_NTP:
+            timenow = self.get_ntp_time(self.NTP_HOST, self.NTP_PORT)
+        else:
+            timenow = time.time()
+        return timenow
+
     def start(self):
         try:
             while True:
                 self._reconnect()
                 self._process_connections()
 
-        except (KeyboardInterrupt, errno.EINTR):
+        except (KeyboardInterrupt, InterruptedError):
             logging.critical("Caught interrupt, exiting!")
             self.selector.close()
 
@@ -155,11 +163,12 @@ class Client:
                     logging.info("Received broadcast message {} from {}".format(message.content, addr))
                     if message.content["command"] == "server_ip":
                         args = message.content["args"]
-                        self.server_host = args["host"]
                         self.server_port = int(args["port"])
+                        self.server_host = args["host"]
+                        self.write_config(False,
+                                          ConfigOption("SERVER", "port", self.server_port),
+                                          ConfigOption("SERVER", "host", self.server_host))
                         logging.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
-                        #write_to_config("SERVER", "port", port)
-                        #write_to_config("SERVER", "host", host)  # TODO
                         break
         finally:
             broadcast_client.close()
@@ -187,10 +196,20 @@ class Client:
                 logging.warning("No active connections left!")
                 return
 
-@messaging.request_callback("id")
-def response_id():
-    return Client.active_client.client_id
 
+@messaging.request_callback("id")
+def _response_id():
+    return active_client.client_id
+
+@messaging.request_callback("time")
+def _response_time():
+    return active_client.time_now()
+
+@messaging.message_callback("config_write")
+def _command_config_write(*args, **kwargs):
+    options = [ConfigOption(**raw_option) for raw_option in kwargs["options"]]
+    logging.info("Writing config options: {}".format(options))
+    active_client.write_config(kwargs["reload"], *options)
 
 if __name__ == "__main__":
     client = Client()

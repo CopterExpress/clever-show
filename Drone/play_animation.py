@@ -16,9 +16,8 @@ def takeoff(z=1.5, safe_takeoff=True, timeout=5000):
     if USE_LEDS:
         LedLib.wipe_to(255, 0, 0)
     if safe_takeoff:
-        FlightLib.takeoff(z=z, wait=True, timeout_takeoff = timeout, emergency_land=True)  # TODO dont forget change back to takeoff
-    else:
-        FlightLib.takeoff(z=z, wait=True, emergency_land=False)
+        FlightLib.takeoff(z=z, wait=True, timeout_takeoff=timeout, emergency_land=safe_takeoff)
+    LedLib.blink(0, 255, 0)
 
 
 def land(descend=False):

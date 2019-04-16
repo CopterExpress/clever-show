@@ -9,12 +9,12 @@ import collections
 
 try:
     import selectors
-except:
+except ImportError:
     import selectors2 as selectors
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
-                                                           #"obj",
+                                                           # "obj",
                                                            ])
 
 
@@ -97,11 +97,11 @@ class MessageManager:
             self.jsonheader = self._json_decode(self.income_raw[:header_len], "utf-8")
             self.income_raw = self.income_raw[header_len:]
             for reqhdr in (
-                "byteorder",
-                "content-length",
-                "content-type",
-                "content-encoding",
-                "message-type",
+                    "byteorder",
+                    "content-length",
+                    "content-type",
+                    "content-encoding",
+                    "message-type",
             ):
                 if reqhdr not in self.jsonheader:
                     raise ValueError('Missing required header {}'.format(reqhdr))
@@ -131,13 +131,29 @@ class MessageManager:
                 self._process_content()
 
 
-def request_callback(string_command):
+def message_callback(string_command):
     def inner(f):
-        ConnectionManager.requests_callbacks.update({string_command: f})
+        ConnectionManager.messages_callbacks[string_command] = f
+        logging.debug("Registered message function {} for {}".format(f, string_command))
 
         def wrapper(*args, **kwargs):
             return f(*args, **kwargs)
+
         return wrapper
+
+    return inner
+
+
+def request_callback(string_command):
+    def inner(f):
+        ConnectionManager.requests_callbacks[string_command] = f
+        logging.debug("Registered callback function {} for {}".format(f, string_command))
+
+        def wrapper(*args, **kwargs):
+            return f(*args, **kwargs)
+
+        return wrapper
+
     return inner
 
 
@@ -219,13 +235,17 @@ class ConnectionManager(object):
                 self._received_queue.appendleft(MessageManager())
 
             self._received_queue[0].income_raw += self._recv_buffer
+            self._recv_buffer = b''
             self._received_queue[0].process_message()
 
+            # if something left after processing message - put it back
             if self._received_queue[0].content and self._received_queue[0].income_raw:
                 self._recv_buffer = self._received_queue[0].income_raw + self._recv_buffer
                 self._received_queue[0].income_raw = b''
 
-        self.process_received()
+        if self._received_queue:
+            if self._received_queue[-1].content:
+                self.process_received()
 
     def _read(self):
         try:
@@ -245,19 +265,19 @@ class ConnectionManager(object):
                 raise RuntimeError("Peer closed.")
 
     def process_received(self):
-        if self._received_queue:
-            if self._received_queue[-1].content:
-                message = self._received_queue.pop()
-                message_type = message.jsonheader["message-type"]
-                logging.debug("Received message! Header: {}, content: {}".format(message.jsonheader, message.content))
-                if message_type == "message":
-                    self._process_message(message)
-                elif message_type == "response":
-                    self._process_response(message)
-                elif message_type == "request":
-                    self._process_request(message)
-                elif message_type == "filetransfer":
-                    self._process_filetransfer(message)
+        income_message = self._received_queue.pop()
+        message_type = income_message.jsonheader["message-type"]
+        logging.debug("Received message! Header: {}, content: {}".format(
+            income_message.jsonheader, income_message.content))
+
+        if message_type == "message":
+            self._process_message(income_message)
+        elif message_type == "response":
+            self._process_response(income_message)
+        elif message_type == "request":
+            self._process_request(income_message)
+        elif message_type == "filetransfer":
+            self._process_filetransfer(income_message)
 
     def _process_message(self, message):
         command = message.content["command"]
@@ -295,19 +315,8 @@ class ConnectionManager(object):
                     logging.debug(
                         "Request successfully closed with value {}".format(message.content["value"])
                     )
-                    '''
-                                        if request.obj:
-                        obj = request.obj
-                        f = request.callback
-                        
-                        obj.f(request.value, *request.callback_args, **request.callback_kwargs)
 
-                    else:
-                        f = request.callback
-                        f(request.value, *request.callback_args, **request.callback_kwargs)
-                    '''
                     f = request.callback
-                    print(f)
                     f(value, *request.callback_args, **request.callback_kwargs)
 
                     break
@@ -329,7 +338,6 @@ class ConnectionManager(object):
         with self._send_lock:
             if (not self._send_buffer) and self._send_queue:
                 message = self._send_queue.popleft()
-                print(self._send_queue)
                 self._send_buffer += message
         if self._send_buffer:
             self._write()
@@ -351,14 +359,13 @@ class ConnectionManager(object):
         else:
             logging.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
             self._send_buffer = self._send_buffer[sent:]
-            print(self._send_buffer)
 
     def _send(self, data):
         with self._send_lock:
             self._send_queue.append(data)
 
     def get_response(self, requested_value, callback, request_args=None,  # timeout=30,
-                     callback_args=(), callback_kwargs=None, obj=None):
+                     callback_args=(), callback_kwargs=None):
         if request_args is None:
             request_args = {}
         if callback_kwargs is None:
@@ -373,7 +380,6 @@ class ConnectionManager(object):
                 callback=callback,
                 callback_args=callback_args,
                 callback_kwargs=callback_kwargs,
-                #obj=obj
             )
         self._send(MessageManager.create_request(requested_value, request_id, request_args))
 
