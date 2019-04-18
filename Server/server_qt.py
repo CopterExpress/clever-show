@@ -64,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
             model.setData(model.index(row, col), "{} %".format(round(batt_percent, 3)))
         elif col == 4:
             if value != "OK":
-                model.setData(model.index(row, col), str(value))
+                model.setData(model.index(row, col), str(value))  # TODO different handling
             else:
                 model.setData(model.index(row, col), str(value))
 

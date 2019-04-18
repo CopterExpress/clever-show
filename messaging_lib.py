@@ -229,7 +229,7 @@ class ConnectionManager(object):
 
     def read(self):
         self._read()
-        if self._recv_buffer:
+        while self._recv_buffer:
             if not self._received_queue or (self._received_queue[0].content is not None):
                 self._received_queue.appendleft(MessageManager())
 
@@ -242,9 +242,9 @@ class ConnectionManager(object):
                 self._recv_buffer = self._received_queue[0].income_raw + self._recv_buffer
                 self._received_queue[0].income_raw = b''
 
-        if self._received_queue:
-            if self._received_queue[-1].content:
-                self.process_received()
+            if self._received_queue:
+                if self._received_queue[-1].content:
+                    self.process_received(self._received_queue.popleft())
 
     def _read(self):
         try:
@@ -263,8 +263,7 @@ class ConnectionManager(object):
 
                 raise RuntimeError("Peer closed.")
 
-    def process_received(self):
-        income_message = self._received_queue.pop()
+    def process_received(self, income_message):
         message_type = income_message.jsonheader["message-type"]
         logging.debug("Received message! Header: {}, content: {}".format(
             income_message.jsonheader, income_message.content))

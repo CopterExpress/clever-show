@@ -37,7 +37,8 @@ class CopterClient(client.Client):
 
 @messaging.request_callback("selfcheck")
 def _response_selfcheck():
-    return FlightLib.selfcheck()
+    check = FlightLib.selfcheck()
+    return check if check else "OK"
 
 
 @messaging.request_callback("batt_voltage")
@@ -71,5 +72,6 @@ def _command_takeoff(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    rospy.init_node('Swarm_client', anonymous=True)
     copter_client = CopterClient()
     copter_client.start()
