@@ -10,13 +10,13 @@ module_logger = logging.getLogger("Animation player")
 
 animation_file_path = 'animation.csv'
 USE_LEDS = True
+FRAME_ID = 'aruco_map'
 
 
 def takeoff(z=1.5, safe_takeoff=True, timeout=5000):
     if USE_LEDS:
         LedLib.wipe_to(255, 0, 0)
-    if safe_takeoff:
-        FlightLib.takeoff(z=z, wait=True, timeout_takeoff=timeout, emergency_land=safe_takeoff)
+    FlightLib.takeoff(z=z, wait=True, timeout_takeoff=timeout, emergency_land=safe_takeoff,)
     LedLib.blink(0, 255, 0)
 
 
@@ -28,14 +28,16 @@ def land(descend=False):
         LedLib.off()
 
 
-def animate_frame(current_frame, x0=0.0, y0=0.0):
-    FlightLib.navto(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw=1.57)  # TODO yaw
+def animate_frame(current_frame, x0=0.0, y0=0.0, copter_frame_id=FRAME_ID):
+    FlightLib.navto(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'],
+                    yaw=1.57, frame_id=copter_frame_id)  # TODO yaw
     if USE_LEDS:
         LedLib.fill(current_frame['red'], current_frame['green'], current_frame['blue'])
 
 
-def reach_frame(current_frame, x0=0.0, y0=0.0, timeout=5000):
-    FlightLib.reach_point(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'], yaw=1.57, timeout=timeout)  # TODO yaw
+def reach_frame(current_frame, x0=0.0, y0=0.0, timeout=5000, copter_frame_id=FRAME_ID):
+    FlightLib.reach_point(current_frame['x']+x0, current_frame['y']+y0, current_frame['z'],
+                          yaw=1.57, timeout=timeout, frame_id=copter_frame_id)  # TODO yaw
     if USE_LEDS:
         LedLib.fill(current_frame['red'], current_frame['green'], current_frame['blue'])
 

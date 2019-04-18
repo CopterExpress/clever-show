@@ -14,7 +14,6 @@ except ImportError:
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
-                                                           # "obj",
                                                            ])
 
 
@@ -323,14 +322,14 @@ class ConnectionManager(object):
             else:
                 logging.warning("Unexpected  response!")
 
-    def _process_filetransfer(self, message):
+    def _process_filetransfer(self, message):  # TODO path?
         if message.jsonheader["content-type"] == "binary":
             filepath = message.jsonheader["filepath"]
             try:
                 with open(filepath, 'wb') as f:
                     f.write(message.content)
             except OSError as error:
-                logging.warning("File can not be written due error: ".format(error))
+                logging.error("File {} can not be written due error: {}".format(filepath, error))
             else:
                 logging.info("File {} successfully received ".format(filepath))
 
