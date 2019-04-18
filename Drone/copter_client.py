@@ -8,6 +8,8 @@ from FlightLib import LedLib
 import client
 import messaging_lib as messaging
 import play_animation
+import ros_logging
+
 
 
 class CopterClient(client.Client):
@@ -73,5 +75,6 @@ def _command_takeoff(*args, **kwargs):
 
 if __name__ == "__main__":
     rospy.init_node('Swarm_client', anonymous=True)
+    ros_logging.route_logger_to_ros("client")
     copter_client = CopterClient()
     copter_client.start()

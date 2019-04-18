@@ -16,7 +16,6 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
 import messaging_lib as messaging
-import ros_logging
 
 logging.basicConfig(  # TODO all prints as logs
     level=logging.DEBUG, # INFO
@@ -24,7 +23,6 @@ logging.basicConfig(  # TODO all prints as logs
     handlers=[
         logging.FileHandler("client_logs.log"),
         logging.StreamHandler(),
-        ros_logging.RosHandler(),
     ])
 
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
