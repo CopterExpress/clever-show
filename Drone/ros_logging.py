@@ -19,5 +19,8 @@ class RosHandler(logging.Handler):
             rospy.logerr("unknown log level %s LOG: %s: %s" % (record.levelno, record.name, record.msg))
 
 
-def route_logger_to_ros(logger_name):
-    logging.getLogger(logger_name).addHandler(RosHandler())
+def route_logger_to_ros(logger_name=None):
+    if logger_name is not None:
+        logging.getLogger(logger_name).addHandler(RosHandler())
+    else:
+        logging.getLogger().addHandler(RosHandler())
