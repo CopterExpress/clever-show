@@ -73,7 +73,7 @@ def _command_takeoff(*args, **kwargs):
 
 
 if __name__ == "__main__":
-    ros_logging.route_logger_to_ros(messaging.__name__)
+    ros_logging.route_logger_to_ros()
     rospy.init_node('Swarm_client', anonymous=True)
     copter_client = CopterClient()
     copter_client.start()
