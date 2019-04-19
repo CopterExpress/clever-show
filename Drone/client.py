@@ -22,7 +22,7 @@ logging.basicConfig(  # TODO all prints as logs
     format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
     handlers=[
         logging.FileHandler("client_logs.log"),
-        logging.StreamHandler(),
+        #logging.StreamHandler(),
     ])
 
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])

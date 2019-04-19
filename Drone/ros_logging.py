@@ -13,11 +13,11 @@ class RosHandler(logging.Handler):
     }
 
     def emit(self, record):
-        if "rosout" not in record.msg:
-            try:
-                self.level_map[record.levelno]("%s: %s" % (record.name, record.msg))
-            except KeyError:
-                rospy.logerr("unknown log level %s LOG: %s: %s" % (record.levelno, record.name, record.msg))
+        #if "rosout" not in record.msg:
+        try:
+            self.level_map[record.levelno]("%s: %s" % (record.name, record.msg))
+        except KeyError:
+            rospy.logerr("unknown log level %s LOG: %s: %s" % (record.levelno, record.name, record.msg))
 
 
 def route_logger_to_ros(logger_name=None):
