@@ -11,7 +11,6 @@ import play_animation
 import ros_logging
 
 
-
 class CopterClient(client.Client):
     def load_config(self):
         super(CopterClient, self).load_config()
@@ -74,7 +73,7 @@ def _command_takeoff(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    ros_logging.route_logger_to_ros(messaging.__name__)
     rospy.init_node('Swarm_client', anonymous=True)
-    ros_logging.route_logger_to_ros()
     copter_client = CopterClient()
     copter_client.start()

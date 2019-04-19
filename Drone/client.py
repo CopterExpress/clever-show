@@ -21,10 +21,11 @@ logging.basicConfig(  # TODO all prints as logs
     level=logging.DEBUG, # INFO
     format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
     handlers=[
-        logging.NullHandler()
-        #logging.FileHandler("client_logs.log"),
-        #logging.StreamHandler(),
+        logging.FileHandler("client_logs.log"),
+        logging.StreamHandler(),
     ])
+
+logger = logging.getLogger(__name__)
 
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 
@@ -110,33 +111,33 @@ class Client(object):
                 self._process_connections()
 
         except (KeyboardInterrupt, InterruptedError):
-            logging.critical("Caught interrupt, exiting!")
+            logger.critical("Caught interrupt, exiting!")
             self.selector.close()
 
     def _reconnect(self, timeout=2, attempt_limit=5):
-        logging.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
+        logger.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
         attempt_count = 0
         while not self.connected:
-            logging.info("Waiting for connection, attempt {}".format(attempt_count))
+            logger.info("Waiting for connection, attempt {}".format(attempt_count))
             try:
                 self.client_socket = socket.socket()
                 self.client_socket.settimeout(timeout)
                 self.client_socket.connect((self.server_host, self.server_port))
             except socket.error as error:
                 if error.errno != errno.EINTR:
-                    logging.warning("Can not connect due error: {}".format(error))
+                    logger.warning("Can not connect due error: {}".format(error))
                     attempt_count += 1
                     time.sleep(timeout)
                 else:
-                    logging.critical("Shutting down on keyboard interrupt")
+                    logger.critical("Shutting down on keyboard interrupt")
                     raise KeyboardInterrupt
             else:
-                logging.info("Connection to server successful!")
+                logger.info("Connection to server successful!")
                 self._connect()
                 break
 
             if attempt_count >= attempt_limit:
-                logging.info("Too many attempts. Trying to get new server IP")
+                logger.info("Too many attempts. Trying to get new server IP")
                 self.broadcast_bind()
                 attempt_count = 0
 
@@ -161,7 +162,7 @@ class Client(object):
                 message.income_raw = data
                 message.process_message()
                 if message.content:
-                    logging.info("Received broadcast message {} from {}".format(message.content, addr))
+                    logger.info("Received broadcast message {} from {}".format(message.content, addr))
                     if message.content["command"] == "server_ip":
                         args = message.content["args"]
                         self.server_port = int(args["port"])
@@ -169,7 +170,7 @@ class Client(object):
                         self.write_config(False,
                                           ConfigOption("SERVER", "port", self.server_port),
                                           ConfigOption("SERVER", "host", self.server_host))
-                        logging.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
+                        logger.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
                         break
         finally:
             broadcast_client.close()
@@ -186,7 +187,7 @@ class Client(object):
                         try:
                             connection.process_events(mask)
                         except Exception as error:
-                            logging.error(
+                            logger.error(
                                 "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
                             )
                             self.server_connection.close()
@@ -194,7 +195,7 @@ class Client(object):
                             break
 
             if not self.selector.get_map():
-                logging.warning("No active connections left!")
+                logger.warning("No active connections left!")
                 return
 
 
@@ -209,7 +210,7 @@ def _response_time():
 @messaging.message_callback("config_write")
 def _command_config_write(*args, **kwargs):
     options = [ConfigOption(**raw_option) for raw_option in kwargs["options"]]
-    logging.info("Writing config options: {}".format(options))
+    logger.info("Writing config options: {}".format(options))
     active_client.write_config(kwargs["reload"], *options)
 
 if __name__ == "__main__":

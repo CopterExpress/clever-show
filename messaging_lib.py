@@ -15,6 +15,7 @@ except ImportError:
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
                                                            ])
+logger = logging.getLogger(__name__)
 
 
 class MessageManager:
@@ -133,7 +134,7 @@ class MessageManager:
 def message_callback(string_command):
     def inner(f):
         ConnectionManager.messages_callbacks[string_command] = f
-        logging.debug("Registered message function {} for {}".format(f, string_command))
+        logger.debug("Registered message function {} for {}".format(f, string_command))
 
         def wrapper(*args, **kwargs):
             return f(*args, **kwargs)
@@ -146,7 +147,7 @@ def message_callback(string_command):
 def request_callback(string_command):
     def inner(f):
         ConnectionManager.requests_callbacks[string_command] = f
-        logging.debug("Registered callback function {} for {}".format(f, string_command))
+        logger.debug("Registered callback function {} for {}".format(f, string_command))
 
         def wrapper(*args, **kwargs):
             return f(*args, **kwargs)
@@ -202,13 +203,13 @@ class ConnectionManager(object):
         self._set_selector_events_mask('rw')
 
     def close(self):
-        logging.info("Closing connection to {}".format(self.addr))
+        logger.info("Closing connection to {}".format(self.addr))
         try:
             self.selector.unregister(self.socket)
         except AttributeError:
             pass
         except Exception as error:
-            logging.error("{}: Error during selector unregistering: {}".format(self.addr, error))
+            logger.error("{}: Error during selector unregistering: {}".format(self.addr, error))
         finally:
             self.selector = None
 
@@ -217,7 +218,7 @@ class ConnectionManager(object):
         except AttributeError:
             pass
         except OSError as error:
-            logging.error("{}: Error during socket closing: {}".format(self.addr, error))
+            logger.error("{}: Error during socket closing: {}".format(self.addr, error))
         finally:
             self.socket = None
 
@@ -255,9 +256,9 @@ class ConnectionManager(object):
         else:
             if data:
                 self._recv_buffer += data
-                logging.debug("Received {} from {}".format(data, self.addr))
+                logger.debug("Received {} from {}".format(data, self.addr))
             else:
-                logging.warning("Connection to {} lost!".format(self.addr))
+                logger.warning("Connection to {} lost!".format(self.addr))
                 if not self.resume_queue:
                     self._recv_buffer = b''
 
@@ -265,7 +266,7 @@ class ConnectionManager(object):
 
     def process_received(self, income_message):
         message_type = income_message.jsonheader["message-type"]
-        logging.debug("Received message! Header: {}, content: {}".format(
+        logger.debug("Received message! Header: {}, content: {}".format(
             income_message.jsonheader, income_message.content))
 
         if message_type == "message":
@@ -283,9 +284,9 @@ class ConnectionManager(object):
         try:
             self.messages_callbacks[command](**args)
         except KeyError:
-            logging.warning("Command {} does not exist!".format(command))
+            logger.warning("Command {} does not exist!".format(command))
         except Exception as error:
-            logging.error("Error during command {} execution: {}".format(command, error))
+            logger.error("Error during command {} execution: {}".format(command, error))
 
     def _process_request(self, message):
         command = message.content["requested_value"]
@@ -294,9 +295,9 @@ class ConnectionManager(object):
         try:
             value = self.requests_callbacks[command](**args)
         except KeyError:
-            logging.warning("Request {} does not exist!".format(command))
+            logger.warning("Request {} does not exist!".format(command))
         except Exception as error:  # TODO send response error\cancel
-            logging.error("Error during command {} execution: {}".format(command, error))
+            logger.error("Error during command {} execution: {}".format(command, error))
         else:
             self._send_response(command, request_id, value)
 
@@ -310,7 +311,7 @@ class ConnectionManager(object):
                     print(request)
                     value = message.content["value"]
                     print(45)
-                    logging.debug(
+                    logger.debug(
                         "Request successfully closed with value {}".format(message.content["value"])
                     )
 
@@ -319,7 +320,7 @@ class ConnectionManager(object):
 
                     break
             else:
-                logging.warning("Unexpected  response!")
+                logger.warning("Unexpected  response!")
 
     def _process_filetransfer(self, message):  # TODO path?
         if message.jsonheader["content-type"] == "binary":
@@ -328,9 +329,9 @@ class ConnectionManager(object):
                 with open(filepath, 'wb') as f:
                     f.write(message.content)
             except OSError as error:
-                logging.error("File {} can not be written due error: {}".format(filepath, error))
+                logger.error("File {} can not be written due error: {}".format(filepath, error))
             else:
-                logging.info("File {} successfully received ".format(filepath))
+                logger.info("File {} successfully received ".format(filepath))
 
     def write(self):
         with self._send_lock:
@@ -347,7 +348,7 @@ class ConnectionManager(object):
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         except Exception as error:
-            logging.warning("Attempt to send message {} to {} failed due error: {}".format(
+            logger.warning("Attempt to send message {} to {} failed due error: {}".format(
                 self._send_buffer, self.addr, error))
 
             if not self.resume_queue:
@@ -355,7 +356,7 @@ class ConnectionManager(object):
 
             raise error
         else:
-            logging.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
+            logger.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
             self._send_buffer = self._send_buffer[sent:]
 
     def _send(self, data):
@@ -392,9 +393,9 @@ class ConnectionManager(object):
             with open(filepath, 'rb') as f:
                 data = f.read()
         except OSError as error:
-            logging.warning("File can not be opened due error: ".format(error))
+            logger.warning("File can not be opened due error: ".format(error))
         else:
-            logging.info("Sending file {} to {} (as: {})".format(filepath, self.addr, dest_filepath))
+            logger.info("Sending file {} to {} (as: {})".format(filepath, self.addr, dest_filepath))
             self._send(MessageManager.create_message(
                 data, "binary", "filetransfer", "binary", {"filepath": dest_filepath}
             ))
