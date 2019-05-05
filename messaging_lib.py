@@ -297,22 +297,19 @@ class ConnectionManager(object):
         except KeyError:
             logger.warning("Request {} does not exist!".format(command))
         except Exception as error:  # TODO send response error\cancel
-            logger.error("Error during command {} execution: {}".format(command, error))
+            logger.error("Error during request {} processing: {}".format(command, error))
         else:
             self._send_response(command, request_id, value)
 
     def _process_response(self, message):
         request_id, requested_value = message.content["request_id"], message.content["requested_value"]
         with self._request_lock:
-            for key, value in self._request_queue.items():
+            for key, value in self._request_queue.items():  # TODO as try []
                 if (key == request_id) and (value.requested_value == requested_value):
-                    print(54)
                     request = self._request_queue.pop(key)
-                    print(request)
                     value = message.content["value"]
-                    print(45)
                     logger.debug(
-                        "Request successfully closed with value {}".format(message.content["value"])
+                        "Request {} successfully closed with value {}".format(request, message.content["value"])
                     )
 
                     f = request.callback

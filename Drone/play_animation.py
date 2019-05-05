@@ -5,7 +5,7 @@ import logging
 from FlightLib import FlightLib
 from FlightLib import LedLib
 
-module_logger = logging.getLogger("Animation player")
+logger = logging.getLogger(__name__)
 
 
 animation_file_path = 'animation.csv'
@@ -17,7 +17,7 @@ def takeoff(z=1.5, safe_takeoff=True, timeout=5000):
     if USE_LEDS:
         LedLib.wipe_to(255, 0, 0)
     FlightLib.takeoff(z=z, wait=True, timeout_takeoff=timeout, emergency_land=safe_takeoff,)
-    LedLib.blink(0, 255, 0)
+    LedLib.blink(0, 255, 0, wait=50)
 
 
 def land(descend=False):

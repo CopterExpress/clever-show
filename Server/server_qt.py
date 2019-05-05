@@ -52,6 +52,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 copter.get_response("batt_voltage", self._set_copter_data, callback_args=(row_num, 2))
                 copter.get_response("cell_voltage", self._set_copter_data, callback_args=(row_num, 3))
                 copter.get_response("selfcheck", self._set_copter_data, callback_args=(row_num, 4))
+                copter.get_response("time", self._set_copter_data, callback_args=(row_num, 5))
 
         self.ui.start_button.setEnabled(True)
         self.ui.takeoff_button.setEnabled(True)
@@ -67,6 +68,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 model.setData(model.index(row, col), str(value))  # TODO different handling
             else:
                 model.setData(model.index(row, col), str(value))
+        elif col == 5:
+            model.setData(model.index(row, col), time.ctime(int(value)))
 
     @pyqtSlot()
     def send_starttime(self):

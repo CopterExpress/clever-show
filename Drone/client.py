@@ -110,7 +110,7 @@ class Client(object):
                 self._reconnect()
                 self._process_connections()
 
-        except (KeyboardInterrupt, InterruptedError):
+        except (KeyboardInterrupt, ):
             logger.critical("Caught interrupt, exiting!")
             self.selector.close()
 
@@ -187,11 +187,12 @@ class Client(object):
                         try:
                             connection.process_events(mask)
                         except Exception as error:
-                            logger.error(
-                                "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
-                            )
-                            self.server_connection.close()
-                            self.connected = False
+                            if error.errno != errno.EINTR:
+                                logger.error(
+                                    "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
+                                )
+                                self.server_connection.close()
+                                self.connected = False
                             break
 
             if not self.selector.get_map():
