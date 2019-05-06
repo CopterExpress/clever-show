@@ -173,5 +173,6 @@ if __name__ == "__main__":
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
 
-    task_manager.start()
     copter_client.start()
+    task_manager.start()
+
