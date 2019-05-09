@@ -170,10 +170,11 @@ def _play_animation(*args, **kwargs):
 
 if __name__ == "__main__":
     # rospy.init_node('Swarm_client', anonymous=True)
-    ros_logging.route_logger_to_ros()
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
 
     copter_client.start()
+    ros_logging.route_logger_to_ros()
+    ros_logging.route_logger_to_ros(logger)
     task_manager.start()
 
