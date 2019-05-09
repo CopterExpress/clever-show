@@ -38,6 +38,7 @@ class CopterClient(client.Client):
         rospy.init_node('Swarm_client', anonymous=True)
         if self.USE_LEDS:
             LedLib.init_led()
+
         super(CopterClient, self).start()
 
 

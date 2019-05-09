@@ -105,6 +105,7 @@ class Client(object):
         return timenow
 
     def start(self):
+        logger.info("Starting client")
         try:
             while True:
                 self._reconnect()
