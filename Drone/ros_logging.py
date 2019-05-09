@@ -16,6 +16,7 @@ class RosHandler(logging.Handler):
         print(record.levelno, record.name, record.msg)
         if "rosout" not in record.msg:
             try:
+                pass
                 #self.level_map[record.levelno]("%s: %s" % (record.name, record.msg))
             except KeyError:
                 rospy.logerr("unknown log level %s LOG: %s: %s" % (record.levelno, record.name, record.msg))
