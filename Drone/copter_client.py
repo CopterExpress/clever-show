@@ -34,11 +34,11 @@ class CopterClient(client.Client):
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
 
     def start(self):
-        super(CopterClient, self).start()
         logger.info("Init ROS node")
         rospy.init_node('Swarm_client', anonymous=True)
         if self.USE_LEDS:
             LedLib.init_led()
+        super(CopterClient, self).start()
 
 
 @messaging.request_callback("selfcheck")
