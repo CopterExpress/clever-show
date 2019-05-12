@@ -52,6 +52,7 @@ def check(check_name):
     def inner(f):
         def wrapper(*args, **kwargs):
             failures = f(*args, **kwargs)
+            print(failures)
             if failures:
                 msgs = []
                 for failure in failures:
