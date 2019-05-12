@@ -175,6 +175,11 @@ if __name__ == "__main__":
 
     copter_client.start()
     ros_logging.route_logger_to_ros()
-    ros_logging.route_logger_to_ros(logger)
+    ros_logging.route_logger_to_ros("__main__")
+    ros_logging.route_logger_to_ros("client")
+    ros_logging.route_logger_to_ros("messaging")
+    ros_logging.route_logger_to_ros("messaging")
+
+
     task_manager.start()
 
