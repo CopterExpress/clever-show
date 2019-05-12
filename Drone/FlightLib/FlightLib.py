@@ -53,12 +53,14 @@ def check(check_name):
         def wrapper(*args, **kwargs):
             failures = f(*args, **kwargs)
             print(failures)
-            if failures:
-                msgs = []
-                for failure in failures:
-                    msg = "[{}]: Failure: {}".format(check_name, failure)
-                    msgs.append(msg)
-                    logger.warning(msg)
+            msgs = []
+            for failure in failures:
+                print(failure)
+                msg = "[{}]: Failure: {}".format(check_name, failure)
+                msgs.append(msg)
+                logger.warning(msg)
+
+            if msgs:
                 return msgs
             else:
                 logger.info("[{}]: OK".format(check_name))
