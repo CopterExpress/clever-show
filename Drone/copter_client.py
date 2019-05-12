@@ -35,7 +35,7 @@ class CopterClient(client.Client):
 
     def start(self):
         logger.info("Init ROS node")
-        rospy.init_node('Swarm_client', anonymous=True)
+        rospy.init_node('Swarm_client', anonymous=True, log_level=rospy.DEBUG)
         if self.USE_LEDS:
             LedLib.init_led()
 

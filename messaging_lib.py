@@ -12,10 +12,13 @@ try:
 except ImportError:
     import selectors2 as selectors
 
+import logging_lib
+
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
                                                            ])
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+logger = logging_lib.Logger(_logger, True)
 
 
 class MessageManager:
