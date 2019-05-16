@@ -2,7 +2,7 @@
 
 set -e # Exit immidiately on non-zero result
 
-SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.16-alpha.3/clever_v0.16-alpha.3.img.zip"
+SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.16/clever_v0.16.img.zip"
 
 export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:='noninteractive'}
 export LANG=${LANG:='C.UTF-8'}
@@ -95,6 +95,12 @@ losetup -d ${DEV_IMAGE}
 
 # Install software
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-software.sh'
+
+# Configure image
+img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
+
+# Copy service file for clever show client
+img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
 
 # Shrink image
 img-resize ${IMAGE_PATH}

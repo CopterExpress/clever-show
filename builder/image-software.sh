@@ -3,10 +3,6 @@
 #
 # Script for install software to the image.
 #
-# Copyright (C) 2018 Copter Express Technologies
-#
-# Author: Artem Smirnov <urpylka@gmail.com>
-#
 
 set -e # Exit immidiately on non-zero result
 
@@ -62,8 +58,8 @@ apt-get update -qq
 echo_stamp "Software installing"
 apt-get install -y \
 samba \
-winbind \
 chrony \
+ros-kinetic-vl53l1x \
 && echo_stamp "Everything was installed!" "SUCCESS" \
 || (echo_stamp "Some packages wasn't installed!" "ERROR"; exit 1)
 
