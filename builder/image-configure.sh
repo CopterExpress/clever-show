@@ -22,6 +22,9 @@ echo_stamp() {
   echo -e ${TEXT}
 }
 
+# rename wifi ssid
+sed -i 's/CLEVER/CleverShow/2' /root/init_rpi.sh
+
 # add sudoers variables to make sudo works with ros (for led strip)
 grep -qxF 'Defaults        env_keep += "ROS_LOG_DIR"' /etc/sudoers || cat << EOT >> /etc/sudoers
 
