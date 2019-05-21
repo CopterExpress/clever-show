@@ -72,9 +72,23 @@ def check(check_name):
     return inner
 
 
+def _check_nans(*values):
+    return any(math.isnan(x) for x in values)
+
+
+@check("FCU connection")
+def check_connection():
+    telemetry = get_telemetry()
+    if not telemetry.connected:
+        yield ("Flight controller is not connected!")
+
+
 @check("Linear velocity estimation")
 def check_linear_speeds(speed_limit=0.1):
     telemetry = get_telemetry(frame_id='body')
+
+    if _check_nans(telemetry.vx, telemetry.vy, telemetry.vz):
+        yield ("Velocity estimation is not available")
 
     if telemetry.vx >= speed_limit:
         yield ("X velocity estimation: {:.3f} m/s".format(telemetry.vx))
@@ -88,6 +102,9 @@ def check_linear_speeds(speed_limit=0.1):
 def check_angular_speeds(rate_limit=0.05):
     telemetry = get_telemetry(frame_id='body')
 
+    if _check_nans(telemetry.pitch_rate, telemetry.roll_rate, telemetry.yaw_rate):
+        yield ("Angular velocities estimation is not available")
+
     if telemetry.pitch_rate >= rate_limit:
         yield ("Pitch rate estimation: {:.3f} rad/s".format(telemetry.pitch_rate))
     if telemetry.roll_rate >= rate_limit:
@@ -99,6 +116,10 @@ def check_angular_speeds(rate_limit=0.05):
 @check("Angles estimation")
 def check_angles(angle_limit=math.radians(5)):
     telemetry = get_telemetry(frame_id='body')
+
+    if _check_nans(telemetry.pitch, telemetry.roll, telemetry.yaw):
+        yield ("Angular velocities estimation is not available")
+
     if abs(telemetry.pitch) >= angle_limit:
         yield ("Pitch estimation: {:.3f} rad;{:.3f} degrees".format(telemetry.pitch,
                                                                     math.degrees(telemetry.pitch)))
