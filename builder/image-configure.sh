@@ -38,13 +38,13 @@ Defaults        env_keep += "ROS_HOME"
 Defaults        env_keep += "ROS_LOG_DIR"
 EOT
 
-# configure aruco.launch and clever.launch (for positioning with aruco map and optical flow)
+# configure aruco.launch and clever.launch (for positioning with aruco map)
 sed -i '/<arg name="aruco_map"/c \    <arg name="aruco_map" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/aruco.launch
 sed -i '/<arg name="aruco_vpe"/c \    <arg name="aruco_vpe" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/aruco.launch
 sed -i '/<param name="map"/c \        <param name="map" value="\$\(find aruco_pose\)/map/animation_map.txt"/>' /home/pi/catkin_ws/src/clever/clever/launch/aruco.launch
 sed -i '/<arg name="aruco"/c \    <arg name="aruco" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
 sed -i '/<arg name="rangefinder_vl53l1x"/c \    <arg name="rangefinder_vl53l1x" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
-sed -i '/<arg name="optical_flow"/c \    <arg name="optical_flow" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
+#sed -i '/<arg name="optical_flow"/c \    <arg name="optical_flow" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
 
 # copy office map to animation map if there is no animation map file
 if ! [ -f "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt" ] ; then

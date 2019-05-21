@@ -99,6 +99,10 @@ img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-software.sh'
 # Configure image
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 
+# Reconfiguring clever show repository for simplier unshallowing
+cd ${REPO_DIR}
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+
 # Copy service file for clever show client
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
 
