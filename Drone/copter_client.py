@@ -59,7 +59,7 @@ def _response_cell():
 
 
 @messaging.message_callback("service_restart")
-def _command_service_restart(*args, **kwargs):
+def _command_service_restart(**kwargs):
     os.system("systemctl restart" + kwargs["name"])
 
 
@@ -71,7 +71,7 @@ def _command_led_test(*args, **kwargs):
 
 
 @messaging.message_callback("takeoff")
-def _command_takeoff(*args, **kwargs):
+def _command_takeoff(**kwargs):
     task_manager.add_task(0, 0, animation.takeoff,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
@@ -83,7 +83,7 @@ def _command_takeoff(*args, **kwargs):
 
 
 @messaging.message_callback("land")
-def _command_land(*args, **kwargs):
+def _command_land(**kwargs):
     task_manager.reset()
     task_manager.add_task(-5, 0, animation.land,
                           task_kwargs={
@@ -96,28 +96,28 @@ def _command_land(*args, **kwargs):
 
 
 @messaging.message_callback("disarm")
-def _command_disarm(*args, **kwargs):
+def _command_disarm(**kwargs):
     task_manager.reset()
     task_manager.add_task(-10, 0, FlightLib.arming(False))
 
 
 @messaging.message_callback("stop")
-def _command_stop(*args, **kwargs):
+def _command_stop(**kwargs):
     task_manager.stop()
 
 
 @messaging.message_callback("pause")
-def _command_stop(*args, **kwargs):
+def _command_stop(**kwargs):
     task_manager.pause()
 
 
 @messaging.message_callback("resume")
-def _command_stop(*args, **kwargs):
+def _command_stop(**kwargs):
     task_manager.resume()
 
 
 @messaging.message_callback("start_animation")
-def _play_animation(*args, **kwargs):
+def _play_animation(**kwargs):
     gap = 0.25
     start_time = kwargs["start_time"]  # TODO
     frames = animation.load_animation(os.path.abspath("animation.csv"),
