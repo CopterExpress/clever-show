@@ -125,13 +125,15 @@ class Client(object):
                 self.client_socket.settimeout(timeout)
                 self.client_socket.connect((self.server_host, self.server_port))
             except socket.error as error:
-                if error.errno != errno.EINTR:
-                    logger.warning("Can not connect due error: {}".format(error))
-                    attempt_count += 1
-                    time.sleep(timeout)
-                else:
-                    logger.critical("Shutting down on keyboard interrupt")
-                    raise KeyboardInterrupt
+                if isinstance(error, OSError):
+                    if error.errno == errno.EINTR:
+                        logger.critical("Shutting down on keyboard interrupt")
+                        raise KeyboardInterrupt
+
+                logger.warning("Can not connect due error: {}".format(error))
+                attempt_count += 1
+                time.sleep(timeout)
+
             else:
                 logger.info("Connection to server successful!")
                 self._connect()
@@ -187,14 +189,17 @@ class Client(object):
                         connection = key.data
                         try:
                             connection.process_events(mask)
+
                         except Exception as error:
-                            if error.errno != errno.EINTR:
-                                logger.error(
-                                    "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
-                                )
-                                self.server_connection.close()
-                                self.connected = False
-                            break
+                            logger.error(
+                                "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
+                            )
+                            self.server_connection.close()
+                            self.connected = False
+
+                            if isinstance(error, OSError):
+                                if error.errno == errno.EINTR:
+                                    raise KeyboardInterrupt
 
             if not self.selector.get_map():
                 logger.warning("No active connections left!")
