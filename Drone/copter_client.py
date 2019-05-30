@@ -14,9 +14,6 @@ import animation_lib as animation
 
 import ros_logging
 
-logger = logging.getLogger(__name__)
-
-
 class CopterClient(client.Client):
     def load_config(self):
         super(CopterClient, self).load_config()
@@ -33,11 +30,13 @@ class CopterClient(client.Client):
 
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
 
-    def start(self):
-        logger.info("Init ROS node")
+    def start(self, task_manager_instance):
+        client.logger.info("Init ROS node")
         rospy.init_node('Swarm_client', anonymous=True, log_level=rospy.DEBUG)
         if self.USE_LEDS:
             LedLib.init_led()
+        
+        task_manager_instance.start()
 
         super(CopterClient, self).start()
 
@@ -85,7 +84,7 @@ def _command_takeoff(**kwargs):
 @messaging.message_callback("land")
 def _command_land(**kwargs):
     task_manager.reset()
-    task_manager.add_task(-5, 0, animation.land,
+    task_manager.add_task(0, 0, animation.land,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
                               "timeout": client.active_client.TAKEOFF_TIME,
@@ -172,14 +171,17 @@ if __name__ == "__main__":
     # rospy.init_node('Swarm_client', anonymous=True)
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
-
-    copter_client.start()
+    
+    #print logging.root.manager.loggerDict
+    #task_manager.start()
+    copter_client.start(task_manager)
+    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    if loggers is None:
+        print("No loggers!") 
+    else:
+        print("Loggers",loggers)
     ros_logging.route_logger_to_ros()
     ros_logging.route_logger_to_ros("__main__")
     ros_logging.route_logger_to_ros("client")
     ros_logging.route_logger_to_ros("messaging")
-    ros_logging.route_logger_to_ros("messaging")
-
-
-    task_manager.start()
 
