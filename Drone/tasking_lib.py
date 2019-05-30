@@ -66,12 +66,13 @@ class TaskManager(object):
             raise KeyError('Pop from an empty priority queue')
 
     def start(self, timeouts=False):
+        print("Task manager is started")
         logger.info("Task manager is started")
         self._processor_thread.start()
         self.resume()
 
     def stop(self):
-        self.pause(interrupt=True)
+        self.pause()
         with self._task_queue_lock:
             del self.task_queue[:]
 
@@ -82,8 +83,8 @@ class TaskManager(object):
         self._processor_thread.join(timeout=5)
 
     def pause(self, interrupt=False):
-        if interrupt:
-            self.interrupt()
+#        if interrupt:
+#            self.interrupt()
         self._running_event.clear()
         logger.info("Task queue paused")
 
@@ -95,11 +96,11 @@ class TaskManager(object):
         self.stop()
         self.resume()
 
-    def interrupt(self):
-        self._interrupt_event.set()
-        while self._interrupt_event.is_set():
-            pass
-        logger.info("Task execution successfully interrupted")
+#    def interrupt(self):
+#        self._interrupt_event.set()
+#        while self._interrupt_event.is_set():
+#            pass
+#        logger.info("Task execution successfully interrupted")
 
     def execute_task(self):
         with self._task_queue_lock:
