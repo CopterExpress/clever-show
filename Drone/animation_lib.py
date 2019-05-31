@@ -85,7 +85,11 @@ def convert_frame(frame):
 
 
 def execute_frame(point=(), color=(), yaw=float('Nan'), frame_id='aruco_map', use_leds=True,
-                  flight_func=FlightLib.navto, flight_kwargs={}, interrupter=interrupt_event):
+                  flight_func=FlightLib.navto, flight_kwargs=None, interrupter=interrupt_event):
+
+    if flight_kwargs is None:
+        flight_kwargs = {}
+
     flight_func(*point, yaw=yaw, frame_id=frame_id, interrupter=interrupt_event, **flight_kwargs)
     if use_leds:
         if color:
