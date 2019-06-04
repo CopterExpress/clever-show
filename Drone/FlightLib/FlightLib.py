@@ -25,17 +25,27 @@ landing = rospy.ServiceProxy('/land', Trigger)
 logger.info("Proxy services inited")
 
 # globals
-FREQUENCY = 1000 / 25  # HZ
+FREQUENCY = 40  # HZ
 TOLERANCE = 0.2
-
-interrupt_event = threading.Event()
+SPEED = 1.0
+SPEED_TAKEOFF = 0.8
+TIMEOUT = 5.0
+TIMEOUT_ARMED = 2.0
+TIMEOUT_DESCEND = TIMEOUT
+TIMEOUT_LAND = 8.0
+Z_DESCEND = 0.5
+Z_TAKEOFF = 1.0
+FRAME_ID = 'map'
+INTERRUPTER = threading.Event()
 
 checklist = []
 
+def arming_wrapper(state=False, interrupter=INTERRUPTER):
+    arming(state)
 
 def interrupt():
     logger.info("Performing function interrupt")
-    interrupt_event.set()
+    INTERRUPTER.set()
 
 
 def init(node_name="CleverSwarmFlight", anon=True, no_signals=True):
@@ -140,174 +150,204 @@ def selfcheck():
     return checks
 
 
-def navto(x, y, z, yaw=float('nan'), frame_id='aruco_map', **kwargs):
+def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, **kwargs):
     set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw)
     telemetry = get_telemetry(frame_id=frame_id)
 
     logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    print('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     logger.info('Telemetry now: | z: {:.3f}'.format(telemetry.z))
+    print('Telemetry now: | z: {:.3f}'.format(telemetry.z))
 
     return True
 
 
-def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLERANCE, frame_id='aruco_map',
-                freq=FREQUENCY, timeout=5000, wait=False, interrupter=interrupt_event):
+def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID,
+                freq=FREQUENCY, timeout=TIMEOUT, interrupter=INTERRUPTER, wait=False):
     logger.info('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    print('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     navigate(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, speed=speed)
 
     # waiting for completion
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
-    time_start = rospy.get_rostime()
+    time_start = time.time()
 
     while (get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z) > tolerance) or wait:
         if interrupter.is_set():
-            logger.warning("Flight function interrupted!")
+            logger.warning("Reach point function interrupted!")
+            print("Reach point function interrupted!")
             interrupter.clear()
-            return
+            return False
 
         telemetry = get_telemetry(frame_id=frame_id)
         logger.info('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
+            telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
+        print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
         logger.info('Current delta: | {:.3f}'.format(
             get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
+        print('Current delta: | {:.3f}'.format(
+            get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
 
-        time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
+        time_passed = time.time() - time_start
 
         if timeout is not None:
             if time_passed >= timeout:
-                logger.warning('Reaching point timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                logger.warning('Reaching point timed out! | time: {:3f} seconds'.format(time_passed))
+                print('Reaching point timed out! | time: {:3f} seconds'.format(time_passed))
                 return wait
         rate.sleep()
-    else:
-        logger.info("Point reached!")
-        return True
+
+    logger.info("Point reached!")
+    print("Point reached!")
+    return True
 
 
-def reach_attitude(z=0.0, yaw=float('nan'), speed=1.0, tolerance=TOLERANCE, frame_id='aruco_map',
-                   freq=FREQUENCY, timeout=5000, wait=False, interrupter=interrupt_event):
+def reach_altitude(z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID,
+                   freq=FREQUENCY, timeout=TIMEOUT, interrupter=INTERRUPTER, wait=False):
     logger.info('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
+    print('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
     current_telem = get_telemetry(frame_id=frame_id)
     navigate(frame_id=frame_id, x=current_telem.x, y=current_telem.y, z=z, yaw=yaw, speed=speed)
 
-    # waiting for completion
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
-    time_start = rospy.get_rostime()
+    time_start = time.time()
 
     while (abs(z - telemetry.z) > tolerance) or wait:
         if interrupter.is_set():
-            logger.warning("Flight function interrupted!")
+            logger.warning("Reach altitude function interrupted!")
+            print("Reach altitude function interrupted!")
             interrupter.clear()
             return
 
         telemetry = get_telemetry(frame_id=frame_id)
         logger.info('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
+        print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
+            telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
 
-        time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
+        time_passed = time.time() - time_start
         if timeout is not None:
             if time_passed >= timeout:
-                logger.warning('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                logger.warning('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed))
+                print('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed))
                 return wait
         rate.sleep()
-    else:
-        logger.info("Attitude reached!")
-        return True
+
+    logger.info("Altitude reached!")
+    print("Altitude reached!")
+    return True
 
 
-def stop(frame_id='body', hold_speed=1.0):
+def stop(frame_id='body', hold_speed=SPEED):
     navigate(frame_id=frame_id, yaw=float('nan'), speed=hold_speed)
 
 
-def land(descend=True, z=1.0, frame_id_descend="aruco_map", frame_id_land="aruco_map",
-         timeout_descend=5000, timeout_land=7500, freq=FREQUENCY, interrupter=interrupt_event):
+def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRAME_ID,
+         timeout_descend=TIMEOUT_DESCEND, timeout_land=TIMEOUT_LAND, freq=FREQUENCY, interrupter=INTERRUPTER):
     if descend:
         logger.info("Descending to: | z: {:.3f}".format(z))
-        reach_attitude(z=z, frame_id=frame_id_descend, timeout=timeout_descend, freq=freq, yaw=1.57,  # TODO yaw
+        print("Descending to: | z: {:.3f}".format(z))
+        reach_altitude(z=z, frame_id=frame_id_descend, timeout=timeout_descend, freq=freq, yaw=float('nan'),  # TODO yaw
                        interrupter=interrupter)
     landing()
+    print("Land is started")
 
-    telemetry = get_telemetry(frame_id='aruco_map')
+    telemetry = get_telemetry(frame_id=frame_id_land)
     rate = rospy.Rate(freq)
-    time_start = rospy.get_rostime()
+    time_start = time.time()
 
     while telemetry.armed:
         if interrupter.is_set():
-            logger.warning("Flight function interrupted!")
+            logger.warning("Land function interrupted!")
+            print("Land function interrupted!")
             interrupter.clear()
-            return
+            return False
 
         telemetry = get_telemetry(frame_id=frame_id_land)
         logger.info("Landing... | z: {}".format(telemetry.z))
-        time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
+        print("Landing... | z: {}".format(telemetry.z))
+        time_passed = time.time() - time_start
 
         if timeout_land is not None:
             if time_passed >= timeout_land:
-                logger.warning('Landing timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                logger.warning('Landing timed out! | time: {:3f} seconds'.format(time_passed))
                 logger.warning("Disarming!")
+                print("Landing timed out, disarming!!!")
                 arming(False)
                 return False
         rate.sleep()
-    else:
-        logger.info("Landing succeeded!")
-        return True
+
+    logger.info("Landing succeeded!")
+    print("Landing succeeded!")
+    return True
 
 
-def takeoff(z=1.0, speed=0.8, frame_id='body', freq=FREQUENCY,
-            timeout_arm=2000, timeout_takeoff=5000, wait=False, tolerance=TOLERANCE, emergency_land=False,
-            interrupter=interrupt_event):
+def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
+            timeout_arm=TIMEOUT_ARMED, timeout_takeoff=TIMEOUT, wait=False, tolerance=TOLERANCE, emergency_land=False,
+            interrupter=INTERRUPTER):
     logger.info("Starting takeoff!")
+    print("Starting takeoff!")
     logger.info("Arming, going to OFFBOARD mode")
 
     # Arming check
     set_rates(thrust=0.1, auto_arm=True)
     telemetry = get_telemetry(frame_id=frame_id)
     rate = rospy.Rate(freq)
-    time_start = rospy.get_rostime()
+    time_start = time.time()
 
     while (not telemetry.armed) or wait:
         if interrupter.is_set():
-            logger.warning("Flight function interrupted!")
+            logger.warning("Takeoff function interrupted!")
+            print("Takeoff function interrupted!")
             interrupter.clear()
             return
 
         telemetry = get_telemetry(frame_id=frame_id)
         logger.info("Arming...")
-        time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
+        print("Arming...")
+        time_passed = time.time() - time_start
 
         if timeout_arm is not None:
             if time_passed >= timeout_arm:
                 if not telemetry.armed:
-                    logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                    logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed))
+                    print('Arming timed out! | time: {:3f} seconds'.format(time_passed))
                     return False
                 else:
                     break
         rate.sleep()
 
     logger.info("Armed!")
+    print("Armed")
 
     # Reach height
     z0 = get_telemetry().z
     z_dest = z + z0
-    navigate(z=z_dest, speed=speed, frame_id=frame_id, auto_arm=True)
-    current_height = abs(get_telemetry().z - z_dest)
-    while current_height > tolerance or wait:
+    navigate(z=z, speed=speed, frame_id=frame_id, auto_arm=True)
+    current_diff = abs(get_telemetry().z - z_dest)
+    while (current_diff > tolerance) or wait:
         if interrupter.is_set():
             logger.warning("Flight function interrupted!")
+            print("Flight function interrupted!")
             interrupter.clear()
             return
 
-        current_height = abs(get_telemetry().z - z_dest)
+        current_diff = abs(get_telemetry().z - z_dest)
         logger.info("Takeoff...")
-        time_passed = (rospy.get_rostime() - time_start).to_sec() * 1000
+        print("Takeoff...")
+        time_passed = time.time() - time_start
 
         if timeout_takeoff is not None:
             if time_passed >= timeout_takeoff:
                 if not wait:
-                    logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed / 1000))
+                    logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
+                    print('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
                     if emergency_land:
                         logger.info("Preforming emergency land")
+                        print("Preforming emergency land")
                         land(descend=False, interrupter=interrupter)
                     return False
                 else:
@@ -315,5 +355,5 @@ def takeoff(z=1.0, speed=0.8, frame_id='body', freq=FREQUENCY,
         rate.sleep()
 
     logger.info("Takeoff succeeded!")
-    # print("Takeoff succeeded!")
+    print("Takeoff succeeded!")
     return True
