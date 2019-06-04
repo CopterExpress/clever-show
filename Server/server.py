@@ -207,7 +207,7 @@ class Server:
     def send_starttime(self, copter, dt=0):
         timenow = self.time_now()
         print('Now:', time.ctime(timenow), "+ dt =", dt)
-        copter.send_message("start_animation", {"time": str(timenow + dt)})
+        copter.send_message("start", {"time": str(timenow + dt)})
 
 
 def requires_connect(f):
