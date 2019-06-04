@@ -1,8 +1,8 @@
+import os
 import glob
 
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
-#from PyQt5.QtCore import QModelIndex
 from PyQt5.QtCore import Qt, pyqtSlot
 
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
@@ -11,19 +11,19 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from server_gui import Ui_MainWindow
 
 from server import *
-class CopterView(QStandardItemModel):
-    pass
 
+
+# noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.initUI()
+        self.init_ui()
         self.show()
 
-    def initUI(self):
-        #Connecting
+    def init_ui(self):
+        # Connecting
         self.ui.check_button.clicked.connect(self.check_selected)
         self.ui.start_button.clicked.connect(self.send_starttime)
         self.ui.pause_button.clicked.connect(self.pause_all)
@@ -38,7 +38,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
 
-        #Initing table and table model
+        # Initing table and table model
         self.ui.tableView.setModel(model)
         self.ui.tableView.horizontalHeader().setStretchLastSection(True)
 
@@ -49,23 +49,27 @@ class MainWindow(QtWidgets.QMainWindow):
             if item.isCheckable() and item.checkState() == Qt.Checked:
                 print("Copter {} checked".format(model.item(row_num, 0).text()))
                 copter = Client.get_by_id(item.text())
-                batt_total = float(copter.get_response("batt_voltage"))
-                batt_cell = float(copter.get_response("cell_voltage"))
-                selfcheck = copter.get_response("selfcheck")
-
-                batt_percent = ((batt_cell-3.2)/(4.2-3.2))*100
-
-                model.setData(model.index(row_num, 2), "{} V.".format(round(batt_total, 3)))
-                model.setData(model.index(row_num, 3), "{} %".format(round(batt_percent, 3)))
-                if selfcheck != "OK":
-                    print(selfcheck)
-                    model.setData(model.index(row_num, 4), str(selfcheck))
-                else:
-                    print("Everything ok")
-                    model.setData(model.index(row_num, 4), str(selfcheck))
+                copter.get_response("batt_voltage", self._set_copter_data, callback_args=(row_num, 2))
+                copter.get_response("cell_voltage", self._set_copter_data, callback_args=(row_num, 3))
+                copter.get_response("selfcheck", self._set_copter_data, callback_args=(row_num, 4))
+                copter.get_response("time", self._set_copter_data, callback_args=(row_num, 5))
 
         self.ui.start_button.setEnabled(True)
         self.ui.takeoff_button.setEnabled(True)
+
+    def _set_copter_data(self, value, row, col):
+        if col == 2:
+            model.setData(model.index(row, col), "{} V.".format(round(float(value), 3)))
+        elif col == 3:
+            batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100
+            model.setData(model.index(row, col), "{} %".format(round(batt_percent, 3)))
+        elif col == 4:
+            if value != "OK":
+                model.setData(model.index(row, col), str(value))  # TODO different handling
+            else:
+                model.setData(model.index(row, col), str(value))
+        elif col == 5:
+            model.setData(model.index(row, col), time.ctime(int(value)))
 
     @pyqtSlot()
     def send_starttime(self):
@@ -88,15 +92,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def stop_all(self):
-        Client.broadcast(Client.form_message("stop"))
+        Client.broadcast_message("stop")
 
     @pyqtSlot()
     def pause_all(self):
         if self.ui.pause_button.text() == 'Pause':
-            Client.broadcast(Client.form_message('pause'))
+            Client.broadcast_message('pause')
             self.ui.pause_button.setText('Resume')
         else:
-            Client.broadcast(Client.form_message('resume'))
+            Client.broadcast_message('resume')
         self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
@@ -106,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if item.isCheckable() and item.checkState() == Qt.Checked:
                 if True:  # TODO checks for batt/selfckeck here
                     copter = Client.get_by_id(item.text())
-                    copter.send(Client.form_message("led_test"))
+                    copter.send_message("led_test")
 
     @pyqtSlot()
     def takeoff_selected(self):
@@ -122,17 +126,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 if item.isCheckable() and item.checkState() == Qt.Checked:
                     if True:  # TODO checks for batt/selfckeck here
                         copter = Client.get_by_id(item.text())
-                        copter.send(Client.form_message("takeoff"))
+                        copter.send_message("takeoff")
         else:
             print("Cancelled")
+            pass
 
     @pyqtSlot()
     def land_all(self):
-        Client.broadcast(Client.form_message("land"))
+        Client.broadcast_message("land")
 
     @pyqtSlot()
     def disarm_all(self):
-        Client.broadcast(Client.form_message("disarm"))
+        Client.broadcast_message("disarm")
 
     @pyqtSlot()
     def send_animations(self):
@@ -163,7 +168,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for section in sendable_config.sections():
                 for option in dict(sendable_config.items(section)):
                     value = sendable_config[section][option]
-                    print("Got item from config:", section, option, value)
+                    logging.debug("Got item from config:".format(section, option, value))
                     options.append(ConfigOption(section, option, value))
             for row_num in range(model.rowCount()):
                 item = model.item(row_num, 0)
@@ -181,7 +186,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 item = model.item(row_num, 0)
                 if item.isCheckable() and item.checkState() == Qt.Checked:
                     copter = Client.get_by_id(item.text())
-                    copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt", clever_restart=True)
+                    copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+                    copter.send_message("service_restart", {"name": "clever"})
 
 
 model = QStandardItemModel()

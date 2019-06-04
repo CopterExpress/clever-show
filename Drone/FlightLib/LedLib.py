@@ -1,8 +1,8 @@
 from __future__ import print_function
-from threading import Thread
+import threading
 import time
 from rpi_ws281x import *
-
+from tasking_lib import wait as wait_until
 # LED strip configuration:
 LED_COUNT = 29  # Number of LED pixels.
 LED_PIN = 21  # GPIO pin connected to the pixels (18 uses PWM!) (10 uses SPI /dev/spidev0.0).
@@ -29,6 +29,15 @@ direct = False
 l = 0
 wait_ms = 10
 
+INTERRUPTER = threading.Event()
+INTERRUPTER_UNSET = threading.Event()
+
+def delay(delay_time, interrupter=INTERRUPTER, maxsleep=0.01):
+    global mode
+    wait_until(time.time()+delay_time, interrupter, maxsleep)
+    if interrupter.is_set():
+        mode = "off"
+
 
 # functions
 def math_wheel(pos):
@@ -43,52 +52,57 @@ def math_wheel(pos):
         return Color(0, pos * 3, 255 - pos * 3)
 
 
-def rainbow(wait=10, direction=False):
-    global wait_ms, direct, mode
+def rainbow(wait=10, direction=False, interrupter=INTERRUPTER):
+    global wait_ms, direct, mode, INTERRUPTER
     wait_ms = wait
     direct = direction
     mode = "rainbow"
+    INTERRUPTER=interrupter
 
 
-def fill(red, green, blue):
-    global r, g, b, mode
+def fill(red, green, blue, interrupter=INTERRUPTER):
+    global r, g, b, mode, INTERRUPTER
     r = red
     g = green
     b = blue
     mode = "fill"
+    INTERRUPTER=interrupter
 
 
-def blink(red, green, blue, wait=250):
-    global r, g, b, wait_ms, mode
+def blink(red, green, blue, wait=250, interrupter=INTERRUPTER):
+    global r, g, b, wait_ms, mode, INTERRUPTER
     r = red
     g = green
     b = blue
     wait_ms = wait
     mode = "blink"
+    INTERRUPTER=interrupter
 
 
-def chase(red, green, blue, wait=50, direction=False):
-    global r, g, b, wait_ms, direct, mode
+def chase(red, green, blue, wait=50, direction=False, interrupter=INTERRUPTER):
+    global r, g, b, wait_ms, direct, mode, INTERRUPTER
     r = red
     g = green
     b = blue
     wait_ms = wait
     direct = direction
     mode = "chase"
+    INTERRUPTER=interrupter
 
 
-def wipe_to(red, green, blue, wait=50, direction=False):
-    global r, g, b, wait_ms, direct, mode
+def wipe_to(red, green, blue, wait=50, direction=False, interrupter=INTERRUPTER):
+    global r, g, b, wait_ms, direct, mode, INTERRUPTER
     r = red
     g = green
     b = blue
     wait_ms = wait
     direct = direction
     mode = "wipe_to"
+    INTERRUPTER=interrupter
 
 
-def fade_to(red, green, blue, wait=20):  # do not working with rainbow (solid colors only)
-    global r, g, b, r_prev, g_prev, b_prev, wait_ms, mode
+def fade_to(red, green, blue, wait=20, interrupter=INTERRUPTER):  # do not working with rainbow (solid colors only)
+    global r, g, b, r_prev, g_prev, b_prev, wait_ms, mode, INTERRUPTER
     r_prev = r
     g_prev = g
     b_prev = b
@@ -97,10 +111,11 @@ def fade_to(red, green, blue, wait=20):  # do not working with rainbow (solid co
     b = blue
     wait_ms = wait
     mode = "fade_to"
+    INTERRUPTER=interrupter
 
 
-def run(red, green, blue, length=strip.numPixels(), direction=False, wait=25):
-    global r, g, b, l, wait_ms, direct, mode
+def run(red, green, blue, length=strip.numPixels(), direction=False, wait=25, interrupter=INTERRUPTER):
+    global r, g, b, l, wait_ms, direct, mode, INTERRUPTER
     r = red
     g = green
     b = blue
@@ -108,6 +123,7 @@ def run(red, green, blue, length=strip.numPixels(), direction=False, wait=25):
     direct = direction
     wait_ms = wait
     mode = "run"
+    INTERRUPTER=interrupter
 
 
 def off():
@@ -128,27 +144,29 @@ def strip_rainbow_frame(iteration, direction):
     strip.show()
 
 
-def strip_chase_step(color, direction):
+def strip_chase_step(color, direction, interrupter=INTERRUPTER):
     for q in range(3):
         for i in range(0, strip.numPixels(), 3):
             n = ((strip.numPixels() - 1) * direction) - (i + q)
             strip.setPixelColor(abs(n), color)
         strip.show()
-        time.sleep(wait_ms / 1000.0)
+        delay(wait_ms / 1000.0, interrupter)
         for i in range(0, strip.numPixels(), 3):
             n = ((strip.numPixels() - 1) * direction) - (i + q)
             strip.setPixelColor(abs(n), 0)
 
 
-def strip_wipe(color, direction):
+def strip_wipe(color, direction, interrupter=INTERRUPTER):
     for i in range(strip.numPixels()):
         n = ((strip.numPixels() - 1) * direction) - i
         strip.setPixelColor(abs(n), color)
-        time.sleep(wait_ms / 1000.0)
+        delay(wait_ms / 1000.0, interrupter)
+        if interrupter.is_set():
+           return
         strip.show()
 
 
-def strip_fade(r1, g1, b1, r2, g2, b2, frames=50):
+def strip_fade(r1, g1, b1, r2, g2, b2, frames=50, interrupter=INTERRUPTER):
     r_delta = (r2-r1)//frames
     g_delta = (g2-g1)//frames
     b_delta = (b2-b1)//frames
@@ -157,7 +175,9 @@ def strip_fade(r1, g1, b1, r2, g2, b2, frames=50):
         green = g1 + (g_delta * i)
         blue = b1 + (b_delta * i)
         strip_set(Color(red, green, blue))
-        time.sleep(wait_ms / 1000.0)
+        delay(wait_ms / 1000.0, interrupter)
+        if interrupter.is_set():
+            return
     strip_set(Color(r2, g2, b2))
 
 
@@ -190,39 +210,39 @@ def led_thread():
             if iteration >= 256:
                 iteration = 0
             strip_rainbow_frame(iteration, direct)
-            time.sleep(wait_ms / 1000.0)
+            delay(wait_ms / 1000.0, INTERRUPTER)
             iteration += 1
         elif mode == "fill":
             strip_set(Color(r, g, b))
             mode = ""
         elif mode == "blink":
             strip_set(Color(r, g, b))
-            time.sleep(wait_ms / 1000.0)
+            delay(wait_ms / 1000.0, INTERRUPTER)
             strip_set(Color(0, 0, 0))
-            time.sleep(wait_ms / 1000.0)
+            delay(wait_ms / 1000.0, INTERRUPTER)
         elif mode == "chase":
             strip_chase_step(Color(r, g, b), direct)
         elif mode == "wipe_to":
-            strip_wipe(Color(r, g, b,), direct)
+            strip_wipe(Color(r, g, b,), direct, INTERRUPTER)
             mode = "fill"
         elif mode == "fade_to":
-            strip_fade(r_prev, g_prev, b_prev, r, g, b)
+            strip_fade(r_prev, g_prev, b_prev, r, g, b, interrupter=INTERRUPTER)
             mode = ""
         elif mode == "run":
             strip_run_step(r, g, b, l, direct, iteration)
-            time.sleep(wait_ms / 1000.0)
+            delay(wait_ms / 1000.0, INTERRUPTER)
             iteration += 1
         elif mode == "off":
             strip_off()
             mode = ""
         else:
-            time.sleep(1 / 1000)
+            delay(1 / 1000.0, interrupter=INTERRUPTER_UNSET)
 
 
 # init
 def init_led():
     strip.begin()
-    t_l = Thread(target=led_thread)
+    t_l = threading.Thread(target=led_thread)
     t_l.daemon = True
     t_l.start()
 

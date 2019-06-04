@@ -109,3 +109,5 @@ Drone/test_animation/
 Drone/animation.csv
 Drone/client_logs
 images/
+
+\.idea/
