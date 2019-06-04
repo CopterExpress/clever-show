@@ -71,7 +71,7 @@ def _command_led_test(*args, **kwargs):
 
 @messaging.message_callback("takeoff")
 def _command_takeoff(**kwargs):
-    task_manager.add_task(0, 0, animation.takeoff,
+    task_manager.add_task(time.time(), 0, animation.takeoff,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
                               "timeout": client.active_client.TAKEOFF_TIME,
@@ -97,7 +97,11 @@ def _command_land(**kwargs):
 @messaging.message_callback("disarm")
 def _command_disarm(**kwargs):
     task_manager.reset()
-    task_manager.add_task(-10, 0, FlightLib.arming(False))
+    task_manager.add_task(-5, 0, FlightLib.arming_wrapper,
+                        task_kwargs={
+                            "state": False
+                        }
+    )
 
 
 @messaging.message_callback("stop")
@@ -115,10 +119,11 @@ def _command_stop(**kwargs):
     task_manager.resume()
 
 
-@messaging.message_callback("start_animation")
+@messaging.message_callback("start")
 def _play_animation(**kwargs):
-    gap = 0.25
-    start_time = kwargs["start_time"]  # TODO
+     gap = 0.25
+    start_time = kwargs["time"]  # TODO
+"""    print('start time = {}'.format(start_time))
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                       x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                       y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
@@ -164,7 +169,7 @@ def _play_animation(**kwargs):
                               "frame_id": client.active_client.FRAME_ID,
                               "use_leds": client.active_client.USE_LEDS,
                           },
-                          )
+                          ) """
 
 
 if __name__ == "__main__":
