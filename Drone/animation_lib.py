@@ -69,18 +69,23 @@ def execute_animation(frames, frame_delay, frame_id='aruco_map', use_leds=True, 
 
 def takeoff(z=1.5, safe_takeoff=True, timeout=5000, frame_id='aruco_map', use_leds=True,
             interrupter=interrupt_event):
+    print(interrupter.is_set())
     if use_leds:
-        LedLib.wipe_to(255, 0, 0)
+        LedLib.wipe_to(255, 0, 0, interrupter=interrupter)
+    if interrupter.is_set():
+        return
     FlightLib.takeoff(z=z, wait=False, timeout_takeoff=timeout, frame_id=frame_id, emergency_land=safe_takeoff,
                       interrupter=interrupter)
+    if interrupter.is_set():
+        return
     if use_leds:
-        LedLib.blink(0, 255, 0, wait=50)
+        LedLib.blink(0, 255, 0, wait=50, interrupter=interrupter)
 
 
 def land(z=1.5, descend=False, timeout=5000, frame_id='aruco_map', use_leds=True,
          interrupter=interrupt_event):
     if use_leds:
-        LedLib.blink(255, 0, 0)
+        LedLib.blink(255, 0, 0, interrupter=interrupter)
     FlightLib.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
     if use_leds:
         LedLib.off()
