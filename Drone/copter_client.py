@@ -121,7 +121,7 @@ def _command_stop(**kwargs):
 
 @messaging.message_callback("start")
 def _play_animation(**kwargs):
-     gap = 0.25
+    gap = 0.25
     start_time = kwargs["time"]  # TODO
 """    print('start time = {}'.format(start_time))
     frames = animation.load_animation(os.path.abspath("animation.csv"),
