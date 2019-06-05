@@ -12,4 +12,4 @@
 ```bash
 git clone https://github.com/artem30801/CleverSwarm.git
 ```
-Для дальнейших интрукций перейдите на Wiki
+Для дальнейших инструкций перейдите на Wiki
