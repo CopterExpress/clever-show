@@ -28,6 +28,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.clicked.connect(self.send_starttime)
         self.ui.pause_button.clicked.connect(self.pause_all)
         self.ui.stop_button.clicked.connect(self.stop_all)
+        self.ui.test_Button.clicked.connect(self.test)
 
         self.ui.leds_button.clicked.connect(self.test_leds)
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
@@ -188,6 +189,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     copter = Client.get_by_id(item.text())
                     copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
                     copter.send_message("service_restart", {"name": "clever"})
+    @pyqtSlot()
+    def test(self):
+        for row_num in range(model.rowCount()):
+                item = model.item(row_num, 0)
+                if item.isCheckable() and item.checkState() == Qt.Checked:
+                    copter = Client.get_by_id(item.text())
+                    copter.send_message("test")
 
 
 model = QStandardItemModel()
@@ -205,6 +213,7 @@ def client_connected(self: Client):
 
 
 Client.on_first_connect = client_connected
+
 
 
 if __name__ == "__main__":

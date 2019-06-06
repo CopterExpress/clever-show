@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'server_gui.ui'
 #
-# Created by: PyQt5 UI code generator 5.10.1
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1239, 706)
+        MainWindow.resize(1239, 741)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setEnabled(True)
         self.centralwidget.setObjectName("centralwidget")
@@ -54,6 +54,9 @@ class Ui_MainWindow(object):
         self.stop_button = QtWidgets.QPushButton(self.centralwidget)
         self.stop_button.setObjectName("stop_button")
         self.formLayout.setWidget(5, QtWidgets.QFormLayout.SpanningRole, self.stop_button)
+        self.test_Button = QtWidgets.QPushButton(self.centralwidget)
+        self.test_Button.setObjectName("test_Button")
+        self.formLayout.setWidget(6, QtWidgets.QFormLayout.SpanningRole, self.test_Button)
         self.verticalLayout.addLayout(self.formLayout)
         self.line = QtWidgets.QFrame(self.centralwidget)
         self.line.setFrameShape(QtWidgets.QFrame.HLine)
@@ -81,7 +84,7 @@ class Ui_MainWindow(object):
         self.gridLayout.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1239, 39))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1239, 21))
         self.menubar.setObjectName("menubar")
         self.menuOptions = QtWidgets.QMenu(self.menubar)
         self.menuOptions.setObjectName("menuOptions")
@@ -109,6 +112,7 @@ class Ui_MainWindow(object):
         self.start_button.setText(_translate("MainWindow", "Start animation"))
         self.pause_button.setText(_translate("MainWindow", "Pause"))
         self.stop_button.setText(_translate("MainWindow", "Stop"))
+        self.test_Button.setText(_translate("MainWindow", "Test"))
         self.takeoff_button.setText(_translate("MainWindow", "Takeoff"))
         self.land_button.setText(_translate("MainWindow", "Land"))
         self.disarm_button.setText(_translate("MainWindow", "Disarm"))

@@ -47,6 +47,10 @@ def _response_selfcheck():
     return check if check else "OK"
 
 
+@messaging.message_callback("test")
+def _response_test(**kwargs):
+    print("test")
+
 @messaging.request_callback("batt_voltage")
 def _response_batt():
     return FlightLib.get_telemetry('body').voltage
