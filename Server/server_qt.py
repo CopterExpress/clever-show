@@ -50,6 +50,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if item.isCheckable() and item.checkState() == Qt.Checked:
                 print("Copter {} checked".format(model.item(row_num, 0).text()))
                 copter = Client.get_by_id(item.text())
+                copter.get_response("anim_id", self._set_copter_data, callback_args=(row_num, 1))
                 copter.get_response("batt_voltage", self._set_copter_data, callback_args=(row_num, 2))
                 copter.get_response("cell_voltage", self._set_copter_data, callback_args=(row_num, 3))
                 copter.get_response("selfcheck", self._set_copter_data, callback_args=(row_num, 4))
@@ -59,7 +60,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.takeoff_button.setEnabled(True)
 
     def _set_copter_data(self, value, row, col):
-        if col == 2:
+        if col == 1:
+            model.setData(model.index(row, col), value)
+        elif col == 2:
             model.setData(model.index(row, col), "{} V.".format(round(float(value), 3)))
         elif col == 3:
             batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100
