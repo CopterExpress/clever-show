@@ -13,7 +13,27 @@ logger = logging.getLogger(__name__)
 
 interrupt_event = threading.Event()
 
-id = "None"
+id = "Empty id"
+
+def get_id(filepath="animation.csv"):
+    global id
+    try:
+        animation_file = open(filepath)
+    except IOError:
+        logging.error("File {} can't be opened".format(filepath))
+        id = "No animation"
+    else:
+        with animation_file:
+            csv_reader = csv.reader(
+                animation_file, delimiter=',', quotechar='|'
+            )
+            row_0 = csv_reader.next()
+            if len(row_0) == 1:
+                id = row_0[0]
+                print("Got animation_id: {}".format(id))
+            else:
+                print("No animation id in file")
+    return id
 
 def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
     imported_frames = []
@@ -22,6 +42,7 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
         animation_file = open(filepath)
     except IOError:
         logging.error("File {} can't be opened".format(filepath))
+        id = "No animation"
     else:
         with animation_file:
             csv_reader = csv.reader(
