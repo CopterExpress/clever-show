@@ -46,10 +46,9 @@ def _response_selfcheck():
     check = FlightLib.selfcheck()
     return check if check else "OK"
 
-
-@messaging.message_callback("test")
-def _response_test(**kwargs):
-    print("test")
+@messaging.request_callback("anim_id")
+def _response_animation_id():
+    return animation.get_id()
 
 @messaging.request_callback("batt_voltage")
 def _response_batt():
@@ -60,6 +59,9 @@ def _response_batt():
 def _response_cell():
     return FlightLib.get_telemetry('body').cell_voltage
 
+@messaging.message_callback("test")
+def _command_test(**kwargs):
+    print("test")
 
 @messaging.message_callback("service_restart")
 def _command_service_restart(**kwargs):
@@ -127,7 +129,7 @@ def _command_stop(**kwargs):
 def _play_animation(**kwargs):
     gap = 0.25
     start_time = kwargs["time"]  # TODO
-"""    print('start time = {}'.format(start_time))
+    print('start time = {}'.format(start_time))
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                       x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                       y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
@@ -173,22 +175,16 @@ def _play_animation(**kwargs):
                               "frame_id": client.active_client.FRAME_ID,
                               "use_leds": client.active_client.USE_LEDS,
                           },
-                          ) """
+                          )
 
 
 if __name__ == "__main__":
-    # rospy.init_node('Swarm_client', anonymous=True)
+    
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
     
-    #print logging.root.manager.loggerDict
-    #task_manager.start()
     copter_client.start(task_manager)
-    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    if loggers is None:
-        print("No loggers!") 
-    else:
-        print("Loggers",loggers)
+
     ros_logging.route_logger_to_ros()
     ros_logging.route_logger_to_ros("__main__")
     ros_logging.route_logger_to_ros("client")
