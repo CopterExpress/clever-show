@@ -59,12 +59,10 @@ echo_stamp "Software installing"
 apt-get install -y \
 samba \
 chrony \
-ros-kinetic-vl53l1x \
 && echo_stamp "Everything was installed!" "SUCCESS" \
 || (echo_stamp "Some packages wasn't installed!" "ERROR"; exit 1)
 
 echo_stamp "Install python libs"
-my_travis_retry pip install pause
 my_travis_retry pip install selectors2
 
 echo_stamp "End of software installation"

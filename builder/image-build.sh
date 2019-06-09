@@ -2,7 +2,7 @@
 
 set -e # Exit immidiately on non-zero result
 
-SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.16/clever_v0.16.img.zip"
+SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.17/clever_v0.17.img.zip"
 
 export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:='noninteractive'}
 export LANG=${LANG:='C.UTF-8'}
@@ -105,6 +105,7 @@ git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 
 # Copy service file for clever show client
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
+img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/animation_map.txt' '/home/pi/catkin_ws/src/clever/aruco_pose/map/'
 
 # Shrink image
 img-resize ${IMAGE_PATH}

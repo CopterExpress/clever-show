@@ -46,10 +46,5 @@ sed -i '/<arg name="aruco"/c \    <arg name="aruco" default="true"/>' /home/pi/c
 sed -i '/<arg name="rangefinder_vl53l1x"/c \    <arg name="rangefinder_vl53l1x" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
 #sed -i '/<arg name="optical_flow"/c \    <arg name="optical_flow" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
 
-# copy office map to animation map if there is no animation map file
-if ! [ -f "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt" ] ; then
-    sudo -u pi cp /home/pi/catkin_ws/src/clever/aruco_pose/map/office.txt /home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt
-fi
-
 echo_stamp "Image was configured!" "SUCCESS"
 
