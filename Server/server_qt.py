@@ -63,7 +63,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if col == 1:
             model.setData(model.index(row, col), value)
         elif col == 2:
-            model.setData(model.index(row, col), "{} V.".format(round(float(value), 3)))
+            model.setData(model.index(row, col), "{} V".format(round(float(value), 3)))
         elif col == 3:
             batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100
             model.setData(model.index(row, col), "{} %".format(round(batt_percent, 3)))
