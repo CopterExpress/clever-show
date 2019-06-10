@@ -8,13 +8,12 @@ import selectors
 import collections
 import configparser
 
-import os,sys,inspect  # Add parent dir to PATH to import messaging_lib
+import os, inspect  # Add parent dir to PATH to import messaging_lib
+
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir) 
+sys.path.insert(0, parent_dir)
 import messaging_lib as messaging
-
-# All imports sorted in pyramid just because
 
 random.seed()
 
@@ -32,8 +31,11 @@ ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "val
 class Server:
     BUFFER_SIZE = 1024
 
-    def __init__(self, server_id=None, config_path="server_config.ini"):
+    def __init__(self, server_id=None, config_path="server_config.ini", on_stop=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
+        self.time_started = 0
+
+        self.on_stop = on_stop
 
         # Init socket
         self.sel = selectors.DefaultSelector()
@@ -72,6 +74,8 @@ class Server:
         self.NTP_PORT = int(self.config['NTP']['port'])
 
     def start(self):  # do_auto_connect=True, do_ip_broadcast=True, do_listen_broadcast=False
+        self.time_started = time.time()
+
         logging.info("Starting server with id: {} on {}:{} !".format(self.id, self.ip, self.port))
         logging.info("Starting server socket!")
         self.server_socket.bind((self.ip, self.port))
@@ -84,9 +88,9 @@ class Server:
         self.broadcast_thread_running.set()
         self.broadcast_thread.start()
 
-        logging.info("(not) Starting broadcast listener thread!")
+        logging.info("Starting broadcast listener thread!")
         self.listener_thread_running.set()
-        # listener_thread.start()
+        self.listener_thread.start()
 
     def stop(self):
         logging.info("Stopping server")
@@ -96,6 +100,11 @@ class Server:
         self.server_socket.close()
         self.sel.close()
         logging.info("Server stopped")
+
+        if self.on_stop is not None:
+            self.on_stop()
+
+        sys.exit("Stopped")
 
     @staticmethod
     def get_ip_address():
@@ -131,7 +140,7 @@ class Server:
         self.sel.register(self.server_socket, selectors.EVENT_READ | selectors.EVENT_WRITE, data=None)
 
         while self.client_processor_thread_running.is_set():
-            events = self.sel.select(timeout=None)
+            events = self.sel.select(timeout=0)
             for key, mask in events:
                 if key.data is None:
                     self._connect_client(key.fileobj)
@@ -162,17 +171,19 @@ class Server:
     def _ip_broadcast(self):
         logging.info("Broadcast sender thread started!")
         msg = messaging.MessageManager.create_simple_message(
-            "server_ip", {"host": self.ip, "port": str(self.port), "id": self.id})
+            "server_ip", {"host": self.ip, "port": str(self.port), "id": self.id, "start_time": str(self.time_started)})
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         logging.info("Formed broadcast message: {}".format(msg))
 
+        time.sleep(self.BROADCAST_DELAY)
         try:
             while self.broadcast_thread_running.is_set():
-                time.sleep(self.BROADCAST_DELAY)
                 broadcast_sock.sendto(msg, ('255.255.255.255', self.broadcast_port))
                 logging.debug("Broadcast sent")
+                time.sleep(self.BROADCAST_DELAY)
+
         finally:
             broadcast_sock.close()
             logging.info("Broadcast sender thread stopped, socked closed!")
@@ -185,19 +196,25 @@ class Server:
             broadcast_client.bind(("", self.broadcast_port))
         except OSError:
             logging.critical("Another server is running on this computer, shutting down!")
-            sys.exit()
+            # TODO popup and as function
+            self.stop()
 
         try:
             while self.listener_thread_running.is_set():
-                data, addr = broadcast_client.recvfrom(1024)
+                data, addr = broadcast_client.recvfrom(1024) # TODO nonblock
                 message = messaging.MessageManager()
                 message.income_raw = data
                 message.process_message()
                 if message.content:
                     if message.content["command"] == "server_ip":
-                        if message.content["args"]["id"] != self.id:
-                            logging.critical("Another server detected on network, shutting down")
-                            sys.exit()
+                        if message.content["args"]["id"] != str(self.id) \
+                                and float(message.content["args"]["start_time"]) <= self.time_started:
+
+                            # younger server should shut down
+                            logging.critical("Another server detected over the network, shutting down!")
+                            # TODO popup
+                            self.stop()
+
                 else:
                     logging.warning("Got wrong broadcast message from {}".format(addr))
         finally:
@@ -216,6 +233,7 @@ def requires_connect(f):
             return f(*args, **kwargs)
         else:
             logging.warning("Function requires client to be connected!")
+
     return wrapper
 
 
@@ -225,6 +243,7 @@ def requires_any_connected(f):
             return f(*args, **kwargs)
         else:
             logging.warning("No clients were connected!")
+
     return wrapper
 
 
@@ -307,3 +326,6 @@ class Client(messaging.ConnectionManager):
 if __name__ == '__main__':
     server = Server()
     server.start()
+
+    while True:
+        pass

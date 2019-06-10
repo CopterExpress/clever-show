@@ -218,12 +218,11 @@ def client_connected(self: Client):
 Client.on_first_connect = client_connected
 
 
-
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
 
-    server = Server()
+    server = Server(on_stop=app.quit)
     server.start()
 
     app.exec_()
