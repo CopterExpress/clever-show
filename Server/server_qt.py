@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from server_gui import Ui_MainWindow
 
 from server import *
+from emergency import *
 
 
 # noinspection PyArgumentList,PyCallByClass
@@ -28,13 +29,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.clicked.connect(self.send_starttime)
         self.ui.pause_button.clicked.connect(self.pause_all)
         self.ui.stop_button.clicked.connect(self.stop_all)
-        self.ui.test_Button.clicked.connect(self.test)
+        self.ui.emergency_button.clicked.connect(self.emergency)
 
         self.ui.leds_button.clicked.connect(self.test_leds)
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
         self.ui.land_button.clicked.connect(self.land_all)
         self.ui.disarm_button.clicked.connect(self.disarm_all)
-
+        self.ui.flip_button.clicked.connect(self.flip)
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
@@ -146,6 +147,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_animations(self):
         path = str(QFileDialog.getExistingDirectory(self, "Select Animation Directory"))
+
         if path:
             print("Selected directory:", path)
             files = [file for file in glob.glob(path + '/*.csv')]
@@ -193,13 +195,38 @@ class MainWindow(QtWidgets.QMainWindow):
                     copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
                     copter.send_message("service_restart", {"name": "clever"})
     @pyqtSlot()
-    def test(self):
+    def emergency(self):
         for row_num in range(model.rowCount()):
                 item = model.item(row_num, 0)
                 if item.isCheckable() and item.checkState() == Qt.Checked:
                     copter = Client.get_by_id(item.text())
-                    copter.send_message("test")
+                    copter.send_message("emergency")
+        Dialog = QtWidgets.QDialog()
+        ui = Ui_Dialog()
+        ui.setupUi(Dialog)
+        Dialog.show()
+        Dialog.exec_()
 
+    @pyqtSlot()    
+    def flip(self):
+        reply = QMessageBox.question(
+            self, "Confirm operation",
+            "You are ready to turn the copter?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            print("Accepted")
+            for row_num in range(model.rowCount()):
+                item = model.item(row_num, 0)
+                if item.isCheckable() and item.checkState() == Qt.Checked:
+                    if True:  # TODO checks for batt/selfckeck here
+                        copter = Client.get_by_id(item.text())
+                        copter.send_message("flip")
+        else:
+            print("Cancelled")
+            pass
+
+        
 
 model = QStandardItemModel()
 model.setHorizontalHeaderLabels(
