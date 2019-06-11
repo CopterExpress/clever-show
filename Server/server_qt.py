@@ -106,7 +106,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.pause_button.setText('Resume')
         else:
             Client.broadcast_message('resume')
-        self.ui.pause_button.setText('Pause')
+            self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
     def test_leds(self):

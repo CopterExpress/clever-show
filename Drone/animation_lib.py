@@ -22,6 +22,7 @@ def get_id(filepath="animation.csv"):
     except IOError:
         logging.error("File {} can't be opened".format(filepath))
         id = "No animation"
+        return id
     else:
         with animation_file:
             csv_reader = csv.reader(
@@ -81,7 +82,7 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
 
 
 def convert_frame(frame):
-    return (frame['x'], frame['y'], frame['z']), (frame["red"], frame["green"], frame["blue"]), frame["yaw"]
+    return ((frame['x'], frame['y'], frame['z']), (frame['red'], frame['green'], frame['blue']), frame['yaw'])
 
 
 def execute_frame(point=(), color=(), yaw=float('Nan'), frame_id='aruco_map', use_leds=True,
@@ -111,22 +112,24 @@ def execute_animation(frames, frame_delay, frame_id='aruco_map', use_leds=True, 
         tasking.wait(next_frame_time, interrupter)
 
 
-def takeoff(z=1.5, safe_takeoff=True, timeout=5000, frame_id='aruco_map', use_leds=True,
+def takeoff(z=1.5, safe_takeoff=True, frame_id = 'map', timeout=5.0, use_leds=True,
             interrupter=interrupt_event):
     print(interrupter.is_set())
     if use_leds:
         LedLib.wipe_to(255, 0, 0, interrupter=interrupter)
     if interrupter.is_set():
         return
-    FlightLib.takeoff(z=z, wait=False, timeout_takeoff=timeout, frame_id=frame_id, emergency_land=safe_takeoff,
+    result = FlightLib.takeoff(z=z, wait=False, timeout_takeoff=timeout, frame_id=frame_id, emergency_land=safe_takeoff,
                       interrupter=interrupter)
+    if result == 'not armed':
+        raise Exception('STOP')         # Raise exception to clear task_manager if copter can't arm
     if interrupter.is_set():
         return
     if use_leds:
         LedLib.blink(0, 255, 0, wait=50, interrupter=interrupter)
 
 
-def land(z=1.5, descend=False, timeout=5000, frame_id='aruco_map', use_leds=True,
+def land(z=1.5, descend=False, timeout=5.0, frame_id='aruco_map', use_leds=True,
          interrupter=interrupt_event):
     if use_leds:
         LedLib.blink(255, 0, 0, interrupter=interrupter)

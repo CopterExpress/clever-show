@@ -22,6 +22,7 @@ class CopterClient(client.Client):
         self.TAKEOFF_TIME = self.config.getfloat('COPTERS', 'takeoff_time')
         self.SAFE_TAKEOFF = self.config.getboolean('COPTERS', 'safe_takeoff')
         self.RFP_TIME = self.config.getfloat('COPTERS', 'reach_first_point_time')
+        self.LAND_TIME = self.config.getfloat('COPTERS', 'land_time')
 
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
@@ -127,55 +128,62 @@ def _command_stop(**kwargs):
 
 @messaging.message_callback("start")
 def _play_animation(**kwargs):
-    gap = 0.25
-    start_time = kwargs["time"]  # TODO
-    print('start time = {}'.format(start_time))
+    start_time = float(kwargs["time"])  # TODO
+
+    if (animation.get_id() == 'No animation'):
+        print("Can't start animation without animation file!")
+        return
+
+    print("Start time = {}, wait for {} seconds".format(start_time, time.time()-start_time))
+
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                       x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                       y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                       )
 
-    task_manager.add_task(start_time, -1, animation.takeoff,
-                          task_kwargs={
-                              "z": client.active_client.TAKEOFF_HEIGHT,
-                              "timeout": client.active_client.TAKEOFF_TIME,
-                              "safe_takeoff": client.active_client.SAFE_TAKEOFF,
-                              "frame_id": client.active_client.FRAME_ID,
-                              "use_leds": client.active_client.USE_LEDS,
-                          }
-                          )
+    task_manager.add_task(start_time, 0, animation.takeoff,
+                        task_kwargs={
+                            "z": client.active_client.TAKEOFF_HEIGHT,
+                            "timeout": client.active_client.TAKEOFF_TIME,
+                            "safe_takeoff": client.active_client.SAFE_TAKEOFF,
+                            #"frame_id": client.active_client.FRAME_ID,
+                            "use_leds": client.active_client.USE_LEDS,
+                        }
+                        )
 
-    rfp_time = start_time + client.active_client.TAKEOFF_TIME + gap
-    task_manager.add_task(rfp_time, -1, animation.execute_frame,
-                          task_kwargs={
-                              "point": animation.convert_frame(frames[0]),
-                              "timeout": client.active_client.RFP_TIME,
-                              "frame_id": client.active_client.FRAME_ID,
-                              "use_leds": client.active_client.USE_LEDS,
-                              "flight_func": FlightLib.reach_point,
-                          }
-                          )
+    rfp_time = start_time + client.active_client.TAKEOFF_TIME
+    task_manager.add_task(rfp_time, 0, animation.execute_frame,
+                        task_kwargs={
+                            "point": animation.convert_frame(frames[0])[0],
+                            "color": animation.convert_frame(frames[0])[1],
+                            "frame_id": client.active_client.FRAME_ID,
+                            "use_leds": client.active_client.USE_LEDS,
+                            "flight_func": FlightLib.reach_point,
+                        }
+                        )
 
-    animation_time = rfp_time + client.active_client.RFP_TIME + gap
+    frame_time = rfp_time + client.active_client.RFP_TIME
     frame_delay = 0.125  # TODO from animation file
-    task_manager.add_task(animation_time, -1, animation.execute_animation,
-                          task_kwargs={
-                              "frames": frames,
-                              "frame_delay": frame_delay,
-                              "frame_id": client.active_client.FRAME_ID,
-                              "use_leds": client.active_client.USE_LEDS,
-                          }
-                          )
+    for frame in frames:
+        task_manager.add_task(frame_time, 0, animation.execute_frame,
+                        task_kwargs={
+                            "point": animation.convert_frame(frame)[0],
+                            "color": animation.convert_frame(frame)[1],
+                            "frame_id": client.active_client.FRAME_ID,
+                            "use_leds": client.active_client.USE_LEDS,
+                            "flight_func": FlightLib.navto,
+                            }
+                        )
+        frame_time += frame_delay
 
-    land_time = animation_time + len(frames)*frame_delay + gap
-    task_manager.add_task(land_time, -1, animation.land,
-                          task_kwargs={
-                              "z": client.active_client.TAKEOFF_HEIGHT,
-                              "timeout": client.active_client.TAKEOFF_TIME,
-                              "frame_id": client.active_client.FRAME_ID,
-                              "use_leds": client.active_client.USE_LEDS,
-                          },
-                          )
+    land_time = frame_time + client.active_client.LAND_TIME
+    task_manager.add_task(land_time, 0, animation.land,
+                        task_kwargs={
+                            "timeout": client.active_client.TAKEOFF_TIME,
+                            "frame_id": client.active_client.FRAME_ID,
+                            "use_leds": client.active_client.USE_LEDS,
+                        },
+                        )
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ def wait(end, interrupter=INTERRUPTER, maxsleep=0.1):  # Added features to inter
             time.sleep(diff / 2)
     else:
         logger.warning("Waiting was interrupted!")
-        print("Waiting was interrupted!")
+        #print("Waiting was interrupted!")
 
 
 class TaskManager(object):
@@ -39,7 +39,7 @@ class TaskManager(object):
         self._task_interrupt_event = threading.Event()
         self._shutdown_event = threading.Event()
 
-        self._timeshift = 0
+        self._timeshift = 0.0
 
     def add_task(self, timestamp, priority, task_function,
                  task_args=(), task_kwargs={}, task_delayable=False):
@@ -62,17 +62,17 @@ class TaskManager(object):
 
             if self.task_queue[0] != entry_old:
                 self._task_interrupt_event.set()
-                print("Task queue updated with more priority task")
+                #print("Task queue updated with more priority task")
             
             if self._reset_event.is_set():
                 self._task_interrupt_event.set()
                 self._reset_event.clear()
-                print("Task queue updated after reset")
+                #print("Task queue updated after reset")
        
         self._wait_interrupt_event.clear()
         self._running_event.set()
         
-        print(self.task_queue)
+        #print(self.task_queue)
 
     def pop_task(self):
         with self._task_queue_lock:
@@ -81,13 +81,13 @@ class TaskManager(object):
             raise KeyError('Pop from an empty priority queue')
 
     def start(self, timeouts=False):
-        print("Task manager is started")
-        logger.info("Task manager is started")
+        #print("Task manager is started")
+        #logger.info("Task manager is started")
         self._processor_thread.start()
         self.resume()
 
     def stop(self):
-        self._timeshift = 0
+        self._timeshift = 0.0
         self.pause(interrupt=True)
         with self._task_queue_lock:
             del self.task_queue[:]
@@ -105,8 +105,8 @@ class TaskManager(object):
             self._wait_interrupt_event.set()
             self._task_interrupt_event.set()
         self._running_event.clear()
-        logger.info("Task queue paused")
-        print("Task queue paused")
+        #logger.info("Task queue paused")
+        #print("Task queue paused")
 
     def resume(self, time_to_start_next_task = 0):
         if self.task_queue:
@@ -116,8 +116,8 @@ class TaskManager(object):
         self._running_event.set()
         self._wait_interrupt_event.clear()
         self._task_interrupt_event.clear()
-        logger.info("Task queue resumed with timeshift {}".format(self._timeshift))
-        print("Task queue resumed with timeshift {}".format(self._timeshift))
+        #logger.info("Task queue resumed with timeshift {}".format(self._timeshift))
+        #print("Task queue resumed with timeshift {}".format(self._timeshift))
 
     def reset(self):
         self.stop()
@@ -129,24 +129,28 @@ class TaskManager(object):
             if self.task_queue:
                 start_time, priority, count, task = self.task_queue[0]
             else: 
-                self._timeshift = 0
+                self._timeshift = 0.0
                 return
 
-        logger.info("Waiting util task execution time:{}".format(start_time + self._timeshift))
-        print("Waiting util task execution time:{}".format(start_time + self._timeshift))
-        wait(start_time + self._timeshift, self._wait_interrupt_event)
+        task_start_time = start_time + self._timeshift
+        #logger.info("Waiting util task execution time:{}".format(task_start_time))
+        #print("Waiting util task execution time:{}".format(task_start_time))
+        wait(task_start_time, self._wait_interrupt_event)
 
         if not self._wait_interrupt_event.is_set():
-            logger.info("Executing task {}".format(task))
-            print("Executing task {}".format(task))
+            #logger.info("Executing task {}".format(task))
+            #print("Executing task {}".format(task))
             try:
                 task.func(*task.args, interrupter=self._task_interrupt_event, **task.kwargs)
             except Exception as e:
                 logger.error("Error '{}' occurred in task {}".format(e, task))
-                print("Error '{}' occurred in task {}".format(e, task))
+                #print("Error '{}' occurred in task {}".format(e, task))
+                #if str(e) == 'STOP':
+                #    self.reset()
+                #    return
         else:
-            logger.warning("Task interrupted before execution")
-            print("Task interrupted before execution")
+            #logger.warning("Task interrupted before execution")
+            #print("Task interrupted before execution")
             self._wait_interrupt_event.clear()
             return
 
@@ -154,30 +158,30 @@ class TaskManager(object):
             start_time_n, priority_n, count_n, task_n = self.task_queue[0]
             if (task_n == task) and (start_time_n == start_time):
                 self.pop_task()
-            try:
-                print("Pop {} function!".format(task.func.__name__))
-            except Exception as e:
-                print("Pop something!") 
+            #try:
+                #print("Pop {} function!".format(task.func.__name__))
+            #except Exception as e:
+                #print("Pop something!") 
 
         if self._task_interrupt_event.is_set():
             self._task_interrupt_event.clear()     
 
-        logger.info("Execution done")
-        print("Execution done")
+        #logger.info("Execution done")
+        #print("Execution done")
 
     def _task_processor(self):
-        logger.info("Tasking thread started")
+        #logger.info("Tasking thread started")
         # self._update_queue()  # Initial tick if tasks added before start
         while not self._shutdown_event.is_set():
             self._running_event.wait()
             self.execute_task()
 
 if __name__ == "__main__":
-    logger.addHandler(logging.StreamHandler())
-    logger.setLevel(logging.DEBUG)
+    #logger.addHandler(logging.StreamHandler())
+    #logger.setLevel(logging.DEBUG)
 
     def printer(stri, interrupter, *args, **kwargs):
-        logger.info("String: {}, timenow: {}".format(stri, time.time()))
+        #logger.info("String: {}, timenow: {}".format(stri, time.time()))
         wait(time.time()+30, interrupter)
 
     tasker = TaskManager()  # Lower priority first!

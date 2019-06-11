@@ -14,8 +14,8 @@ from std_srvs.srv import Trigger
 logger = logging.getLogger(__name__)
 
 # create proxy service
-navigate = rospy.ServiceProxy('navigate', srv.Navigate)
-set_position = rospy.ServiceProxy('set_position', srv.SetPosition)
+navigate = rospy.ServiceProxy('/navigate', srv.Navigate)
+set_position = rospy.ServiceProxy('/set_position', srv.SetPosition)
 set_rates = rospy.ServiceProxy('/set_rates', srv.SetRates)
 set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
 get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
@@ -152,12 +152,12 @@ def selfcheck():
 
 def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, **kwargs):
     set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw)
-    telemetry = get_telemetry(frame_id=frame_id)
+    #telemetry = get_telemetry(frame_id=frame_id)
 
-    logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
-    print('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
-    logger.info('Telemetry now: | z: {:.3f}'.format(telemetry.z))
-    print('Telemetry now: | z: {:.3f}'.format(telemetry.z))
+    #logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    #print('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    #logger.info('Telemetry now: | z: {:.3f}'.format(telemetry.z))
+    #print('Telemetry now: | z: {:.3f}'.format(telemetry.z))
 
     return True
 
@@ -293,8 +293,8 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
     logger.info("Arming, going to OFFBOARD mode")
 
     # Arming check
-    set_rates(thrust=0.1, auto_arm=True)
-    telemetry = get_telemetry(frame_id=frame_id)
+    set_rates(thrust=0.05, auto_arm=True)
+    telemetry = get_telemetry()
     rate = rospy.Rate(freq)
     time_start = time.time()
 
@@ -303,9 +303,9 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
             logger.warning("Takeoff function interrupted!")
             print("Takeoff function interrupted!")
             interrupter.clear()
-            return
+            return 'interrupted'
 
-        telemetry = get_telemetry(frame_id=frame_id)
+        telemetry = get_telemetry()
         logger.info("Arming...")
         print("Arming...")
         time_passed = time.time() - time_start
@@ -315,7 +315,7 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
                 if not telemetry.armed:
                     logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed))
                     print('Arming timed out! | time: {:3f} seconds'.format(time_passed))
-                    return False
+                    return 'not armed'
                 else:
                     break
         rate.sleep()
@@ -326,14 +326,14 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
     # Reach height
     z0 = get_telemetry().z
     z_dest = z + z0
-    navigate(z=z, speed=speed, frame_id=frame_id, auto_arm=True)
+    navigate(z=z, speed=speed, yaw = float('nan'), auto_arm=True)
     current_diff = abs(get_telemetry().z - z_dest)
     while (current_diff > tolerance) or wait:
         if interrupter.is_set():
             logger.warning("Flight function interrupted!")
             print("Flight function interrupted!")
             interrupter.clear()
-            return
+            return 'interrupted'
 
         current_diff = abs(get_telemetry().z - z_dest)
         logger.info("Takeoff...")
@@ -349,11 +349,11 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
                         logger.info("Preforming emergency land")
                         print("Preforming emergency land")
                         land(descend=False, interrupter=interrupter)
-                    return False
+                    return 'time out'
                 else:
                     break
         rate.sleep()
 
     logger.info("Takeoff succeeded!")
     print("Takeoff succeeded!")
-    return True
+    return 'success'

@@ -4,7 +4,7 @@ import time
 from rpi_ws281x import *
 from tasking_lib import wait as wait_until
 # LED strip configuration:
-LED_COUNT = 29  # Number of LED pixels.
+LED_COUNT = 60 # Number of LED pixels.
 LED_PIN = 21  # GPIO pin connected to the pixels (18 uses PWM!) (10 uses SPI /dev/spidev0.0).
 LED_FREQ_HZ = 800000  # LED signal frequency in hertz (usually 800khz)
 LED_DMA = 10  # DMA channel to use for generating signal (try 10)
@@ -27,7 +27,7 @@ b_prev = 0
 
 direct = False
 l = 0
-wait_ms = 10
+wait_ms = 5.0
 
 INTERRUPTER = threading.Event()
 INTERRUPTER_UNSET = threading.Event()
