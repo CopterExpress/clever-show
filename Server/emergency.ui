@@ -6,20 +6,25 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>632</width>
-    <height>214</height>
+    <width>746</width>
+    <height>620</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QPushButton" name="pushButton_2">
+  <property name="styleSheet">
+   <string notr="true">QDialog{
+background-color: #fffdd0;
+}</string>
+  </property>
+  <widget class="QPushButton" name="two_button">
    <property name="geometry">
     <rect>
-     <x>470</x>
-     <y>110</y>
-     <width>121</width>
-     <height>61</height>
+     <x>420</x>
+     <y>120</y>
+     <width>231</width>
+     <height>171</height>
     </rect>
    </property>
    <property name="sizeIncrement">
@@ -28,34 +33,23 @@
      <height>16</height>
     </size>
    </property>
-   <property name="text">
-    <string>PushButton</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="pushButton_3">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>100</y>
-     <width>121</width>
-     <height>61</height>
-    </rect>
-   </property>
-   <property name="sizeIncrement">
-    <size>
-     <width>16</width>
-     <height>16</height>
-    </size>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{
+color: white;
+font-weight: 600;
+font-size: 25pt;
+background-color: red;
+}</string>
    </property>
    <property name="text">
-    <string>PushButton</string>
+    <string>2</string>
    </property>
   </widget>
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>40</x>
-     <y>40</y>
+     <x>90</x>
+     <y>30</y>
      <width>561</width>
      <height>51</height>
     </rect>
@@ -68,6 +62,73 @@
    <property name="text">
     <string>
 Select a group in which the drone does not work correctly</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="one_button">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>120</y>
+     <width>231</width>
+     <height>171</height>
+    </rect>
+   </property>
+   <property name="sizeIncrement">
+    <size>
+     <width>16</width>
+     <height>16</height>
+    </size>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{
+color: white;
+font-weight: 600;
+font-size: 25pt;
+background-color: RGB(118, 255, 122);
+}</string>
+   </property>
+   <property name="text">
+    <string>1</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="land_emergency_button">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>340</y>
+     <width>561</width>
+     <height>81</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{
+font-weight: 600;
+font-size: 25pt;
+background-color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Land</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="disarm_emergency_button">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>460</y>
+     <width>561</width>
+     <height>81</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{
+font-weight: 600;
+font-size: 25pt;
+background-color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Disarm</string>
    </property>
   </widget>
  </widget>

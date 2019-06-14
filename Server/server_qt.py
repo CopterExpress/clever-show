@@ -3,7 +3,7 @@ import glob
 
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
 
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
@@ -12,7 +12,6 @@ from server_gui import Ui_MainWindow
 
 from server import *
 from emergency import *
-
 
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
@@ -43,6 +42,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Initing table and table model
         self.ui.tableView.setModel(model)
         self.ui.tableView.horizontalHeader().setStretchLastSection(True)
+        # self.ui = Communicate()
+        # self.ui.button.connect(self.button1)
 
     @pyqtSlot()
     def check_selected(self):
@@ -196,17 +197,40 @@ class MainWindow(QtWidgets.QMainWindow):
                     copter.send_message("service_restart", {"name": "clever"})
     @pyqtSlot()
     def emergency(self):
-        for row_num in range(model.rowCount()):
-                item = model.item(row_num, 0)
-                if item.isCheckable() and item.checkState() == Qt.Checked:
-                    copter = Client.get_by_id(item.text())
-                    copter.send_message("emergency")
-        Dialog = QtWidgets.QDialog()
-        ui = Ui_Dialog()
-        ui.setupUi(Dialog)
-        Dialog.show()
-        Dialog.exec_()
+        client_row_min = 0
+        client_row_max = model.rowCount()
+        result = 0
+        while (client_row_min != client_row_max) and (result != 3) and (result != 4):
+            # light_green_red(min, max)
+            client_row_mid = (client_row_max-client_row_min) / 2
+            for row_mun in range(client_row_min, client_row_mid):
+                copter = Client.get_by_id(item.text())
+                copter.send_message("led_fill", {"red": 255})
+            for row_num in range(client_row_mid, client_row_max):
+                copter = Client.get_by_id(item.text())
+                copter.send_message("led_fill", {"green": 255})
+            Dialog = QtWidgets.QDialog()    
+            ui = Ui_Dialog()
+            ui.setupUi(Dialog)
+            Dialog.show()
+            result = Dialog.exec()
+            if (result == 1):
+                client_row_max = client_row_mid
+            elif (result == 2):
+                client_row_min = client_row_mid
 
+        if result == 3:
+            for row_num in range(client_row_min, client_row_max):
+                item = model.item(row_num, 0)
+                copter = Client.get_by_id(item.text())
+                copter.send_message("land")
+
+        elif result == 4:
+            for row_num in range(client_row_min, client_row_max):
+                item = model.item(row_num, 0)
+                copter = Client.get_by_id(item.text())
+                copter.send_message("disarm")
+ 
     @pyqtSlot()    
     def flip(self):
         reply = QMessageBox.question(
@@ -225,9 +249,6 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             print("Cancelled")
             pass
-
-        
-
 model = QStandardItemModel()
 model.setHorizontalHeaderLabels(
     ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time UTC')
