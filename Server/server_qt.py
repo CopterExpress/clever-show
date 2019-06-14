@@ -223,12 +223,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 elif (result == 2):
                     client_row_min = client_row_mid
 
-        if result == 3:
+        if result == 0:
+            Client.broadcast_message("led_fill")
+        elif result == 3:
             for row_num in range(client_row_min, client_row_max + 1):
                 item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
                 copter.send_message("land")
-
         elif result == 4:
             for row_num in range(client_row_min, client_row_max + 1):
                 item = model.item(row_num, 0)
