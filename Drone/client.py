@@ -15,17 +15,9 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
-import messaging_lib as messaging
-
-logging.basicConfig(  # TODO all prints as logs
-    level=logging.DEBUG, # INFO
-    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
-    handlers=[
-        logging.FileHandler("client_logs.log"),
-        logging.StreamHandler(),
-    ])
-
 logger = logging.getLogger(__name__)
+
+import messaging_lib as messaging
 
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 

@@ -12,13 +12,13 @@ try:
 except ImportError:
     import selectors2 as selectors
 
-import logging_lib
+#import logging_lib
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
                                                            ])
-_logger = logging.getLogger(__name__)
-logger = logging_lib.Logger(_logger, True)
+logger = logging.getLogger(__name__)
+#logger = logging_lib.Logger(_logger, True)
 
 
 class MessageManager:
@@ -269,8 +269,7 @@ class ConnectionManager(object):
 
     def process_received(self, income_message):
         message_type = income_message.jsonheader["message-type"]
-        logger.debug("Received message! Header: {}, content: {}".format(
-            income_message.jsonheader, income_message.content))
+        logger.debug("Received message! Header: {}, content: {}".format(income_message.jsonheader, income_message.content))
 
         if message_type == "message":
             self._process_message(income_message)
@@ -348,8 +347,7 @@ class ConnectionManager(object):
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         except Exception as error:
-            logger.warning("Attempt to send message {} to {} failed due error: {}".format(
-                self._send_buffer, self.addr, error))
+            logger.warning("Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
 
             if not self.resume_queue:
                 self._send_buffer = b''
