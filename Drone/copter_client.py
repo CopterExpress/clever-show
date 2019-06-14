@@ -84,6 +84,28 @@ def _command_led_test(*args, **kwargs):
     time.sleep(2)
     LedLib.off()
 
+@messaging.message_callback("led_fill")
+def _command_emergency_led_fill(**kwargs):
+    r = g = b = 0
+    
+    try:
+        r = kwargs["red"]
+    except KeyError:
+        pass
+    
+    try:
+        g = kwargs["green"]
+    except KeyError:
+        pass
+    try:    
+        b = kwargs["blue"]
+    except KeyError: 
+        pass
+    
+    LedLib.fill(r, g, b)
+
+
+
 @messaging.message_callback("flip")
 def _copter_flip():
     FlightLib.flip()
