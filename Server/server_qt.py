@@ -198,15 +198,17 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def emergency(self):
         client_row_min = 0
-        client_row_max = model.rowCount()
-        result = 0
-        while (client_row_min != client_row_max) and (result != 3) and (result != 4):
+        client_row_max = model.rowCount() - 1
+        result = -1
+        while (result!=0) and (result != 3) and (result != 4):
             # light_green_red(min, max)
-            client_row_mid = (client_row_max-client_row_min) / 2
-            for row_mun in range(client_row_min, client_row_mid):
+            client_row_mid = int((client_row_max+client_row_min) / 2)
+            for row_num in range(client_row_min, client_row_mid):
+                item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
                 copter.send_message("led_fill", {"red": 255})
-            for row_num in range(client_row_mid, client_row_max):
+            for row_num in range(client_row_mid, client_row_max + 1):
+                item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
                 copter.send_message("led_fill", {"green": 255})
             Dialog = QtWidgets.QDialog()    
@@ -214,19 +216,21 @@ class MainWindow(QtWidgets.QMainWindow):
             ui.setupUi(Dialog)
             Dialog.show()
             result = Dialog.exec()
-            if (result == 1):
-                client_row_max = client_row_mid
-            elif (result == 2):
-                client_row_min = client_row_mid
+            print("Dialog result: {}".format(result))
+            if (client_row_max != client_row_min):
+                if (result == 1):
+                    client_row_max = client_row_mid
+                elif (result == 2):
+                    client_row_min = client_row_mid
 
         if result == 3:
-            for row_num in range(client_row_min, client_row_max):
+            for row_num in range(client_row_min, client_row_max + 1):
                 item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
                 copter.send_message("land")
 
         elif result == 4:
-            for row_num in range(client_row_min, client_row_max):
+            for row_num in range(client_row_min, client_row_max + 1):
                 item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
                 copter.send_message("disarm")
