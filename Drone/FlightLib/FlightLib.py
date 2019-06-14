@@ -28,7 +28,7 @@ logger.info("Proxy services inited")
 FREQUENCY = 40  # HZ
 TOLERANCE = 0.2
 SPEED = 1.0
-SPEED_TAKEOFF = 0.8
+SPEED_TAKEOFF = 1.0
 TIMEOUT = 5.0
 TIMEOUT_ARMED = 2.0
 TIMEOUT_DESCEND = TIMEOUT
@@ -37,6 +37,7 @@ Z_DESCEND = 0.5
 Z_TAKEOFF = 1.0
 FRAME_ID = 'map'
 INTERRUPTER = threading.Event()
+FLIP_MIN_Z = 2.0
 
 checklist = []
 
@@ -65,7 +66,7 @@ def check(check_name):
             print(failures)
             msgs = []
             for failure in failures:
-                print(failure)
+                #print(failure)
                 msg = "[{}]: Failure: {}".format(check_name, failure)
                 msgs.append(msg)
                 logger.warning(msg)
@@ -154,9 +155,9 @@ def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, **kwargs):
     set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw)
     #telemetry = get_telemetry(frame_id=frame_id)
 
-    #logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     #print('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
-    #logger.info('Telemetry now: | z: {:.3f}'.format(telemetry.z))
+    ##logger.info('Telemetry now: | z: {:.3f}'.format(telemetry.z))
     #print('Telemetry now: | z: {:.3f}'.format(telemetry.z))
 
     return True
@@ -165,7 +166,7 @@ def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, **kwargs):
 def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID,
                 freq=FREQUENCY, timeout=TIMEOUT, interrupter=INTERRUPTER, wait=False):
     logger.info('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
-    print('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    #print('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     navigate(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, speed=speed)
 
     # waiting for completion
@@ -176,19 +177,19 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TO
     while (get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z) > tolerance) or wait:
         if interrupter.is_set():
             logger.warning("Reach point function interrupted!")
-            print("Reach point function interrupted!")
+            #print("Reach point function interrupted!")
             interrupter.clear()
             return False
 
         telemetry = get_telemetry(frame_id=frame_id)
         logger.info('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
-        print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
-            telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
+        #print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
+        #    telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
         logger.info('Current delta: | {:.3f}'.format(
             get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
-        print('Current delta: | {:.3f}'.format(
-            get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
+        #print('Current delta: | {:.3f}'.format(
+        #    get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
 
         time_passed = time.time() - time_start
 
@@ -200,14 +201,14 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TO
         rate.sleep()
 
     logger.info("Point reached!")
-    print("Point reached!")
+    #print("Point reached!")
     return True
 
 
 def reach_altitude(z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID,
                    freq=FREQUENCY, timeout=TIMEOUT, interrupter=INTERRUPTER, wait=False):
     logger.info('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
-    print('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
+    #print('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
     current_telem = get_telemetry(frame_id=frame_id)
     navigate(frame_id=frame_id, x=current_telem.x, y=current_telem.y, z=z, yaw=yaw, speed=speed)
 
@@ -218,26 +219,26 @@ def reach_altitude(z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, fr
     while (abs(z - telemetry.z) > tolerance) or wait:
         if interrupter.is_set():
             logger.warning("Reach altitude function interrupted!")
-            print("Reach altitude function interrupted!")
+            #print("Reach altitude function interrupted!")
             interrupter.clear()
             return
 
         telemetry = get_telemetry(frame_id=frame_id)
         logger.info('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
-        print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
-            telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
+        #print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
+        #    telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
 
         time_passed = time.time() - time_start
         if timeout is not None:
             if time_passed >= timeout:
                 logger.warning('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed))
-                print('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed))
+                #print('Reaching attitude timed out! | time: {:3f} seconds'.format(time_passed))
                 return wait
         rate.sleep()
 
     logger.info("Altitude reached!")
-    print("Altitude reached!")
+    #print("Altitude reached!")
     return True
 
 
@@ -249,11 +250,11 @@ def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRA
          timeout_descend=TIMEOUT_DESCEND, timeout_land=TIMEOUT_LAND, freq=FREQUENCY, interrupter=INTERRUPTER):
     if descend:
         logger.info("Descending to: | z: {:.3f}".format(z))
-        print("Descending to: | z: {:.3f}".format(z))
+        #print("Descending to: | z: {:.3f}".format(z))
         reach_altitude(z=z, frame_id=frame_id_descend, timeout=timeout_descend, freq=freq, yaw=float('nan'),  # TODO yaw
                        interrupter=interrupter)
     landing()
-    print("Land is started")
+    #print("Land is started")
 
     telemetry = get_telemetry(frame_id=frame_id_land)
     rate = rospy.Rate(freq)
@@ -262,26 +263,26 @@ def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRA
     while telemetry.armed:
         if interrupter.is_set():
             logger.warning("Land function interrupted!")
-            print("Land function interrupted!")
+            #print("Land function interrupted!")
             interrupter.clear()
             return False
 
         telemetry = get_telemetry(frame_id=frame_id_land)
         logger.info("Landing... | z: {}".format(telemetry.z))
-        print("Landing... | z: {}".format(telemetry.z))
+        #print("Landing... | z: {}".format(telemetry.z))
         time_passed = time.time() - time_start
 
         if timeout_land is not None:
             if time_passed >= timeout_land:
                 logger.warning('Landing timed out! | time: {:3f} seconds'.format(time_passed))
                 logger.warning("Disarming!")
-                print("Landing timed out, disarming!!!")
+                #print("Landing timed out, disarming!!!")
                 arming(False)
                 return False
         rate.sleep()
 
     logger.info("Landing succeeded!")
-    print("Landing succeeded!")
+    #print("Landing succeeded!")
     return True
 
 
@@ -289,7 +290,7 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
             timeout_arm=TIMEOUT_ARMED, timeout_takeoff=TIMEOUT, wait=False, tolerance=TOLERANCE, emergency_land=False,
             interrupter=INTERRUPTER):
     logger.info("Starting takeoff!")
-    print("Starting takeoff!")
+    #print("Starting takeoff!")
     logger.info("Arming, going to OFFBOARD mode")
 
     # Arming check
@@ -301,53 +302,53 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
     while (not telemetry.armed) or wait:
         if interrupter.is_set():
             logger.warning("Takeoff function interrupted!")
-            print("Takeoff function interrupted!")
+            #print("Takeoff function interrupted!")
             interrupter.clear()
             return 'interrupted'
 
         telemetry = get_telemetry()
         logger.info("Arming...")
-        print("Arming...")
+        #print("Arming...")
         time_passed = time.time() - time_start
 
         if timeout_arm is not None:
             if time_passed >= timeout_arm:
                 if not telemetry.armed:
                     logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed))
-                    print('Arming timed out! | time: {:3f} seconds'.format(time_passed))
+                    #print('Arming timed out! | time: {:3f} seconds'.format(time_passed))
                     return 'not armed'
                 else:
                     break
         rate.sleep()
 
     logger.info("Armed!")
-    print("Armed")
+    #print("Armed")
 
     # Reach height
     z0 = get_telemetry().z
     z_dest = z + z0
-    navigate(z=z, speed=speed, yaw = float('nan'), auto_arm=True)
+    navigate(z=z, speed=speed, yaw = float('nan'), frame_id = 'body', auto_arm=True)
     current_diff = abs(get_telemetry().z - z_dest)
     while (current_diff > tolerance) or wait:
         if interrupter.is_set():
             logger.warning("Flight function interrupted!")
-            print("Flight function interrupted!")
+            #print("Flight function interrupted!")
             interrupter.clear()
             return 'interrupted'
 
         current_diff = abs(get_telemetry().z - z_dest)
         logger.info("Takeoff...")
-        print("Takeoff...")
+        #print("Takeoff...")
         time_passed = time.time() - time_start
 
         if timeout_takeoff is not None:
             if time_passed >= timeout_takeoff:
                 if not wait:
                     logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
-                    print('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
+                    #print('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
                     if emergency_land:
                         logger.info("Preforming emergency land")
-                        print("Preforming emergency land")
+                        #print("Preforming emergency land")
                         land(descend=False, interrupter=interrupter)
                     return 'time out'
                 else:
@@ -355,5 +356,30 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
         rate.sleep()
 
     logger.info("Takeoff succeeded!")
-    print("Takeoff succeeded!")
+    #print("Takeoff succeeded!")
     return 'success'
+
+def flip(min_z = FLIP_MIN_Z): #TODO Flip in different directions
+    logger.info("Flip started!")
+
+    start_telemetry = get_telemetry()  # memorize starting position
+    
+    if start_telemetry.z < min_z - TOLERANCE:
+        logger.warning("Can't do flip! Flip failed!")
+        #print("Can't do flip! Flip failed!")
+    else:                    
+        # Flip!    
+        set_rates(thrust=1)  # bump up
+        rospy.sleep(0.2)
+
+        set_rates(roll_rate=30, thrust=0.2)  # maximum roll rate
+
+        while True:
+            telem = get_telemetry()
+
+            if -math.pi + 0.1 < telem.roll < -0.2:
+                break
+
+        logger.info('Flip succeeded!')
+        #print('Flip succeeded!')
+        navto(x=start_telemetry.x, y=start_telemetry.y, z=start_telemetry.z, yaw=start_telemetry.yaw)   # finish flip
