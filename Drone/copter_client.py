@@ -12,12 +12,12 @@ import messaging_lib as messaging
 import tasking_lib as tasking
 import animation_lib as animation
 
-logging.basicConfig(  # TODO all prints as logs
-    level=logging.DEBUG, # INFO
-    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-    ])
+#logging.basicConfig(  # TODO all prints as logs
+#    level=logging.DEBUG, # INFO
+#    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
+#    handlers=[
+#        logging.StreamHandler(),
+#    ])
 
 logger = logging.getLogger(__name__)
 
