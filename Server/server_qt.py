@@ -1,5 +1,6 @@
 import os
 import glob
+import math
 
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
@@ -202,15 +203,16 @@ class MainWindow(QtWidgets.QMainWindow):
         result = -1
         while (result!=0) and (result != 3) and (result != 4):
             # light_green_red(min, max)
-            client_row_mid = int((client_row_max+client_row_min) / 2)
+            client_row_mid = int(math.ceil((client_row_max+client_row_min) / 2.0))
+            print(client_row_min, client_row_mid, client_row_max)
             for row_num in range(client_row_min, client_row_mid):
                 item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
-                copter.send_message("led_fill", {"red": 255})
+                copter.send_message("led_fill", {"green": 255})
             for row_num in range(client_row_mid, client_row_max + 1):
                 item = model.item(row_num, 0)
                 copter = Client.get_by_id(item.text())
-                copter.send_message("led_fill", {"green": 255})
+                copter.send_message("led_fill", {"red": 255})
             Dialog = QtWidgets.QDialog()    
             ui = Ui_Dialog()
             ui.setupUi(Dialog)
@@ -218,9 +220,18 @@ class MainWindow(QtWidgets.QMainWindow):
             result = Dialog.exec()
             print("Dialog result: {}".format(result))
             if (client_row_max != client_row_min):
-                if (result == 1):
-                    client_row_max = client_row_mid
+                if (result == 1): 
+                    for row_num in range(client_row_mid, client_row_max + 1):
+                        item = model.item(row_num, 0)
+                        copter = Client.get_by_id(item.text())
+                        copter.send_message("led_fill")
+                    client_row_max = client_row_mid - 1
+                   
                 elif (result == 2):
+                    for row_num in range(client_row_min, client_row_mid):
+                        item = model.item(row_num, 0)
+                        copter = Client.get_by_id(item.text())
+                        copter.send_message("led_fill")
                     client_row_min = client_row_mid
 
         if result == 0:
