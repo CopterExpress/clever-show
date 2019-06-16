@@ -145,9 +145,9 @@ class TaskManager(object):
             except Exception as e:
                 logger.error("Error '{}' occurred in task {}".format(e, task))
                 #print("Error '{}' occurred in task {}".format(e, task))
-                #if str(e) == 'STOP':
-                #    self.reset()
-                #    return
+                if str(e) == 'STOP':
+                    self.reset()
+                    return
         else:
             #logger.warning("Task interrupted before execution")
             #print("Task interrupted before execution")

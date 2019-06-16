@@ -3,6 +3,8 @@ import threading
 import time
 from rpi_ws281x import *
 from tasking_lib import wait as wait_until
+import logging
+logger = logging.getLogger(__name__)
 # LED strip configuration:
 LED_COUNT = 60 # Number of LED pixels.
 LED_PIN = 21  # GPIO pin connected to the pixels (18 uses PWM!) (10 uses SPI /dev/spidev0.0).
@@ -203,7 +205,7 @@ def strip_off():
 
 def led_thread():
     global mode
-    print("Starting LedLib thread")
+    logger.info("Starting LedLib thread")
     iteration = 0
     while True:
         if mode == "rainbow":
@@ -240,7 +242,9 @@ def led_thread():
 
 
 # init
-def init_led():
+def init_led(led_pin = LED_PIN):
+    global strip
+    strip = Adafruit_NeoPixel(LED_COUNT, led_pin, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
     t_l = threading.Thread(target=led_thread)
     t_l.daemon = True

@@ -12,7 +12,16 @@ import messaging_lib as messaging
 import tasking_lib as tasking
 import animation_lib as animation
 
-import ros_logging
+#logging.basicConfig(  # TODO all prints as logs
+#    level=logging.DEBUG, # INFO
+#    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
+#    handlers=[
+#        logging.StreamHandler(),
+#    ])
+
+logger = logging.getLogger(__name__)
+
+#import ros_logging
 
 class CopterClient(client.Client):
     def load_config(self):
@@ -28,14 +37,14 @@ class CopterClient(client.Client):
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
         self.X0 = self.config.getfloat('PRIVATE', 'x0')
         self.Y0 = self.config.getfloat('PRIVATE', 'y0')
-
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
+        self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
 
     def start(self, task_manager_instance):
         client.logger.info("Init ROS node")
-        rospy.init_node('Swarm_client', anonymous=True, log_level=rospy.DEBUG)
+        rospy.init_node('Swarm_client', anonymous=True)
         if self.USE_LEDS:
-            LedLib.init_led()
+            LedLib.init_led(self.LED_PIN)
         
         task_manager_instance.start()
 
@@ -75,6 +84,31 @@ def _command_led_test(*args, **kwargs):
     time.sleep(2)
     LedLib.off()
 
+@messaging.message_callback("led_fill")
+def _command_emergency_led_fill(**kwargs):
+    r = g = b = 0
+    
+    try:
+        r = kwargs["red"]
+    except KeyError:
+        pass
+    
+    try:
+        g = kwargs["green"]
+    except KeyError:
+        pass
+    try:    
+        b = kwargs["blue"]
+    except KeyError: 
+        pass
+    
+    LedLib.fill(r, g, b)
+
+
+
+@messaging.message_callback("flip")
+def _copter_flip():
+    FlightLib.flip()
 
 @messaging.message_callback("takeoff")
 def _command_takeoff(**kwargs):
@@ -193,8 +227,8 @@ if __name__ == "__main__":
     
     copter_client.start(task_manager)
 
-    ros_logging.route_logger_to_ros()
-    ros_logging.route_logger_to_ros("__main__")
-    ros_logging.route_logger_to_ros("client")
-    ros_logging.route_logger_to_ros("messaging")
+    #ros_logging.route_logger_to_ros()
+    #ros_logging.route_logger_to_ros("__main__")
+    #ros_logging.route_logger_to_ros("client")
+    #ros_logging.route_logger_to_ros("messaging")
 
