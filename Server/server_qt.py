@@ -41,13 +41,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.proxy_model.setDynamicSortFilter(True)
         self.proxy_model.setSourceModel(self.model)
 
-        # Initing table and table self.model
+        # Initiate table and table self.model
         self.ui.tableView.setModel(self.proxy_model)
         self.ui.tableView.horizontalHeader().setStretchLastSection(True)
         self.ui.tableView.setSortingEnabled(True)
 
+        # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
         self.signals.add_client_signal.connect(self.model.add_client)
+
+        # Connect model signals to UI
+        self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
+        self.model.selected_ready_signal.connect(self.ui.takeoff_button.setEnabled)
 
     def client_connected(self, client: Client):
         self.signals.add_client_signal.emit(CopterData(copter_id=client.copter_id, client=client))
@@ -69,6 +74,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
 
+        # Set most safety-important buttons disabled
+        self.ui.start_button.setEnabled(False)
+        self.ui.takeoff_button.setEnabled(False)
+
     @pyqtSlot()
     def selfcheck_selected(self):
         for copter_data in self.model.user_selected():
@@ -79,9 +88,6 @@ class MainWindow(QtWidgets.QMainWindow):
             copter.get_response("cell_voltage", self._set_copter_data, callback_args=(3, copter_data.copter_id))
             copter.get_response("selfcheck", self._set_copter_data, callback_args=(4, copter_data.copter_id))
             copter.get_response("time", self._set_copter_data, callback_args=(5, copter_data.copter_id))
-
-        #self.ui.start_button.setEnabled(True)
-        #self.ui.takeoff_button.setEnabled(True)
 
     def _set_copter_data(self, value, col, copter_id):
         row = self.model.data_contents.index(next(

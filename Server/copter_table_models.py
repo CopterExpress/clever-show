@@ -26,7 +26,7 @@ class CopterData:
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     checks = {}
-    #selected_available = QtCore.pyqtSignal(bool)
+    selected_ready_signal = QtCore.pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
@@ -45,8 +45,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def user_selected(self):
         return filter(lambda x: x.checked == Qt.Checked, self.data_contents)
 
-    def self_checked(self):
-        return filter(lambda x: all_checks(x), self.data_contents)
+    def selfchecked_ready(self, contents=()):
+        contents = contents or self.data_contents
+        return filter(lambda x: all_checks(x), contents)
 
     def rowCount(self, n=None):
         return len(self.data_contents)
@@ -92,6 +93,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         if role == Qt.CheckStateRole:
             self.data_contents[index.row()].checked = value
+            # check if all selected are selfcheck and ok (ready)
+            self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
+
         elif role == Qt.EditRole:
             self.data_contents[index.row()][index.column()] = value
             self.update_model(index)
@@ -189,17 +193,6 @@ class CopterProxyModel(QtCore.QSortFilterProxyModel):
         rightData = self.sourceModel().data(right)
 
         return self.human_sort_prepare(leftData) < self.human_sort_prepare(rightData)
-
-
-'''
-    def sort(self, col, order):
-        self.layoutAboutToBeChanged.emit()
-
-        self.data_contents = sorted(self.data_contents, key=lambda item: self.sorter(item[col]),
-                                    reverse=(order == Qt.DescendingOrder))
-        
-        self.layoutChanged.emit()
-'''
 
 
 class SignalManager(QtCore.QObject):
