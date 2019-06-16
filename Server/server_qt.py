@@ -15,6 +15,27 @@ from server import *
 from copter_table_models import *
 from emergency import *
 
+
+def confirmation_required(text="Are you sure?", label="Confirm operation?"):
+    def inner(f):
+
+        def wrapper(*args, **kwargs):
+            reply = QMessageBox.question(
+                args[0], label,
+                text,
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                print("Dialog accepted")
+                return f(*args, **kwargs)
+            else:
+                print("Dialog declined")
+
+        return wrapper
+
+    return inner
+
+
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -75,14 +96,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def selfcheck_selected(self):
-        for copter_data in self.model.user_selected():
-            copter = copter_data.client
+        for copter in self.model.user_selected():
+            client = copter.client
 
-            copter.get_response("anim_id", self._set_copter_data, callback_args=(1, copter_data.copter_id))
-            copter.get_response("batt_voltage", self._set_copter_data, callback_args=(2, copter_data.copter_id))
-            copter.get_response("cell_voltage", self._set_copter_data, callback_args=(3, copter_data.copter_id))
-            copter.get_response("selfcheck", self._set_copter_data, callback_args=(4, copter_data.copter_id))
-            copter.get_response("time", self._set_copter_data, callback_args=(5, copter_data.copter_id))
+            client.get_response("anim_id", self._set_copter_data, callback_args=(1, copter.copter_id))
+            client.get_response("batt_voltage", self._set_copter_data, callback_args=(2, copter.copter_id))
+            client.get_response("cell_voltage", self._set_copter_data, callback_args=(3, copter.copter_id))
+            client.get_response("selfcheck", self._set_copter_data, callback_args=(4, copter.copter_id))
+            client.get_response("time", self._set_copter_data, callback_args=(5, copter.copter_id))
 
     def _set_copter_data(self, value, col, copter_id):
         row = self.model.data_contents.index(next(
@@ -108,23 +129,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.signals.update_data_signal.emit(row, col, data)
 
     @pyqtSlot()
+    @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
     def send_starttime(self):
         dt = self.ui.start_delay_spin.value()
-        reply = QMessageBox.question(
-            self, "Confirm operation",
-            "This operation will takeoff selected copters and start animation after {} seconds. Proceed?".format(dt),
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            print("Accepted")
-            for row_num in range(self.model.rowCount()):
-                item = self.model.item(row_num, 0)
-                if item.isCheckable() and item.checkState() == Qt.Checked:
-                    if True:  # TODO checks for batt/selfckeck here
-                        copter = Client.get_by_id(item.text())
-                        server.send_starttime(copter, dt)
-        else:
-            print("Cancelled")
+        for copter in self.model.user_selected():
+            if all_checks(copter):
+                server.send_starttime(copter.client, dt)
+
+    @pyqtSlot()
+    @confirmation_required("This operation will takeoff copters immediately. Proceed?")
+    def takeoff_selected(self):
+        for copter in self.model.user_selected():
+            if all_checks(copter):
+                copter.client.send_message("takeoff")
+
+    @pyqtSlot()
+    @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
+    def flip(self):
+        for copter in self.model.user_selected():
+            if all_checks(copter):
+                copter.client.send_message("flip")
+
+    @pyqtSlot()
+    def test_leds(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("led_test")
 
     @pyqtSlot()
     def stop_all(self):
@@ -138,34 +167,6 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             Client.broadcast_message('resume')
             self.ui.pause_button.setText('Pause')
-
-    @pyqtSlot()
-    def test_leds(self):
-        for row_num in range(self.model.rowCount()):
-            item = self.model.item(row_num, 0)
-            if item.isCheckable() and item.checkState() == Qt.Checked:
-                if True:
-                    copter = Client.get_by_id(item.text())
-                    copter.send_message("led_test")
-
-    @pyqtSlot()
-    def takeoff_selected(self):
-        reply = QMessageBox.question(
-            self, "Confirm operation",
-            "This operation will takeoff copters immediately. Proceed?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            print("Accepted")
-            for row_num in range(self.model.rowCount()):
-                item = self.model.item(row_num, 0)
-                if item.isCheckable() and item.checkState() == Qt.Checked:
-                    if True:  # TODO checks for batt/selfckeck here
-                        copter = Client.get_by_id(item.text())
-                        copter.send_message("takeoff")
-        else:
-            print("Cancelled")
-            pass
 
     @pyqtSlot()
     def land_all(self):
@@ -185,14 +186,11 @@ class MainWindow(QtWidgets.QMainWindow):
             names = [os.path.basename(file).split(".")[0] for file in files]
             print(files)
             for file, name in zip(files, names):
-                for row_num in range(self.model.rowCount()):
-                    item = self.model.item(row_num, 0)
-                    if item.isCheckable() and item.checkState() == Qt.Checked:
-                        copter = Client.get_by_id(item.text())
-                        if name == copter.copter_id:
-                            copter.send_file(file, "animation.csv")  # TODO config
-                        else:
-                            print("Filename not matches with any drone connected")
+                for copter in self.model.user_selected():
+                    if name == copter.copter_id:
+                        copter.client.send_file(file, "animation.csv")  # TODO config
+                else:
+                    print("Filename has no matches with any drone selected")
 
     @pyqtSlot()
     def send_configurations(self):
@@ -207,12 +205,9 @@ class MainWindow(QtWidgets.QMainWindow):
                     value = sendable_config[section][option]
                     logging.debug("Got item from config:".format(section, option, value))
                     options.append(ConfigOption(section, option, value))
-                    
-            for row_num in range(self.model.rowCount()):
-                item = self.model.item(row_num, 0)
-                if item.isCheckable() and item.checkState() == Qt.Checked:
-                    copter = Client.get_by_id(item.text())
-                    copter.send_config_options(*options)
+
+            for copter in self.model.user_selected():
+                copter.client.send_config_options(*options)
 
     @pyqtSlot()
     def send_aruco(self):
@@ -220,81 +215,56 @@ class MainWindow(QtWidgets.QMainWindow):
         if path:
             filename = os.path.basename(path)
             print("Selected file:", path, filename)
-            for row_num in range(self.model.rowCount()):
-                item = self.model.item(row_num, 0)
-                if item.isCheckable() and item.checkState() == Qt.Checked:
-                    copter = Client.get_by_id(item.text())
-                    copter.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
-                    copter.send_message("service_restart", {"name": "clever"})
+            for copter in self.model.user_selected():
+                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+                copter.client.send_message("service_restart", {"name": "clever"})
+
     @pyqtSlot()
     def emergency(self):
         client_row_min = 0
-        client_row_max = model.rowCount() - 1
+        client_row_max = self.model.rowCount() - 1
         result = -1
-        while (result!=0) and (result != 3) and (result != 4):
+        while (result != 0) and (result != 3) and (result != 4):
             # light_green_red(min, max)
             client_row_mid = int(math.ceil((client_row_max+client_row_min) / 2.0))
             print(client_row_min, client_row_mid, client_row_max)
             for row_num in range(client_row_min, client_row_mid):
-                item = model.item(row_num, 0)
-                copter = Client.get_by_id(item.text())
-                copter.send_message("led_fill", {"green": 255})
+                self.model.data_contents[row_num].client\
+                    .send_message("led_fill", {"green": 255})
             for row_num in range(client_row_mid, client_row_max + 1):
-                item = model.item(row_num, 0)
-                copter = Client.get_by_id(item.text())
-                copter.send_message("led_fill", {"red": 255})
+                self.model.data_contents[row_num].client \
+                    .send_message("led_fill", {"red": 255})
+
             Dialog = QtWidgets.QDialog()    
             ui = Ui_Dialog()
             ui.setupUi(Dialog)
             Dialog.show()
             result = Dialog.exec()
             print("Dialog result: {}".format(result))
-            if (client_row_max != client_row_min):
-                if (result == 1): 
+
+            if client_row_max != client_row_min:
+                if result == 1:
                     for row_num in range(client_row_mid, client_row_max + 1):
-                        item = model.item(row_num, 0)
-                        copter = Client.get_by_id(item.text())
-                        copter.send_message("led_fill")
+                        self.model.data_contents[row_num].client \
+                            .send_message("led_fill")
                     client_row_max = client_row_mid - 1
                    
-                elif (result == 2):
+                elif result == 2:
                     for row_num in range(client_row_min, client_row_mid):
-                        item = model.item(row_num, 0)
-                        copter = Client.get_by_id(item.text())
-                        copter.send_message("led_fill")
+                        self.model.data_contents[row_num].client \
+                            .send_message("led_fill")
                     client_row_min = client_row_mid
 
         if result == 0:
             Client.broadcast_message("led_fill")
         elif result == 3:
             for row_num in range(client_row_min, client_row_max + 1):
-                item = model.item(row_num, 0)
-                copter = Client.get_by_id(item.text())
-                copter.send_message("land")
+                self.model.data_contents[row_num].client \
+                    .send_message("land")
         elif result == 4:
             for row_num in range(client_row_min, client_row_max + 1):
-                item = model.item(row_num, 0)
-                copter = Client.get_by_id(item.text())
-                copter.send_message("disarm")
- 
-    @pyqtSlot()    
-    def flip(self):
-        reply = QMessageBox.question(
-            self, "Confirm operation",
-            "You are ready to turn the copter?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            print("Accepted")
-            for row_num in range(self.model.rowCount()):
-                item = self.model.item(row_num, 0)
-                if item.isCheckable() and item.checkState() == Qt.Checked:
-                    if True:  # TODO checks for batt/selfckeck here
-                        copter = Client.get_by_id(item.text())
-                        copter.send_message("flip")
-        else:
-            print("Cancelled")
-            pass
+                self.model.data_contents[row_num].client \
+                    .send_message("disarm")
 
 
 if __name__ == "__main__":
