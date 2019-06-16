@@ -359,10 +359,10 @@ def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
     #print("Takeoff succeeded!")
     return 'success'
 
-def flip(min_z = FLIP_MIN_Z): #TODO Flip in different directions
+def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different directions
     logger.info("Flip started!")
 
-    start_telemetry = get_telemetry()  # memorize starting position
+    start_telemetry = get_telemetry(frame_id=frame_id)  # memorize starting position
     
     if start_telemetry.z < min_z - TOLERANCE:
         logger.warning("Can't do flip! Flip failed!")
@@ -377,9 +377,9 @@ def flip(min_z = FLIP_MIN_Z): #TODO Flip in different directions
         while True:
             telem = get_telemetry()
 
-            if -math.pi + 0.1 < telem.roll < -0.2:
+            if abs(telem.roll) > math.pi/2:
                 break
 
         logger.info('Flip succeeded!')
         #print('Flip succeeded!')
-        navto(x=start_telemetry.x, y=start_telemetry.y, z=start_telemetry.z, yaw=start_telemetry.yaw)   # finish flip
+        navto(x=start_telemetry.x, y=start_telemetry.y, z=start_telemetry.z, yaw=start_telemetry.yaw, frame_id=frame_id)   # finish flip
