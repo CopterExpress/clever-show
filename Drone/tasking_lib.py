@@ -42,7 +42,10 @@ class TaskManager(object):
         self._timeshift = 0.0
 
     def add_task(self, timestamp, priority, task_function,
-                 task_args=(), task_kwargs={}, task_delayable=False):
+                 task_args=(), task_kwargs=None, task_delayable=False):
+
+        if task_kwargs is None:
+            task_kwargs = {}
 
         self._wait_interrupt_event.set()
         self._running_event.clear()
