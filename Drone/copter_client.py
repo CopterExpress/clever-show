@@ -92,21 +92,9 @@ def _command_led_test(**kwargs):
 
 @messaging.message_callback("led_fill")
 def _command_led_fill(**kwargs):
-    r = g = b = 0
-
-    try:
-        r = kwargs["red"]
-    except KeyError:
-        pass
-
-    try:
-        g = kwargs["green"]
-    except KeyError:
-        pass
-    try:
-        b = kwargs["blue"]
-    except KeyError:
-        pass
+    r = kwargs.get("red", 0)
+    g = kwargs.get("green", 0)
+    b = kwargs.get("blue", 0)
 
     LedLib.fill(r, g, b)
 
