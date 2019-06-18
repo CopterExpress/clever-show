@@ -10,7 +10,9 @@ Task = collections.namedtuple("Task", ["func", "args", "kwargs", "delayable", ])
 
 INTERRUPTER = threading.Event()
 
-def wait(end, interrupter=INTERRUPTER, maxsleep=0.1):  # Added features to interrupter sleep and set max sleeping interval
+
+def wait(end, interrupter=INTERRUPTER, maxsleep=0.1):
+    # Added features to interrupter sleep and set max sleeping interval
 
     while not interrupter.is_set():  # Basic implementation of pause module until()
         now = time.time()
@@ -83,7 +85,7 @@ class TaskManager(object):
                 return heapq.heappop(self.task_queue)
             raise KeyError('Pop from an empty priority queue')
 
-    def start(self, timeouts=False):
+    def start(self):
         #print("Task manager is started")
         #logger.info("Task manager is started")
         self._processor_thread.start()
@@ -95,13 +97,13 @@ class TaskManager(object):
         with self._task_queue_lock:
             del self.task_queue[:]
 
-    def shutdown(self):
+    def shutdown(self, timeout=5.0):
         self.stop()
         self._shutdown_event.set()
-        self._wait_interrupt_event.set()
-        self._task_interrupt_event.set()
-        self._running_event.clear()
-        self._processor_thread.join(timeout=5)
+        # self._wait_interrupt_event.set()
+        # self._task_interrupt_event.set()
+        # self._running_event.clear() #already exists in pause
+        self._processor_thread.join(timeout=timeout)
 
     def pause(self, interrupt=True):
         if interrupt:
@@ -111,7 +113,7 @@ class TaskManager(object):
         #logger.info("Task queue paused")
         #print("Task queue paused")
 
-    def resume(self, time_to_start_next_task = 0):
+    def resume(self, time_to_start_next_task=0.0):
         if self.task_queue:
             next_task_time = self.task_queue[0][0]
             if time_to_start_next_task > next_task_time:

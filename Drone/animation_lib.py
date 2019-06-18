@@ -13,16 +13,20 @@ logger = logging.getLogger(__name__)
 
 interrupt_event = threading.Event()
 
-id = "Empty id"
+anim_id = "Empty id"
+
+# TODO refactor as class
+# TODO separate code for frames transformations (e.g. for gps)
+
 
 def get_id(filepath="animation.csv"):
-    global id
+    global anim_id
     try:
         animation_file = open(filepath)
     except IOError:
         logging.error("File {} can't be opened".format(filepath))
-        id = "No animation"
-        return id
+        anim_id = "No animation"
+        return anim_id
     else:
         with animation_file:
             csv_reader = csv.reader(
@@ -30,20 +34,21 @@ def get_id(filepath="animation.csv"):
             )
             row_0 = csv_reader.next()
             if len(row_0) == 1:
-                id = row_0[0]
-                print("Got animation_id: {}".format(id))
+                anim_id = row_0[0]
+                print("Got animation_id: {}".format(anim_id))
             else:
                 print("No animation id in file")
-    return id
+    return anim_id
+
 
 def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
     imported_frames = []
-    global id
+    global anim_id
     try:
         animation_file = open(filepath)
     except IOError:
         logging.error("File {} can't be opened".format(filepath))
-        id = "No animation"
+        anim_id = "No animation"
     else:
         with animation_file:
             csv_reader = csv.reader(
@@ -51,8 +56,8 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
             )
             row_0 = csv_reader.next()
             if len(row_0) == 1:
-                id = row_0[0]
-                print("Got animation_id: {}".format(id))
+                anim_id = row_0[0]
+                print("Got animation_id: {}".format(anim_id))
             else:
                 print("No animation id in file")
                 frame_number, x, y, z, yaw, red, green, blue = row_0
@@ -87,7 +92,6 @@ def convert_frame(frame):
 
 def execute_frame(point=(), color=(), yaw=float('Nan'), frame_id='aruco_map', use_leds=True,
                   flight_func=FlightLib.navto, flight_kwargs=None, interrupter=interrupt_event):
-
     if flight_kwargs is None:
         flight_kwargs = {}
 
@@ -112,7 +116,7 @@ def execute_animation(frames, frame_delay, frame_id='aruco_map', use_leds=True, 
         tasking.wait(next_frame_time, interrupter)
 
 
-def takeoff(z=1.5, safe_takeoff=True, frame_id = 'map', timeout=5.0, use_leds=True,
+def takeoff(z=1.5, safe_takeoff=True, frame_id='map', timeout=5.0, use_leds=True,
             interrupter=interrupt_event):
     print(interrupter.is_set())
     if use_leds:
@@ -120,9 +124,9 @@ def takeoff(z=1.5, safe_takeoff=True, frame_id = 'map', timeout=5.0, use_leds=Tr
     if interrupter.is_set():
         return
     result = FlightLib.takeoff(z=z, wait=False, timeout_takeoff=timeout, frame_id=frame_id, emergency_land=safe_takeoff,
-                      interrupter=interrupter)
+                               interrupter=interrupter)
     if result == 'not armed':
-        raise Exception('STOP')         # Raise exception to clear task_manager if copter can't arm
+        raise Exception('STOP')  # Raise exception to clear task_manager if copter can't arm
     if interrupter.is_set():
         return
     if use_leds:
