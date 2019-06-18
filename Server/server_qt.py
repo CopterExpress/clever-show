@@ -77,7 +77,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connecting
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
         self.ui.start_button.clicked.connect(self.send_starttime)
-        self.ui.pause_button.clicked.connect(self.pause_all)
+        self.ui.pause_button.clicked.connect(self.pause_resume_all)
         self.ui.stop_button.clicked.connect(self.stop_all)
         self.ui.emergency_button.clicked.connect(self.emergency)
 
@@ -160,13 +160,18 @@ class MainWindow(QtWidgets.QMainWindow):
         Client.broadcast_message("stop")
 
     @pyqtSlot()
-    def pause_all(self):
+    def pause_resume_all(self):
         if self.ui.pause_button.text() == 'Pause':
             Client.broadcast_message('pause')
             self.ui.pause_button.setText('Resume')
         else:
-            Client.broadcast_message('resume')
-            self.ui.pause_button.setText('Pause')
+            self._resume_all()
+
+    @confirmation_required("This operation will resume ALL copter tasks with given delay. Proceed?")
+    def _resume_all(self):
+        dt = self.ui.start_delay_spin.value()
+        Client.broadcast_message('resume', {"time": 0 if dt == 0 else server.time_now()})
+        self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
     def land_all(self):

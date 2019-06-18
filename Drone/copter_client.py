@@ -157,12 +157,12 @@ def _command_stop(**kwargs):
 
 
 @messaging.message_callback("pause")
-def _command_stop(**kwargs):
+def _command_pause(**kwargs):
     task_manager.pause()
 
 
 @messaging.message_callback("resume")
-def _command_stop(**kwargs):
+def _command_resume(**kwargs):
     task_manager.resume(time_to_start_next_task=kwargs.get("time", 0))
 
 
