@@ -80,7 +80,7 @@ def _command_test(**kwargs):
 
 @messaging.message_callback("service_restart")
 def _command_service_restart(**kwargs):
-    os.system("systemctl restart" + kwargs["name"])
+    os.system("systemctl restart {}".format(kwargs["name"]))
 
 
 @messaging.message_callback("led_test")
