@@ -111,3 +111,13 @@ Drone/client_logs
 images/
 
 \.idea/
+
+Drone/_copter_client_old_\.py
+
+Drone/test_cl\.py
+
+Server/testj\.ipynb
+
+Server/tst_client\.py
+
+Server/tst\.py
