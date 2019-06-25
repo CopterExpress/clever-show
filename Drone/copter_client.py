@@ -101,7 +101,7 @@ def _command_led_fill(**kwargs):
 
 @messaging.message_callback("flip")
 def _copter_flip():
-    FlightLib.flip()
+    FlightLib.flip(frame_id=client.active_client.FRAME_ID)
 
 
 @messaging.message_callback("takeoff")
