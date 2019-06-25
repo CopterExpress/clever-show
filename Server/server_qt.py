@@ -112,15 +112,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if col == 1:
             data = value
         elif col == 2:
-            data = "{} V.".format(round(float(value), 3))
+            data = "{}".format(round(float(value), 3))
         elif col == 3:
             batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100  # TODO config
-            data = "{} %".format(round(batt_percent, 3))
+            data = "{}".format(round(batt_percent, 3))
         elif col == 4:
             data = str(value)
         elif col == 5:
             data = time.ctime(int(value))
-            data2 = "{} sec.".format(round(int(value) - time.time(), 3))
+            data2 = "{}".format(round(int(value) - time.time(), 3))
             self.signals.update_data_signal.emit(row, col + 1, data2)
         else:
             print("No column matched for response")

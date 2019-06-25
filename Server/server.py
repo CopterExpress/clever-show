@@ -159,7 +159,7 @@ class Server:
         logging.info("Got connection from: {}".format(str(addr)))
         conn.setblocking(False)
 
-        if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
+        if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
             logging.info("New client")
         else:
