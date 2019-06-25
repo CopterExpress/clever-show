@@ -193,7 +193,7 @@ def _play_animation(**kwargs):
     frame_time = rfp_time + client.active_client.RFP_TIME
     frame_delay = 0.125  # TODO from animation file
     for frame in frames:
-        point, color = animation.convert_frame(frame)  # TODO add param to calculate delta
+        point, color, yaw = animation.convert_frame(frame)  # TODO add param to calculate delta
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                               task_kwargs={
                                   "point": point,
