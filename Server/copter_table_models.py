@@ -1,14 +1,15 @@
 import sys
 import re
-from operator import itemgetter
+import collections
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
 
 
 class CopterData:
-    class_attrs = {'copter_id': None, 'anim_id': None, 'batt_v': None, 'batt_p': None, 'selfcheck': None,
-                   'time_utc': None, "time_delta": None, "client": None, "checked": 0}
+    class_attrs = collections.OrderedDict([('copter_id', None), ('anim_id', None), ('batt_v', None), ('batt_p', None),
+                                           ('selfcheck', None), ('time_utc', None), ("time_delta", None),
+                                           ("client", None), ("checked", 0)], )
 
     def __init__(self, **kwargs):
         self.attrs = self.class_attrs.copy()
