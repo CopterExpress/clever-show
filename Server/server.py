@@ -140,7 +140,7 @@ class Server:
         self.sel.register(self.server_socket, selectors.EVENT_READ | selectors.EVENT_WRITE, data=None)
 
         while self.client_processor_thread_running.is_set():
-            events = self.sel.select(timeout=0)
+            events = self.sel.select()
             for key, mask in events:
                 if key.data is None:
                     self._connect_client(key.fileobj)
