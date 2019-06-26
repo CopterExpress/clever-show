@@ -41,6 +41,10 @@ class CopterClient(client.Client):
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
         self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
 
+    def on_broadcast_bind(self):
+        #TODO change chony config
+        _command_service_restart(name="chrony")
+
     def start(self, task_manager_instance):
         client.logger.info("Init ROS node")
         rospy.init_node('Swarm_client', anonymous=True)
