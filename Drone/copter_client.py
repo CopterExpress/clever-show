@@ -42,8 +42,8 @@ class CopterClient(client.Client):
         self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
 
     def on_broadcast_bind(self):
-        #TODO change chony config
-        _command_service_restart(name="chrony")
+        configure_chrony_ip(self.server_host)
+        restart_service("chrony")
 
     def start(self, task_manager_instance):
         client.logger.info("Init ROS node")
@@ -54,6 +54,43 @@ class CopterClient(client.Client):
         task_manager_instance.start()
 
         super(CopterClient, self).start()
+
+
+def restart_service(name):
+    os.system("systemctl restart {}".format(name))
+
+
+def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        print("Reading error {}".format(e))
+        return False
+
+    content = raw_content.split(" ")
+
+    try:
+        current_ip = content[ip_index]
+    except IndexError:
+        print("Something wrong with config")
+        return False
+
+    if "." not in current_ip:
+        print("That's not ip!")
+        return False
+
+    if current_ip != ip:
+        content[ip_index] = ip
+
+        try:
+            with open(path, 'w') as f:
+                f.write(" ".join(content))
+        except IOError:
+            print("Error writing")
+            return False
+
+    return True
 
 
 @messaging.request_callback("selfcheck")
@@ -79,12 +116,13 @@ def _response_cell():
 
 @messaging.message_callback("test")
 def _command_test(**kwargs):
-    print("test")
+    logger.info("logging info test")
+    print("stdout test")
 
 
 @messaging.message_callback("service_restart")
 def _command_service_restart(**kwargs):
-    os.system("systemctl restart {}".format(kwargs["name"]))
+    restart_service(kwargs["name"])
 
 
 @messaging.message_callback("led_test")
