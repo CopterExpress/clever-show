@@ -109,7 +109,7 @@ Drone/test_animation/
 Drone/animation.csv
 Drone/client_logs
 images/
-
+.vscode/
 \.idea/
 
 Drone/_copter_client_old_\.py
