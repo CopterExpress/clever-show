@@ -44,7 +44,7 @@ sed -i '/<arg name="aruco_vpe"/c \    <arg name="aruco_vpe" default="true"/>' /h
 sed -i '/<param name="map"/c \        <param name="map" value="\$\(find aruco_pose\)/map/animation_map.txt"/>' /home/pi/catkin_ws/src/clever/clever/launch/aruco.launch
 sed -i '/<arg name="aruco"/c \    <arg name="aruco" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
 sed -i '/<arg name="rangefinder_vl53l1x"/c \    <arg name="rangefinder_vl53l1x" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
-#sed -i '/<arg name="optical_flow"/c \    <arg name="optical_flow" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
+sed -i '/<arg name="optical_flow"/c \    <arg name="optical_flow" default="true"/>' /home/pi/catkin_ws/src/clever/clever/launch/clever.launch
 
 echo_stamp "Image was configured!" "SUCCESS"
 
