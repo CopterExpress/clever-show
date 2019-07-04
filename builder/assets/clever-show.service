@@ -1,6 +1,5 @@
 [Unit]
 Description=Clever Show Client Service
-Requires=clever.service
 After=clever.service
 
 [Service]
