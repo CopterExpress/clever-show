@@ -119,9 +119,11 @@ class MainWindow(QtWidgets.QMainWindow):
         elif col == 4:
             data = str(value)
         elif col == 5:
-            data = time.ctime(int(value))
-            data2 = "{}".format(round(int(value) - time.time(), 3))
-            self.signals.update_data_signal.emit(row, col + 1, data2)
+            #data = time.ctime(int(value))
+            data = "{}".format(round(float(value) - time.time(), 3))
+            if abs(float(data)) > 1:
+                Client.get_by_id(copter_id).send_message("repair_chrony")
+            #self.signals.update_data_signal.emit(row, col + 1, data2)
         else:
             print("No column matched for response")
             return

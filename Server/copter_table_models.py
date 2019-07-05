@@ -31,7 +31,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'animation ID', 'battery (V.)', 'battery (%)', 'selfcheck', 'time UTC', "time delta")
+        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time delta')
         self.data_contents = []
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
@@ -62,6 +62,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
                 return self.headers[section]
 
     def data(self, index, role=Qt.DisplayRole):
+        self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
         row = index.row()
         col = index.column()
         #print('row {}, col {}, role {}'.format(row, col, role))
@@ -94,8 +95,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         if role == Qt.CheckStateRole:
             self.data_contents[index.row()].checked = value
-            # check if all selected are selfcheck and ok (ready)
-            self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
 
         elif role == Qt.EditRole:
             self.data_contents[index.row()][index.column()] = value
@@ -136,6 +135,8 @@ def col_check(col):
 def check_anim(item):
     if not item:
         return None
+    if str(item) == 'No animation':
+        return False
     else:
         return True
 
@@ -151,13 +152,14 @@ def check_bat_v(item):
 
 
 @col_check(3)
-def check_bat_v(item):
+def check_bat_p(item):
     if not item:
         return None
-    if float(item) > 15:  # todo config
+    if float(item) > 30:  # todo config
         return True
     else:
         return False
+        #return True #For testing
 
 
 @col_check(4)
@@ -165,6 +167,15 @@ def check_selfcheck(item):
     if not item:
         return None
     if item == "OK":
+        return True
+    else:
+        return False
+
+@col_check(5)
+def check_time_delta(item):
+    if not item:
+        return None
+    if abs(float(item)) < 1:
         return True
     else:
         return False
