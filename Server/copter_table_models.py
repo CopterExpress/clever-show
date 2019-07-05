@@ -195,7 +195,7 @@ def all_checks(copter_item):
 
 def takeoff_checks(copter_item):
     for i in range(3):
-        if not check_selfcheck(copter_item[2+i]):
+        if not CopterDataModel.checks[2+i](copter_item[2+i]):
             return False
     return True
 

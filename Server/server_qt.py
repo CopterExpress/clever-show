@@ -27,7 +27,8 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
             )
             if reply == QMessageBox.Yes:
                 print("Dialog accepted")
-                return f(*args, **kwargs)
+                #print(args)
+                return f(args[0])
             else:
                 print("Dialog declined")
 
@@ -77,7 +78,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connecting
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
         self.ui.start_button.clicked.connect(self.send_starttime)
-        self.ui.pause_button.clicked.connect(self.pause_resume_all)
+        self.ui.pause_button.clicked.connect(self.pause_resume_selected)
         self.ui.stop_button.clicked.connect(self.stop_all)
         self.ui.emergency_button.clicked.connect(self.emergency)
 
@@ -130,24 +131,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.signals.update_data_signal.emit(row, col, data)
 
-    @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
-    def send_starttime(self):
+    @pyqtSlot()
+    def send_starttime(self, **kwargs):
         dt = self.ui.start_delay_spin.value()
         for copter in self.model.user_selected():
             if all_checks(copter):
                 server.send_starttime(copter.client, dt)
 
-    @pyqtSlot()
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
-    def takeoff_selected(self):
+    @pyqtSlot()
+    def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
             if all_checks(copter):
                 copter.client.send_message("takeoff")
 
-    @pyqtSlot()
     @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
-    def flip(self):
+    @pyqtSlot()
+    def flip(self, **kwargs):
         for copter in self.model.user_selected():
             if all_checks(copter):
                 copter.client.send_message("flip")
@@ -162,17 +163,19 @@ class MainWindow(QtWidgets.QMainWindow):
         Client.broadcast_message("stop")
 
     @pyqtSlot()
-    def pause_resume_all(self):
+    def pause_resume_selected(self):
         if self.ui.pause_button.text() == 'Pause':
-            Client.broadcast_message('pause')
+            for copter in self.model.user_selected():
+                copter.client.send_message("pause")
             self.ui.pause_button.setText('Resume')
         else:
-            self._resume_all()
+            self._resume_selected()
 
-    @confirmation_required("This operation will resume ALL copter tasks with given delay. Proceed?")
-    def _resume_all(self):
-        dt = self.ui.start_delay_spin.value()
-        Client.broadcast_message('resume', {"time": 0 if dt == 0 else server.time_now()})
+    #@confirmation_required("This operation will resume ALL copter tasks with given delay. Proceed?")
+    def _resume_selected(self, **kwargs):
+        time_gap = 0.1
+        for copter in self.model.user_selected():
+            copter.client.send_message('resume', {"time": server.time_now() + time_gap})
         self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
