@@ -68,7 +68,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
-        self.model.selected_ready_signal.connect(self.ui.takeoff_button.setEnabled)
+        self.model.selected_takeoff_ready_signal.connect(self.ui.takeoff_button.setEnabled)
 
     def client_connected(self, client: Client):
         self.signals.add_client_signal.emit(CopterData(copter_id=client.copter_id, client=client))

@@ -28,6 +28,7 @@ class CopterData:
 class CopterDataModel(QtCore.QAbstractTableModel):
     checks = {}
     selected_ready_signal = QtCore.pyqtSignal(bool)
+    selected_takeoff_ready_signal = QtCore.pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
@@ -50,6 +51,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         contents = contents or self.data_contents
         return filter(lambda x: all_checks(x), contents)
 
+    def takeoff_ready(self, contents=()):
+        contents = contents or self.data_contents
+        return filter(lambda x: takeoff_checks(x), contents)
+
     def rowCount(self, n=None):
         return len(self.data_contents)
 
@@ -62,7 +67,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
                 return self.headers[section]
 
     def data(self, index, role=Qt.DisplayRole):
-        self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
         row = index.row()
         col = index.column()
         #print('row {}, col {}, role {}'.format(row, col, role))
@@ -86,6 +90,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def update_model(self, index=QtCore.QModelIndex()):
         #self.modelReset.emit()
+        self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
+        self.selected_takeoff_ready_signal.emit(set(self.user_selected()).issubset(self.takeoff_ready()))
         self.dataChanged.emit(index, index, (QtCore.Qt.EditRole,))
 
     @QtCore.pyqtSlot()
@@ -187,6 +193,11 @@ def all_checks(copter_item):
             return False
     return True
 
+def takeoff_checks(copter_item):
+    for i in range(3):
+        if not check_selfcheck(copter_item[2+i]):
+            return False
+    return True
 
 class CopterProxyModel(QtCore.QSortFilterProxyModel):
     def __init__(self, parent=None):
