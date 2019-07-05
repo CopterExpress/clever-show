@@ -15,6 +15,7 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
+#logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 import messaging_lib as messaging
@@ -107,7 +108,7 @@ class Client(object):
             logger.critical("Caught interrupt, exiting!")
             self.selector.close()
 
-    def _reconnect(self, timeout=2, attempt_limit=5):
+    def _reconnect(self, timeout=3.0, attempt_limit=5):
         logger.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
         attempt_count = 0
         while not self.connected:
@@ -133,7 +134,7 @@ class Client(object):
 
             if attempt_count >= attempt_limit:
                 logger.info("Too many attempts. Trying to get new server IP")
-                self.broadcast_bind()
+                self.broadcast_bind(timeout*2, attempt_limit)
                 attempt_count = 0
 
 
@@ -146,29 +147,41 @@ class Client(object):
         self._process_connections()
 
 
-    def broadcast_bind(self):
+    def broadcast_bind(self, timeout=3.0, attempt_limit=5):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         broadcast_client.bind(("", self.broadcast_port))
+        broadcast_client.settimeout(timeout)
+
+        attempt_count = 0
         try:
-            while True:
-                data, addr = broadcast_client.recvfrom(self.BUFFER_SIZE)
-                message = messaging.MessageManager()
-                message.income_raw = data
-                message.process_message()
-                if message.content:
-                    logger.info("Received broadcast message {} from {}".format(message.content, addr))
-                    if message.content["command"] == "server_ip":
-                        args = message.content["args"]
-                        self.server_port = int(args["port"])
-                        self.server_host = args["host"]
-                        self.write_config(False,
-                                          ConfigOption("SERVER", "port", self.server_port),
-                                          ConfigOption("SERVER", "host", self.server_host))
-                        logger.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
-                        break
+            while attempt_count <= attempt_limit:
+                try:
+                    data, addr = broadcast_client.recvfrom(self.BUFFER_SIZE)
+                except socket.error as error:
+                    logger.warning("Could not receive broadcast due error: {}".format(error))
+                    attempt_count += 1
+                else:
+                    message = messaging.MessageManager()
+                    message.income_raw = data
+                    message.process_message()
+                    if message.content:
+                        logger.info("Received broadcast message {} from {}".format(message.content, addr))
+                        if message.content["command"] == "server_ip":
+                            args = message.content["args"]
+                            self.server_port = int(args["port"])
+                            self.server_host = args["host"]
+                            self.write_config(False,
+                                              ConfigOption("SERVER", "port", self.server_port),
+                                              ConfigOption("SERVER", "host", self.server_host))
+                            logger.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
+                            self.on_broadcast_bind()
+                            break
         finally:
             broadcast_client.close()
+
+    def on_broadcast_bind(self):
+        pass
 
     def _process_connections(self):
         while True:

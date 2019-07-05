@@ -140,7 +140,7 @@ class Server:
         self.sel.register(self.server_socket, selectors.EVENT_READ | selectors.EVENT_WRITE, data=None)
 
         while self.client_processor_thread_running.is_set():
-            events = self.sel.select(timeout=0)
+            events = self.sel.select()
             for key, mask in events:
                 if key.data is None:
                     self._connect_client(key.fileobj)
@@ -159,7 +159,7 @@ class Server:
         logging.info("Got connection from: {}".format(str(addr)))
         conn.setblocking(False)
 
-        if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
+        if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
             logging.info("New client")
         else:

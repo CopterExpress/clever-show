@@ -22,6 +22,8 @@ get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 landing = rospy.ServiceProxy('/land', Trigger)
 
+services_list = [navigate, set_position, set_rates, set_mode, get_telemetry, arming,landing]
+
 logger.info("Proxy services inited")
 
 # globals
@@ -41,8 +43,10 @@ FLIP_MIN_Z = 2.0
 
 checklist = []
 
-def arming_wrapper(state=False, interrupter=INTERRUPTER):
+
+def arming_wrapper(state=False, *args, **kwargs):
     arming(state)
+
 
 def interrupt():
     logger.info("Performing function interrupt")
@@ -63,10 +67,8 @@ def check(check_name):
     def inner(f):
         def wrapper(*args, **kwargs):
             failures = f(*args, **kwargs)
-            print(failures)
             msgs = []
             for failure in failures:
-                #print(failure)
                 msg = "[{}]: Failure: {}".format(check_name, failure)
                 msgs.append(msg)
                 logger.warning(msg)
@@ -87,6 +89,16 @@ def _check_nans(*values):
     return any(math.isnan(x) for x in values)
 
 
+@check("Ros services")
+def check_ros_services():
+    timeout = 5.0
+    for service in services_list:
+        try:
+            service.wait_for_service(timeout=timeout)
+        except (rospy.ServiceException, rospy.ROSException) as e:
+            yield ("ROS service {} is not available!".format(service.name))
+
+
 @check("FCU connection")
 def check_connection():
     telemetry = get_telemetry()
@@ -95,7 +107,7 @@ def check_connection():
 
 
 @check("Linear velocity estimation")
-def check_linear_speeds(speed_limit=0.1):
+def check_linear_speeds(speed_limit=0.15):
     telemetry = get_telemetry(frame_id='body')
 
     if _check_nans(telemetry.vx, telemetry.vy, telemetry.vz):
@@ -367,6 +379,7 @@ def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different direc
     if start_telemetry.z < min_z - TOLERANCE:
         logger.warning("Can't do flip! Flip failed!")
         #print("Can't do flip! Flip failed!")
+        return False
     else:                    
         # Flip!    
         set_rates(thrust=1)  # bump up
@@ -383,3 +396,8 @@ def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different direc
         logger.info('Flip succeeded!')
         #print('Flip succeeded!')
         navto(x=start_telemetry.x, y=start_telemetry.y, z=start_telemetry.z, yaw=start_telemetry.yaw, frame_id=frame_id)   # finish flip
+<<<<<<< HEAD
+=======
+
+        return True
+>>>>>>> alpha
