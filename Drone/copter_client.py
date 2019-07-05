@@ -124,6 +124,11 @@ def _command_test(**kwargs):
 def _command_service_restart(**kwargs):
     restart_service(kwargs["name"])
 
+@messaging.message_callback("repair_chrony")
+def _command_chrony_repair():
+    configure_chrony_ip(client.active_client.server_host)
+    restart_service("chrony")
+
 
 @messaging.message_callback("led_test")
 def _command_led_test(**kwargs):
