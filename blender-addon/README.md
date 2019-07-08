@@ -14,7 +14,7 @@ Every next row of the file contains following information about an object:
 ## How to use it
 Clone or download this repository
 ```bash
-git clone https://github.com/artem30801/blender-csv-animation
+git clone https://github.com/artem30801/CleverSwarm.git
 ```
 Open Blender and install the addon:
 1) Open User Prerences windows using main menu or shortcut (Ctrl + Alt + U): Files - User Preferences
