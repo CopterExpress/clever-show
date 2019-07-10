@@ -9,12 +9,11 @@ from FlightLib import FlightLib
 from FlightLib import LedLib
 
 import tasking_lib as tasking
+import transformation_lib as transform
 
 logger = logging.getLogger(__name__)
 
 interrupt_event = threading.Event()
-
-# TODO separate code for frames transformations (e.g. for gps)
 
 
 def requires_import(f):
@@ -27,7 +26,7 @@ def requires_import(f):
     return wrapper
 
 
-class AnimationLoader:
+class AnimationLoader(object):
     def __init__(self):
         self.anim_id = None
         self.fps = None
@@ -40,7 +39,7 @@ class AnimationLoader:
         self.points = np.empty((0, 3))  # to transform points
         self.colors = np.empty((0, 3), int)  # to manipulate brightness/etc
         self.yaws = np.empty((0, 0))  # to rotate
-        self.extras = []
+        self.extras = []  # extra functions and params for each frame
 
     def load_csv(self, filepath="animation.csv"):
         try:
@@ -49,29 +48,31 @@ class AnimationLoader:
             logging.error("File {} can't be opened".format(filepath))
             return False
         else:
-            with animation_file:
-                csv_reader = csv.reader(animation_file, delimiter=',', quotechar='|')
-                lines = list(csv_reader)
-                print(lines)
-
-                if len(lines[0]) == 1:
-                    header = lines.pop(0)[0]
-                    print("Got animation header: {}".format(header))
-                    jsonheader = json.loads(header)
-                    self.anim_id = jsonheader.pop("file", None)
-                    self.anim_headers = header
-                else:
-                    print("No header in the file")
-                    pass
-
-                self.frames = len(lines)
-                print(lines)
-                for row in lines:
-                    if row:
-                        self._parse_row(row)
-
+            self._read_csv(animation_file)
             self.imported = True
             return True
+
+    def _read_csv(self, animation_file):
+        with animation_file:
+            csv_reader = csv.reader(animation_file, delimiter=',', quotechar='|')
+            lines = list(csv_reader)
+            print(lines)
+
+            if len(lines[0]) == 1:
+                header = lines.pop(0)[0]
+                print("Got animation header: {}".format(header))
+                jsonheader = json.loads(header)
+                self.anim_id = jsonheader.pop("file", None)
+                self.anim_headers = header
+            else:
+                print("No header in the file")
+                pass
+
+            self.frames = len(lines)
+            print(lines)
+            for row in lines:
+                if row:
+                    self._parse_row(row)
 
     def _parse_row(self, row):
         _frame_number, x, y, z, yaw, red, green, blue = row[:8]
@@ -112,6 +113,15 @@ class AnimationLoader:
 
     next = __next__  # python 2 compatibility
 
+    def offset(self, offset):
+        self.points = transform.translate(self.points, np.array([offset]))
+
+    def rotate_z(self, angle, origin=None, modify_yaw=False):
+        origin = np.array([origin]) if origin is not None else np.array([[0, 0, 0]])
+        self.points = transform.rotate_z(self.points, angle, origin)
+        if modify_yaw:
+            self.yaws += angle
+
 
 if __name__ == "__main__":  # for testing animation loader
     anim = AnimationLoader()
@@ -120,14 +130,10 @@ if __name__ == "__main__":  # for testing animation loader
         print(fr)
 
 
-def property_true(value):
-    return value == 1
-
-
-class AnimationPlayer:
+class AnimationPlayer(object):
     def __init__(self, frames, frame_delay, interrupter=interrupt_event, common_kwargs=None):
         self.frames = list(frames)
-        self._frame_time = None
+        self.frame_time = None
         self.frame_delay = frame_delay
 
         self.interrupter = interrupter
@@ -139,11 +145,13 @@ class AnimationPlayer:
         f(*args, **kwargs)
 
     def _after_frame(self):
-        self._frame_time += self.frame_delay
-        tasking.wait(self._frame_time, self.interrupter)
+        self.frame_time += self.frame_delay
+        tasking.wait(self.frame_time, self.interrupter)
 
-    def execute_animation(self, start_time=None):
-        self._frame_time = start_time if start_time is not None else time.time()
+    def execute_animation(self, start_time=None, **kwargs):
+        self.frame_time = start_time if start_time is not None else time.time()
+
+        self._override = None  # additional cleanup in case of restarting same animation
 
         for frame in self.frames:
             if self.interrupter.is_set():
@@ -159,7 +167,7 @@ class AnimationPlayer:
         point, color, yaw, extras = frame
 
         if self._override is not None:
-            if property_true(extras.get(self._override, False)):
+            if extras.get(self._override, False):
                 return  # don't execute anything if long-term override is active
             else:
                 self._override = None  # reset override when not active anymore
@@ -170,11 +178,11 @@ class AnimationPlayer:
             except KeyError:
                 pass
             else:
-                if property_true(val):
+                if val:
                     if self._execute_extra(frame, key, extra):
                         return  # returns if override extra is preformed
 
-        point_flight(*frame, interrupter=self.interrupter, **self.common_kwargs)
+        self._execution_wrapper(point_flight, *frame, interrupter=self.interrupter, **self.common_kwargs)
 
     def _execute_extra(self, frame, key, extra):
         extra_f, params = extra
@@ -187,6 +195,25 @@ class AnimationPlayer:
             self._override = key
 
         return override
+
+
+class TaskingAnimationPlayer(AnimationPlayer):
+    def __init__(self, frames, frame_delay, task_manager=None, common_kwargs=None):
+        self.task_manager = task_manager if task_manager is not None else tasking.TaskManager()
+
+        super(TaskingAnimationPlayer, self).__init__(frames, frame_delay,
+                                                     interrupter=task_manager.task_interrupt_event,
+                                                     common_kwargs=common_kwargs)
+
+    def _execution_wrapper(self, f, *args, **kwargs):
+        self.task_manager.add_task(self.frame_time, 0, f,
+                                   task_args=args,
+                                   task_kwargs=kwargs,
+                                   )
+
+    def _after_frame(self):
+        self.frame_time += self.frame_delay
+        # no delay in task creating
 
 
 extra_functions = {}
@@ -212,13 +239,14 @@ def execute_flip(frame, frame_id='aruco_map', flight_kwargs=None, interrupter=in
     FlightLib.flip(frame_id=frame_id, **flight_kwargs)
 
 
-def point_flight(frame, frame_id='aruco_map', use_leds=True,
+def point_flight(frame, frame_id='aruco_map', use_leds=True, use_yaw=False,
                  flight_func=FlightLib.navto, flight_kwargs=None,
                  interrupter=interrupt_event, **kwargs):
     if flight_kwargs is None:
         flight_kwargs = {}
 
     point, color, yaw, extras = frame
+    yaw = yaw if use_yaw else float('nan')
 
     flight_func(*point, yaw=yaw, frame_id=frame_id, interrupter=interrupter, **flight_kwargs)
     if use_leds:
