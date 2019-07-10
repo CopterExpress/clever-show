@@ -5,8 +5,8 @@ import logging
 import threading
 import numpy as np
 
-from FlightLib import FlightLib
-from FlightLib import LedLib
+#from FlightLib import FlightLib
+#from FlightLib import LedLib
 
 import tasking_lib as tasking
 import transformation_lib as transform
@@ -77,9 +77,11 @@ class AnimationLoader(object):
     def _parse_row(self, row):
         _frame_number, x, y, z, yaw, red, green, blue = row[:8]
         try:
-            extra = row[8]
+            raw_extra = row[8]
         except IndexError:
             extra = {}
+        else:
+            extra = json.loads(raw_extra)
 
         point = float(x), float(y), float(z)
         color = int(red), int(green), int(blue)
