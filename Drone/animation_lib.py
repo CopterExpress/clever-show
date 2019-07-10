@@ -5,8 +5,8 @@ import logging
 import threading
 import numpy as np
 
-#from FlightLib import FlightLib
-#from FlightLib import LedLib
+from FlightLib import FlightLib
+from FlightLib import LedLib
 
 import tasking_lib as tasking
 import transformation_lib as transform
