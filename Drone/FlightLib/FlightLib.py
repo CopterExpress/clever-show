@@ -396,8 +396,5 @@ def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different direc
         logger.info('Flip succeeded!')
         #print('Flip succeeded!')
         navto(x=start_telemetry.x, y=start_telemetry.y, z=start_telemetry.z, yaw=start_telemetry.yaw, frame_id=frame_id)   # finish flip
-<<<<<<< HEAD
-=======
 
         return True
->>>>>>> alpha
