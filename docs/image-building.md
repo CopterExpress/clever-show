@@ -24,18 +24,17 @@ sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-t
 cd image-dir
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5 img-chroot /mnt/<IMAGE>
 ```
-    где <IMAGE> - имя файла образа.
-    В открывшемся терминале с помощью стандартных программ (nano, git, cp, apt-get) вы можете донастроить образ.
+где `<IMAGE>` - имя файла образа. В открывшемся терминале с помощью стандартных программ (nano, git, cp, apt-get) вы можете донастроить образ.
 * Внешние файлы вы можете перенести в образ с помощью команды:
 ```bash
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5 img-chroot /mnt/<IMAGE> copy /mnt/<MOVE_FILE> <MOVE_TO>
 ```
-    где <MOVE_FILE> - файл, который нужно перенести в образ (расположение относительно папки с образом, например `../builder/assets/clever-show.service`), а <MOVE_TO> - путь в образе, куда нужно переместить файл.
+где `<MOVE_FILE>` - файл, который нужно перенести в образ (расположение относительно папки с образом, например `../builder/assets/clever-show.service`), а `<MOVE_TO>` - путь в образе, куда нужно переместить файл.
 * Если в образе не хватает места для всех необходимых файлов, можно расширить образ с помощью команды:
 ```bash
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5 img-resize /mnt/<IMAGE> max <SIZE>
 ```
-    где <SIZE> - размер в байтах. Например 5G будет означать 5GB, а 5M - 5MB.
+где `<SIZE>` - размер в байтах. Например 5G будет означать 5GB, а 5M - 5MB.
 * После расширения образа его можно сжать до минимального размера + 10МB командой
 ```bash
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5 img-resize /mnt/<IMAGE> min
