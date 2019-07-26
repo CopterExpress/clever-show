@@ -38,8 +38,9 @@ port = 123
 Сервер имеет визуальный графический интерфейс для удобства взаимодействия.
 ## Меню
 ### Раздел 'Actions'
-
+Данный раздел содержит несколько утилит по отправке различных данных на *выбранные* клиенты
+* `Send Animations` - отправк
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExNjQwOTU2ODQsLTI5NDk3MDcyOCw5Mz
-Y1NzEzODgsODcyNjgwNjE4XX0=
+eyJoaXN0b3J5IjpbLTgxNjEzMDMwNiwtMjk0OTcwNzI4LDkzNj
+U3MTM4OCw4NzI2ODA2MThdfQ==
 -->
