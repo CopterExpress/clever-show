@@ -23,11 +23,11 @@ port = 123
  * `buffer_size` - размер буфера при приёме и передаче данных. Не рекомендуется изменять.
 
 ### Раздел 'Broadcast'
-Сервер использует 
+Сервер используетUDP broadcast (255.255.255.255
  * `broadcast_port` - UDP 
 
  
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTMwNjk1MjczNCw5MzY1NzEzODgsODcyNj
+eyJoaXN0b3J5IjpbLTk4MzgxOTY0MCw5MzY1NzEzODgsODcyNj
 gwNjE4XX0=
 -->
