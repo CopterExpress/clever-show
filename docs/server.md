@@ -23,11 +23,12 @@ port = 123
  * `buffer_size` - размер буфера при приёме и передаче данных. Не рекомендуется изменять.
 
 ### Раздел 'Broadcast'
-Сервер используетUDP broadcast (255.255.255.255
+Сервер использует UDP broadcast (на адрес 255.255.255.255 с выбранным портом), чтобы передавать клиентам (коптерам) актуальную информацию о конфигурации сервера и собственном адресе сервера для подключения (IP адрес и порт сервера). 
+ * `broadcast_port`
  * `broadcast_port` - UDP 
 
  
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTk4MzgxOTY0MCw5MzY1NzEzODgsODcyNj
+eyJoaXN0b3J5IjpbLTUwNTE0NzUzOSw5MzY1NzEzODgsODcyNj
 gwNjE4XX0=
 -->
