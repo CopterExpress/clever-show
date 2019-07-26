@@ -16,9 +16,9 @@ port = 123
 ### Раздел 'Server'
 В этом разделе задаются параметры сетевого взаимодействия сервера, доступны следующие параметры:
 
- * `port`
+ * `port` - TCP порт, на котором будут приниматься входящие соединения от 
 
  
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEwNjg0MzI5OCw4NzI2ODA2MThdfQ==
+eyJoaXN0b3J5IjpbLTE2OTMxNDg4NzksODcyNjgwNjE4XX0=
 -->
