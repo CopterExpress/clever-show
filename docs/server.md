@@ -45,9 +45,9 @@ port = 123
 
 ## Боковая панель инструментов (команд)
 ### Управление
- * `Preflight check` - все выбранные клиенты выполняют самодиагностику и предполётную проверку. Результаты, вместе с другими параметрами клиента, будут отображены в таблице по мере поступления данных.
-*Спинбокс `` -  
+ * `Preflight check` - Отправка команды: все выбранные клиенты выполняют самодиагностику и предполётную проверку. Результаты, вместе с другими параметрами клиента, будут отображены в таблице по мере поступления данных.
+*Спинбокс `Star after N seconds` -  
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODkyMjcyMDA4LC01MDIzODYyNjMsLTI5ND
-k3MDcyOCw5MzY1NzEzODgsODcyNjgwNjE4XX0=
+eyJoaXN0b3J5IjpbMjE0MjI4MTgsLTUwMjM4NjI2MywtMjk0OT
+cwNzI4LDkzNjU3MTM4OCw4NzI2ODA2MThdfQ==
 -->
