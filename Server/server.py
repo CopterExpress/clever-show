@@ -65,16 +65,21 @@ class Server:
     def load_config(self):
         self.config.read(self.config_path)
         self.port = int(self.config['SERVER']['port'])  # TODO try, init def
-        self.broadcast_port = int(self.config['SERVER']['broadcast_port'])
-        self.BROADCAST_DELAY = int(self.config['SERVER']['broadcast_delay'])
         Server.BUFFER_SIZE = int(self.config['SERVER']['buffer_size'])
+
+        self.use_broadcast = self.config.getboolean('BROADCAST', 'use_broadcast')
+        self.broadcast_port = int(self.config['BROADCAST']['broadcast_port'])
+        self.BROADCAST_DELAY = int(self.config['BROADCAST']['broadcast_delay'])
 
         self.USE_NTP = self.config.getboolean('NTP', 'use_ntp')
         self.NTP_HOST = self.config['NTP']['host']
         self.NTP_PORT = int(self.config['NTP']['port'])
 
-    def start(self):  # do_auto_connect=True, do_ip_broadcast=True, do_listen_broadcast=False
+    def start(self, do_ip_broadcast=None):  # do_auto_connect=True, , do_listen_broadcast=False
         self.time_started = time.time()
+
+        if do_ip_broadcast is None:
+            do_ip_broadcast = self.use_broadcast
 
         logging.info("Starting server with id: {} on {}:{} !".format(self.id, self.ip, self.port))
         logging.info("Starting server socket!")
@@ -84,9 +89,10 @@ class Server:
         self.client_processor_thread_running.set()
         self.autoconnect_thread.start()
 
-        logging.info("Starting broadcast sender thread!")
-        self.broadcast_thread_running.set()
-        self.broadcast_thread.start()
+        if do_ip_broadcast:
+            logging.info("Starting broadcast sender thread!")
+            self.broadcast_thread_running.set()
+            self.broadcast_thread.start()
 
         logging.info("Starting broadcast listener thread!")
         self.listener_thread_running.set()
