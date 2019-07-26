@@ -30,7 +30,7 @@ sudo ./client_setup.sh
 
 ## Настройка и запуск сервера
 
-* Установите [chrony](https://chrony.tuxfamily.org/index.html), Python 3 и необходимые python-модули на ваш компьютер
+* Установите [chrony](https://chrony.tuxfamily.org/index.html) и Python 3 и на ваш компьютер
 ```bash
 sudo apt install chrony python3 python3-pip
 ```
@@ -49,5 +49,5 @@ python3 server_qt.py
 
 Документация по серверной части находится [здесь](server.md).
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTY0NDIxMjU5OV19
+eyJoaXN0b3J5IjpbOTI1MjM2Mjc2XX0=
 -->
