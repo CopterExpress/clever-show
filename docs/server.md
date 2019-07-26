@@ -45,10 +45,9 @@ port = 123
 
 ## Боковая панель инструментов (команд)
 ### Управление
-
- *
+ * `Preflight check` - выбранные клиенты выполняют самодиагностику и предполётную проверку. Результаты, вместе с другими параметрами клиента, будут отображены в таблице по мере по
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTUwMjM4NjI2MywtMjk0OTcwNzI4LDkzNj
-U3MTM4OCw4NzI2ODA2MThdfQ==
+eyJoaXN0b3J5IjpbMjQwMTgzMzI5LC01MDIzODYyNjMsLTI5ND
+k3MDcyOCw5MzY1NzEzODgsODcyNjgwNjE4XX0=
 -->
