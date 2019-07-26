@@ -13,7 +13,12 @@ use_ntp = False
 host = ntp1.stratum2.ru  
 port = 123
 ``` 
-### Раздел 
+### Раздел 'Server'
+В этом разделе задаются параметры сетевого взаимодействия сервера, доступны следующие параметры:
+
+ * `port`
+
+ 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExNzQ2Mzc3NzksODcyNjgwNjE4XX0=
+eyJoaXN0b3J5IjpbLTEwNjg0MzI5OCw4NzI2ODA2MThdfQ==
 -->
