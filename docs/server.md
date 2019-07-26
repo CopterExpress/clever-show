@@ -46,8 +46,11 @@ port = 123
 ## Боковая панель инструментов (команд)
 ### Управление
  * `Preflight check` - Отправка команды: все выбранные клиенты выполняют самодиагностику и предполётную проверку. Результаты, вместе с другими параметрами клиента, будут отображены в таблице по мере поступления данных.
-*Спинбокс `Star after N seconds` -  
+*Спинбокс `Start after N seconds` -  Задаёт время задержки до синхронного запуска выполнения анимаций коптерами. 
+ * [ ] 
+ * [x] List item
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjE0MjI4MTgsLTUwMjM4NjI2MywtMjk0OT
-cwNzI4LDkzNjU3MTM4OCw4NzI2ODA2MThdfQ==
+eyJoaXN0b3J5IjpbMTYxODY0MjUzMiwtNTAyMzg2MjYzLC0yOT
+Q5NzA3MjgsOTM2NTcxMzg4LDg3MjY4MDYxOF19
 -->
