@@ -35,8 +35,11 @@ port = 123
  * `port` - порт, используемый NTP сервером
 
 # Интерфейс сервера
+Сервер имеет визуальный графический интерфейс для удобства взаимодействия.
+## Меню
+### Раздел 'Actions'
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTI5NDk3MDcyOCw5MzY1NzEzODgsODcyNj
-gwNjE4XX0=
+eyJoaXN0b3J5IjpbLTExNjQwOTU2ODQsLTI5NDk3MDcyOCw5Mz
+Y1NzEzODgsODcyNjgwNjE4XX0=
 -->
