@@ -1,12 +1,12 @@
 [Unit]
 Description=Clever Show Client Service
-Requires=clever.service
 After=clever.service
 
 [Service]
 WorkingDirectory=/home/pi/CleverSwarm/Drone
 EnvironmentFile=/lib/systemd/system/roscore.env
 ExecStart=/usr/bin/python /home/pi/CleverSwarm/Drone/copter_client.py
+KillSignal=SIGKILL
 Restart=on-failure
 RestartSec=3
 

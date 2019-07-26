@@ -27,7 +27,8 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
             )
             if reply == QMessageBox.Yes:
                 print("Dialog accepted")
-                return f(*args, **kwargs)
+                #print(args)
+                return f(args[0])
             else:
                 print("Dialog declined")
 
@@ -68,7 +69,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
-        self.model.selected_ready_signal.connect(self.ui.takeoff_button.setEnabled)
+        self.model.selected_takeoff_ready_signal.connect(self.ui.takeoff_button.setEnabled)
 
     def client_connected(self, client: Client):
         self.signals.add_client_signal.emit(CopterData(copter_id=client.copter_id, client=client))
@@ -77,7 +78,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connecting
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
         self.ui.start_button.clicked.connect(self.send_starttime)
-        self.ui.pause_button.clicked.connect(self.pause_resume_all)
+        self.ui.pause_button.clicked.connect(self.pause_resume_selected)
         self.ui.stop_button.clicked.connect(self.stop_all)
         self.ui.emergency_button.clicked.connect(self.emergency)
 
@@ -112,42 +113,44 @@ class MainWindow(QtWidgets.QMainWindow):
         if col == 1:
             data = value
         elif col == 2:
-            data = "{} V.".format(round(float(value), 3))
+            data = "{}".format(round(float(value), 3))
         elif col == 3:
             batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100  # TODO config
-            data = "{} %".format(round(batt_percent, 3))
+            data = "{}".format(round(batt_percent, 3))
         elif col == 4:
             data = str(value)
         elif col == 5:
-            data = time.ctime(int(value))
-            data2 = "{} sec.".format(round(int(value) - time.time(), 3))
-            self.signals.update_data_signal.emit(row, col + 1, data2)
+            #data = time.ctime(int(value))
+            data = "{}".format(round(float(value) - time.time(), 3))
+            if abs(float(data)) > 1:
+                Client.get_by_id(copter_id).send_message("repair_chrony")
+            #self.signals.update_data_signal.emit(row, col + 1, data2)
         else:
             print("No column matched for response")
             return
 
         self.signals.update_data_signal.emit(row, col, data)
 
-    @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
-    def send_starttime(self):
+    @pyqtSlot()
+    def send_starttime(self, **kwargs):
         dt = self.ui.start_delay_spin.value()
         for copter in self.model.user_selected():
             if all_checks(copter):
                 server.send_starttime(copter.client, dt)
 
-    @pyqtSlot()
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
-    def takeoff_selected(self):
+    @pyqtSlot()
+    def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
-            if all_checks(copter):
+            if takeoff_checks(copter):
                 copter.client.send_message("takeoff")
 
-    @pyqtSlot()
     @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
-    def flip(self):
+    @pyqtSlot()
+    def flip(self, **kwargs):
         for copter in self.model.user_selected():
-            if all_checks(copter):
+            if takeoff_checks(copter):
                 copter.client.send_message("flip")
 
     @pyqtSlot()
@@ -160,17 +163,19 @@ class MainWindow(QtWidgets.QMainWindow):
         Client.broadcast_message("stop")
 
     @pyqtSlot()
-    def pause_resume_all(self):
+    def pause_resume_selected(self):
         if self.ui.pause_button.text() == 'Pause':
-            Client.broadcast_message('pause')
+            for copter in self.model.user_selected():
+                copter.client.send_message("pause")
             self.ui.pause_button.setText('Resume')
         else:
-            self._resume_all()
+            self._resume_selected()
 
-    @confirmation_required("This operation will resume ALL copter tasks with given delay. Proceed?")
-    def _resume_all(self):
-        dt = self.ui.start_delay_spin.value()
-        Client.broadcast_message('resume', {"time": 0 if dt == 0 else server.time_now()})
+    #@confirmation_required("This operation will resume ALL copter tasks with given delay. Proceed?")
+    def _resume_selected(self, **kwargs):
+        time_gap = 0.1
+        for copter in self.model.user_selected():
+            copter.client.send_message('resume', {"time": server.time_now() + time_gap})
         self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()

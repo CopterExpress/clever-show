@@ -1,14 +1,15 @@
 import sys
 import re
-from operator import itemgetter
+import collections
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
 
 
 class CopterData:
-    class_attrs = {'copter_id': None, 'anim_id': None, 'batt_v': None, 'batt_p': None, 'selfcheck': None,
-                   'time_utc': None, "time_delta": None, "client": None, "checked": 0}
+    class_attrs = collections.OrderedDict([('copter_id', None), ('anim_id', None), ('batt_v', None), ('batt_p', None),
+                                           ('selfcheck', None), ('time_utc', None), ("time_delta", None),
+                                           ("client", None), ("checked", 0)], )
 
     def __init__(self, **kwargs):
         self.attrs = self.class_attrs.copy()
@@ -27,10 +28,11 @@ class CopterData:
 class CopterDataModel(QtCore.QAbstractTableModel):
     checks = {}
     selected_ready_signal = QtCore.pyqtSignal(bool)
+    selected_takeoff_ready_signal = QtCore.pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'animation ID', 'battery (V.)', 'battery (%)', 'selfcheck', 'time UTC', "time delta")
+        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time delta')
         self.data_contents = []
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
@@ -48,6 +50,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def selfchecked_ready(self, contents=()):
         contents = contents or self.data_contents
         return filter(lambda x: all_checks(x), contents)
+
+    def takeoff_ready(self, contents=()):
+        contents = contents or self.data_contents
+        return filter(lambda x: takeoff_checks(x), contents)
 
     def rowCount(self, n=None):
         return len(self.data_contents)
@@ -84,6 +90,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def update_model(self, index=QtCore.QModelIndex()):
         #self.modelReset.emit()
+        self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
+        self.selected_takeoff_ready_signal.emit(set(self.user_selected()).issubset(self.takeoff_ready()))
         self.dataChanged.emit(index, index, (QtCore.Qt.EditRole,))
 
     @QtCore.pyqtSlot()
@@ -93,8 +101,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         if role == Qt.CheckStateRole:
             self.data_contents[index.row()].checked = value
-            # check if all selected are selfcheck and ok (ready)
-            self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
 
         elif role == Qt.EditRole:
             self.data_contents[index.row()][index.column()] = value
@@ -135,6 +141,8 @@ def col_check(col):
 def check_anim(item):
     if not item:
         return None
+    if str(item) == 'No animation':
+        return False
     else:
         return True
 
@@ -150,13 +158,14 @@ def check_bat_v(item):
 
 
 @col_check(3)
-def check_bat_v(item):
+def check_bat_p(item):
     if not item:
         return None
-    if float(item) > 15:  # todo config
+    if float(item) > 30:  # todo config
         return True
     else:
         return False
+        #return True #For testing
 
 
 @col_check(4)
@@ -168,6 +177,15 @@ def check_selfcheck(item):
     else:
         return False
 
+@col_check(5)
+def check_time_delta(item):
+    if not item:
+        return None
+    if abs(float(item)) < 1:
+        return True
+    else:
+        return False
+
 
 def all_checks(copter_item):
     for col, check in CopterDataModel.checks.items():
@@ -175,6 +193,11 @@ def all_checks(copter_item):
             return False
     return True
 
+def takeoff_checks(copter_item):
+    for i in range(3):
+        if not CopterDataModel.checks[2+i](copter_item[2+i]):
+            return False
+    return True
 
 class CopterProxyModel(QtCore.QSortFilterProxyModel):
     def __init__(self, parent=None):

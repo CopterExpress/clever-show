@@ -175,9 +175,13 @@ class Client(object):
                                               ConfigOption("SERVER", "port", self.server_port),
                                               ConfigOption("SERVER", "host", self.server_host))
                             logger.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
+                            self.on_broadcast_bind()
                             break
         finally:
             broadcast_client.close()
+
+    def on_broadcast_bind(self):
+        pass
 
     def _process_connections(self):
         while True:

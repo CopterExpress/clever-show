@@ -107,7 +107,7 @@ def check_connection():
 
 
 @check("Linear velocity estimation")
-def check_linear_speeds(speed_limit=0.1):
+def check_linear_speeds(speed_limit=0.15):
     telemetry = get_telemetry(frame_id='body')
 
     if _check_nans(telemetry.vx, telemetry.vy, telemetry.vz):

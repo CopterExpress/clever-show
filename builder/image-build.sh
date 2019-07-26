@@ -30,10 +30,12 @@ echo_stamp() {
 
 REPO_DIR="/mnt"
 SCRIPTS_DIR="${REPO_DIR}/builder"
+CONFIG_DIR="${SCRIPTS_DIR}/clever-config"
 IMAGES_DIR="${REPO_DIR}/images"
 
 [[ ! -d ${SCRIPTS_DIR} ]] && (echo_stamp "Directory ${SCRIPTS_DIR} doesn't exist" "ERROR"; exit 1)
 [[ ! -d ${IMAGES_DIR} ]] && mkdir ${IMAGES_DIR} && echo_stamp "Directory ${IMAGES_DIR} was created successful" "SUCCESS"
+[[ ! -d ${CONFIG_DIR} ]] && mkdir ${CONFIG_DIR} && echo_stamp "Directory ${CONFIG_DIR} was created successful" "SUCCESS"
 
 if [[ -z ${TRAVIS_TAG} ]]; then IMAGE_VERSION="$(cd ${REPO_DIR}; git log --format=%h -1)"; else IMAGE_VERSION="${TRAVIS_TAG}"; fi
 # IMAGE_VERSION="${TRAVIS_TAG:=$(cd ${REPO_DIR}; git log --format=%h -1)}"
@@ -105,7 +107,10 @@ git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 
 # Copy service file for clever show client
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
-img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/animation_map.txt' '/home/pi/catkin_ws/src/clever/aruco_pose/map/'
+
+# Copy config files for clever
+if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
+if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clever/aruco_pose'; fi
 
 # Shrink image
 img-resize ${IMAGE_PATH}
