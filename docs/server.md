@@ -1,4 +1,6 @@
-#Установка и настройка серв
+# Настройка сервера
+## Файл конфигурации
+Конфигурация
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODM1MjYyNTQzXX0=
+eyJoaXN0b3J5IjpbODcyNjgwNjE4XX0=
 -->
