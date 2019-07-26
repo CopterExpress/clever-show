@@ -16,9 +16,10 @@ port = 123
 ### Раздел 'Server'
 В этом разделе задаются параметры сетевого взаимодействия сервера, доступны следующие параметры:
 
- * `port` - TCP порт, на котором будут приниматься входящие соединения от 
+ * `port` - TCP порт, на котором будут приниматься входящие соединения от клиентов (коптеров)
+ * `broadcast_port` - UDP 
 
  
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2OTMxNDg4NzksODcyNjgwNjE4XX0=
+eyJoaXN0b3J5IjpbOTM2NTcxMzg4LDg3MjY4MDYxOF19
 -->
