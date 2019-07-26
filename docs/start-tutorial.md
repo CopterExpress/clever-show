@@ -30,10 +30,12 @@ sudo ./client_setup.sh
 
 ## Настройка и запуск сервера
 
-* Установите [chrony](https://chrony.tuxfamily.org/index.html) и Python 3 и на ваш компьютер
+* Установите [chrony](https://chrony.tuxfamily.org/index.html)  и Python 3 на ваш компьютер:
 ```bash
 sudo apt install chrony python3 python3-pip
 ```
+* Установите необходимые python-пакеты с помощью 
+
 
 * Подключитесь к wifi сети роутера, к которому подключены коптеры.
 * Скопируйте [файл настроек chrony](../Server/chrony.conf) в `/etc/chrony/chrony.conf`. Если ip адрес сети начинается не с `192.168.`, то исправьте адрес после слова allow в скопированном файле настроек.
@@ -49,5 +51,5 @@ python3 server_qt.py
 
 Документация по серверной части находится [здесь](server.md).
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbOTI1MjM2Mjc2XX0=
+eyJoaXN0b3J5IjpbNTQxNTE1MjE3XX0=
 -->
