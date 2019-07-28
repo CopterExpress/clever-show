@@ -1,0 +1,5 @@
+indexed.py==0.0.1
+numpy==1.16.4
+PyQt5==5.13.0
+PyQt5-sip==4.19.18
+selectors2==2.0.1

@@ -150,7 +150,6 @@ def _command_led_fill(**kwargs):
 def _copter_flip():
     FlightLib.flip(frame_id=client.active_client.FRAME_ID)
 
-
 @messaging.message_callback("takeoff")
 def _command_takeoff(**kwargs):
     task_manager.add_task(time.time(), 0, animation.takeoff,

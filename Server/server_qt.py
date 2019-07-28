@@ -143,14 +143,14 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
-            if all_checks(copter):
+            if takeoff_checks(copter):
                 copter.client.send_message("takeoff")
 
     @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
     @pyqtSlot()
     def flip(self, **kwargs):
         for copter in self.model.user_selected():
-            if all_checks(copter):
+            if takeoff_checks(copter):
                 copter.client.send_message("flip")
 
     @pyqtSlot()
