@@ -1,5 +1,6 @@
 # clever-show
 [![Build Status](https://travis-ci.org/artem30801/CleverSwarm.svg?branch=master)](https://travis-ci.org/artem30801/CleverSwarm)
+[![CodeFactor](https://www.codefactor.io/repository/github/artem30801/cleverswarm/badge)](https://www.codefactor.io/repository/github/artem30801/cleverswarm)
 
 Програмное обеспечение для запуска шоу дронов под управлением Raspberry Pi с пакетом COEX [Clever](https://github.com/copterexpress/clever).
 
