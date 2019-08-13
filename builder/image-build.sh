@@ -76,24 +76,34 @@ img-resize ${IMAGE_PATH} max '5G'
 # Include dotfiles in globs (asterisks)
 shopt -s dotglob
 
-echo_stamp "Mount loop-image: ${IMAGE_PATH}"
-DEV_IMAGE=$(losetup -Pf ${IMAGE_PATH} --show)
-sleep 0.5
+if [[ -z $TRAVIS_TAG]]
+then
+  echo_stamp "Mount loop-image: ${IMAGE_PATH}"
+  DEV_IMAGE=$(losetup -Pf ${IMAGE_PATH} --show)
+  sleep 0.5
 
-MOUNT_POINT=$(mktemp -d --suffix=.builder_image)
-echo_stamp "Mount dirs ${MOUNT_POINT} & ${MOUNT_POINT}/boot"
-mount "${DEV_IMAGE}p2" ${MOUNT_POINT}
-mount "${DEV_IMAGE}p1" ${MOUNT_POINT}/boot
+  MOUNT_POINT=$(mktemp -d --suffix=.builder_image)
+  echo_stamp "Mount dirs ${MOUNT_POINT} & ${MOUNT_POINT}/boot"
+  mount "${DEV_IMAGE}p2" ${MOUNT_POINT}
+  mount "${DEV_IMAGE}p1" ${MOUNT_POINT}/boot
 
-mkdir -p ${MOUNT_POINT}'/home/pi/CleverSwarm/'
-for dir in ${REPO_DIR}/*; do
-  if [[ $dir != *"images" && $dir != *"imgcache" ]]; then
-    cp -r $dir ${MOUNT_POINT}'/home/pi/CleverSwarm/'$(basename $dir)
-  fi;
-done
+  mkdir -p ${MOUNT_POINT}'/home/pi/CleverSwarm/'
+  for dir in ${REPO_DIR}/*; do
+    if [[ $dir != *"images" && $dir != *"imgcache" ]]; then
+      cp -r $dir ${MOUNT_POINT}'/home/pi/CleverSwarm/'$(basename $dir)
+    fi;
+  done
 
-umount -fR ${MOUNT_POINT}
-losetup -d ${DEV_IMAGE}
+  umount -fR ${MOUNT_POINT}
+  losetup -d ${DEV_IMAGE}
+else
+  for dir in ${REPO_DIR}/*; do
+    # Don't try to copy image into itself
+    if [[ $dir != *"images" && $dir != *"imgcache" ]]; then
+      img-chroot ${IMAGE_PATH} copy $dir '/home/pi/CleverSwarm/'
+    fi;
+  done
+fi
 
 # Install software
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-software.sh'
