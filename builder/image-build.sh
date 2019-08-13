@@ -76,8 +76,7 @@ img-resize ${IMAGE_PATH} max '5G'
 # Include dotfiles in globs (asterisks)
 shopt -s dotglob
 
-if [[ -z $TRAVIS_TAG]]
-then
+if [[ -z ${TRAVIS_TAG} ]]; then
   echo_stamp "Mount loop-image: ${IMAGE_PATH}"
   DEV_IMAGE=$(losetup -Pf ${IMAGE_PATH} --show)
   sleep 0.5
