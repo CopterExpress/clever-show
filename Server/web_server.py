@@ -1,9 +1,9 @@
 import threading
 from web_server_models import WebCopter
 from server import *
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static')
 copters = []
 
 
@@ -55,20 +55,20 @@ def selfcheck_selected():
     return jsonify(data)
 
 
-@app.route('/selfcheck/all')
+@app.route('/selfcheck/all', methods=["GET", "POST"])
 def selfcheck_all():
-    data = dict()
-    ip = request.args.get("ip")
+    data = []
     for copter in copters:
         copter.refresh()
-        data[copter.ip] = {
+        data.append({
             'anim_id': copter.anim_id,
             'batt_voltage': copter.batt_voltage,
             'cell_voltage': copter.cell_voltage,
             'selfcheck': copter.selfcheck,
+            'ip': copter.ip,
             'time': copter.time,
             'name': copter.name,
-        }
+        })
     return jsonify(data)
 
 
@@ -80,6 +80,6 @@ class ServerThread(threading.Thread):
             pass
 
 
-server_thread = ServerThread()
-server_thread.start()
+# server_thread = ServerThread()
+# server_thread.start()
 app.run(host='0.0.0.0', debug=False)
