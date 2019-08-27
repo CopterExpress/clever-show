@@ -8,11 +8,11 @@ function updateData() {
     tabledata = JSON.parse(req.response);
 }
 
-var table = new Tabulator("#example-table", {
+var table = new Tabulator("#copters-table", {
     data: tabledata,
     reactiveData: true,
     layout: "fitColumns",
-    columns: [ //Define Table Columns
+    columns: [
         {title: "Name", field: "name"},
         {title: "IP", field: "ip"},
         {title: "Animation id", field: "anim_id"},
@@ -20,5 +20,5 @@ var table = new Tabulator("#example-table", {
         {title: "Cell voltage", field: "cell_voltage"},
         {title: "Selfcheck", field: "selfcheck"},
         {title: "Time", field: "time"},
-    ]
+    ],
 });
