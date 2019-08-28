@@ -1,3 +1,4 @@
+let spinner = document.getElementById('spinner');
 var tabledata = [];
 updateData();
 
@@ -11,6 +12,7 @@ function updateData() {
 var table = new Tabulator("#copters-table", {
     data: tabledata,
     reactiveData: true,
+    selectable: true,
     layout: "fitColumns",
     columns: [
         {title: "Name", field: "name"},
@@ -22,3 +24,28 @@ var table = new Tabulator("#copters-table", {
         {title: "Time", field: "time"},
     ],
 });
+
+function refreshRows(selectedRows) {
+    spinner.style.display = 'inline-block';
+    setTimeout(function () {
+        selectedRows.forEach(function (element) {
+            let req = new XMLHttpRequest();
+            req.open('POST', '/selfcheck/selected?ip=' + element._row.data.ip, false);
+            req.send();
+            element.deselect();
+            let response = JSON.parse(req.response);
+            Object.keys(response).forEach(function (item) {
+                element._row.data[item] = response[item];
+            });
+        });
+        spinner.style.display = 'none';
+    }, 20);
+}
+
+function refreshSelected() {
+    refreshRows(table.getSelectedRows());
+}
+
+function refreshAll() {
+    refreshRows(table.getRows());
+}
