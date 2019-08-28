@@ -47,8 +47,8 @@ def selfcheck_selected():
                 'time': copter.time,
                 'name': copter.name,
             }
-    data = {"anim_id": "No animation", "batt_voltage": 3.259999990463257, "cell_voltage": 1.0850000381469727,
-            "ip": "192.168.43.31", "name": "CLever7", "selfcheck": "OK", "time": 1554723269.57106}
+    # data = {"anim_id": "No animation", "batt_voltage": 3.259999990463257, "cell_voltage": 1.0850000381469727,
+    #        "ip": "192.168.43.31", "name": "CLever7", "selfcheck": "OK", "time": 1554723269.57106}
     return jsonify(data)
 
 
@@ -66,9 +66,9 @@ def selfcheck_all():
             'time': copter.time,
             'name': copter.name,
         })
-    data = [{"anim_id": "No animation", "batt_voltage": 4.259999990463257, "cell_voltage": 4.0850000381469727,
-             "ip": "192.168.43.31", "name": "CLever7", "selfcheck": "OK", "time": 4554723269.57106}]
-    data *= 12
+    # data = [{"anim_id": "No animation", "batt_voltage": 4.259999990463257, "cell_voltage": 4.0850000381469727,
+    #        "ip": "192.168.43.31", "name": "CLever7", "selfcheck": "OK", "time": 4554723269.57106}]
+    # data *= 12
     return jsonify(data)
 
 
