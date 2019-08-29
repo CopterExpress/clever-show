@@ -28,7 +28,7 @@
                 <div class="dropdown-menu" aria-labelledby="navbarDropdown">
                     <div class="dropdown-item">
                         <label for="animationFile" class="btn">Set animation</label>
-                        <input id="animationFile" style="visibility:hidden;" type="file">
+                        <input accept=".csv" id="animationFile" style="visibility:hidden;" type="file">
                     </div>
                     <div class="dropdown-item">
                         <label for="configFile" class="btn">Set configuration</label>
@@ -36,7 +36,7 @@
                     </div>
                     <div class="dropdown-item">
                         <label for="arucoFile" class="btn">Set ArUco map</label>
-                        <input id="arucoFile" style="visibility:hidden;" type="file">
+                        <input accept=".txt" id="arucoFile" style="visibility:hidden;" type="file">
                     </div>
                 </div>
             </li>
@@ -78,10 +78,19 @@
             </div>
             <div class="btn-group">
                 <button type="button" class="btn btn-warning btn-lg" onclick="pauseCopters()">Pause</button>
+                <button type="button" class="btn btn-warning btn-lg" onclick="resumeCopters()">Resume</button>
                 <button type="button" class="btn btn-warning btn-lg" onclick="stopCopters()">Stop</button>
             </div>
             <div class="btn-group">
                 <button type="button" class="btn btn-danger btn-lg" onclick="emLand()">Emergency landing</button>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="takeOff()">Take off</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="flipCopters()">Flip</button>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="land()">Land</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="disarm()">Disarm</button>
             </div>
         </div>
         <div class="action-container"></div>

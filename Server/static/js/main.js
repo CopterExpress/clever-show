@@ -77,30 +77,28 @@ function deselectAll() {
     });
 }
 
-function testLedSelected() {
+function sendCommandToSelected(command) {
     spinner.style.display = 'inline-block';
     setTimeout(function () {
         table.getSelectedRows().forEach(function (element) {
             let req = new XMLHttpRequest();
-            req.open('POST', '/test_led/selected?ip=' + element._row.data.ip);
+            req.open('POST', '/' + command + '/selected?ip=' + element._row.data.ip);
             req.send();
+            element.deselect();
         });
         deselectAll();
         spinner.style.display = 'none';
     }, 20);
 }
 
-function pauseCopters() {
-
+function testLedSelected() {
+    sendCommandToSelected('test_led');
 }
 
 function stopCopters() {
-
-}
-
-
-function emLand() {
-
+    let req = new XMLHttpRequest();
+    req.open('POST', '/stop/all', false);
+    req.send();
 }
 
 function setStartTime() {
@@ -108,11 +106,57 @@ function setStartTime() {
         title: "Set animation delay",
         form: {delay: "Delay"}
     }).done(function (ui) {
-        setDelay(parseInt(ui.data.delay));
-        updateDelay();
+        if (ui.state) {
+            setDelay(parseInt(ui.data.delay));
+            updateDelay();
+        }
     });
 }
 
-function startAnimation() {
+function takeOff() {
+    sendCommandToSelected('takeoff');
+}
 
+function flipCopters() {
+    sendCommandToSelected('flip');
+}
+
+function land() {
+    let req = new XMLHttpRequest();
+    req.open('POST', '/land/all', false);
+    req.send();
+}
+
+function disarm() {
+    let req = new XMLHttpRequest();
+    req.open('POST', '/disarm/all', false);
+    req.send();
+}
+
+function pauseCopters() {
+    sendCommandToSelected('pause');
+}
+
+function resumeCopters() {
+    sendCommandToSelected('resume');
+}
+
+function emLand() {
+    spinner.style.display = 'inline-block';
+    setTimeout(function () {
+        let req = new XMLHttpRequest();
+        req.open('POST', '/em_land', false);
+        req.send();
+        spinner.style.display = 'none';
+    }, 20);
+}
+
+function startAnimation() {
+    spinner.style.display = 'inline-block';
+    setTimeout(function () {
+        let req = new XMLHttpRequest();
+        req.open('POST', '/start_animation', false);
+        req.send();
+        spinner.style.display = 'none';
+    }, 20);
 }

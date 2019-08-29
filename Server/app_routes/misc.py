@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from web_server_models import delay, set_delay_manually, get_delay_manually
+from web_server_models import set_delay_manually, get_delay_manually, copters
+from server import Client
 
 misc_api = Blueprint('misc_api', __name__, template_folder='templates')
 
@@ -13,3 +14,57 @@ def set_delay():
 @misc_api.route('/get/delay', methods=['GET', 'POST'])
 def get_delay():
     return jsonify(get_delay_manually())
+
+
+@misc_api.route('/stop/all', methods=['GET', 'POST'])
+def stop_all():
+    Client.broadcast_message("stop")
+    return jsonify({'m': 'ok'})
+
+
+@misc_api.route('/disarm/all', methods=['GET', 'POST'])
+def disarm_all():
+    Client.broadcast_message("disarm")
+    return jsonify({'m': 'ok'})
+
+
+@misc_api.route('/land/all', methods=['GET', 'POST'])
+def land_all():
+    Client.broadcast_message("land")
+    return jsonify({'m': 'ok'})
+
+
+@misc_api.route('/flip/selected', methods=['GET', 'POST'])
+def flip_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("flip")
+    return jsonify({'m': 'ok'})
+
+
+@misc_api.route('/takeoff/selected', methods=['GET', 'POST'])
+def takeoff_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("takeoff")
+    return jsonify({'m': 'ok'})
+
+
+@misc_api.route('/pause/selected', methods=['GET', 'POST'])
+def pause_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("pause")
+    return jsonify({'m': 'ok'})
+
+
+@misc_api.route('/resume/selected', methods=['GET', 'POST'])
+def resume_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("resume")
+    return jsonify({'m': 'ok'})
