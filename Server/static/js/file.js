@@ -3,42 +3,25 @@ let configInput = document.getElementById('configFile');
 let arucoInput = document.getElementById('arucoFile');
 
 animationInput.onchange = function (e) {
-    document.getElementById('animationFileLabel').innerText = animationInput.files[0].name;
+    sendRows(table.getSelectedRows(), animationInput.files[0], 'animation');
 };
 configInput.onchange = function (e) {
-    document.getElementById('configFileLabel').innerText = configInput.files[0].name;
+    sendRows(table.getSelectedRows(), configInput.files[0], 'config');
 };
 arucoInput.onchange = function (e) {
-    document.getElementById('arucoFileLabel').innerText = arucoInput.files[0].name;
+    sendRows(table.getSelectedRows(), arucoInput.files[0], 'aruco');
 };
 
-function sendRows(selectedRows) {
-    var animationFile = animationInput.files[0];
-    var configFile = configInput.files[0];
-    var arucoFile = arucoInput.files[0];
+function sendRows(selectedRows, file, file_type) {
     spinner.style.display = 'inline-block';
     setTimeout(function () {
         selectedRows.forEach(function (element) {
-            if (animationFile) {
-                let animReq = new XMLHttpRequest();
-                let animFormData = new FormData();
-                animFormData.append("file", animationFile);
-                animReq.open("POST", '/set/animation?ip=' + element._row.data.ip, false);
-                animReq.send(animFormData);
-            }
-            if (configFile) {
-                let configReq = new XMLHttpRequest();
-                let congifFormData = new FormData();
-                congifFormData.append("file", configFile);
-                configReq.open("POST", '/set/config?ip=' + element._row.data.ip, false);
-                configReq.send(congifFormData);
-            }
-            if (arucoFile) {
-                let arucoReq = new XMLHttpRequest();
-                let arucoFormData = new FormData();
-                arucoFormData.append("file", arucoFile);
-                arucoReq.open("POST", '/set/animation?ip=' + element._row.data.ip, false);
-                arucoReq.send(arucoFormData);
+            if (file) {
+                let fileReq = new XMLHttpRequest();
+                let fileFormData = new FormData();
+                fileFormData.append("file", file);
+                fileReq.open("POST", '/set/' + file_type + '?ip=' + element._row.data.ip, false);
+                fileReq.send(fileFormData);
             }
             element.deselect();
         });

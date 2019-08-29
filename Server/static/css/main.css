@@ -49,3 +49,7 @@ html {
 .btn-group button {
     width: 100%;
 }
+
+.dropdown-menu div {
+    width: 200px;
+}
