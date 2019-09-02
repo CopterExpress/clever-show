@@ -9,7 +9,8 @@ function updateDelay() {
     req.open('POST', '/get/delay', false);
     req.send();
     delay = parseInt(req.response);
-    document.getElementById('delay').innerText = 'Set time (now is ' + delay.toString() + ')';
+    document.getElementById('delay').placeholder = 'Set delay (now is ' + delay.toString() + ')';
+    document.getElementById('delay').value = null;
 }
 
 function setDelay(delay) {
@@ -102,15 +103,12 @@ function stopCopters() {
 }
 
 function setStartTime() {
-    Ply.dialog("prompt", {
-        title: "Set animation delay",
-        form: {delay: "Delay"}
-    }).done(function (ui) {
-        if (ui.state) {
-            setDelay(parseInt(ui.data.delay));
-            updateDelay();
-        }
-    });
+    spinner.style.display = 'inline-block';
+    setTimeout(function () {
+        setDelay(parseInt(document.getElementById('delay').value));
+        updateDelay();
+        spinner.style.display = 'none';
+    }, 20);
 }
 
 function takeOff() {
