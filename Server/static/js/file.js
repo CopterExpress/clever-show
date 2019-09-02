@@ -18,21 +18,37 @@ animationInput.onchange = function (e) {
         }
     }, 20);
 };
+
 configInput.onchange = function (e) {
-    sendRows(table.getSelectedRows(), configInput.files[0], 'config');
+    spinner.style.display = 'inline-block';
+    setTimeout(function () {
+        if (configInput.files.length > 0) {
+            let fileReq = new XMLHttpRequest();
+            let fileFormData = new FormData();
+            for (let i = 0; i < configInput.files.length; i++) {
+                fileFormData.append(configInput.files[i].name, configInput.files[i]);
+            }
+            let ips = [];
+            table.getSelectedRows().forEach(function (element) {
+                ips.push(element._row.data.ip);
+            });
+            fileFormData.append('ips', ips);
+            fileReq.open("POST", '/set/config', false);
+            fileReq.send(fileFormData);
+            deselectAll();
+            spinner.style.display = 'none';
+        }
+    }, 20);
 };
+
 arucoInput.onchange = function (e) {
     spinner.style.display = 'inline-block';
     setTimeout(function () {
         if (arucoInput.files.length > 0) {
             let fileReq = new XMLHttpRequest();
             let fileFormData = new FormData();
-            let ips = [];
-            table.getSelectedRows().forEach(function (element) {
-                ips.push(element._row.data.ip);
-            });
             fileFormData.append(arucoInput.files[0].name, arucoInput.files[0]);
-            fileReq.open("POST", '/set/aruco?ips=' + encodeURIComponent(JSON.stringify(ips)), false);
+            fileReq.open("POST", '/set/aruco', false);
             fileReq.send(fileFormData);
             deselectAll();
             spinner.style.display = 'none';

@@ -2,6 +2,8 @@ import os
 from json import loads
 from flask import Blueprint, request, jsonify
 from web_server_models import copters
+from server import ConfigOption
+import configparser
 
 file_sender_api = Blueprint('file_sender_api', __name__, template_folder='templates')
 
@@ -9,8 +11,25 @@ file_sender_api = Blueprint('file_sender_api', __name__, template_folder='templa
 @file_sender_api.route('/set/config', methods=['GET', 'POST'])
 def set_config():
     if request.method == 'POST':
-        f = request.files['file']
-        print(f, 'ip', request.args.get('ip'))
+        key_name = ""
+        ips = request.values.get('ips').split(',')
+
+        for _key_name in request.files.keys():
+            key_name = _key_name
+            request.files[key_name].save(os.path.join('files', _key_name))
+        sendable_config = configparser.ConfigParser()
+        sendable_config.read('files/' + key_name)
+        options = []
+        for section in sendable_config.sections():
+            for option in dict(sendable_config.items(section)):
+                value = sendable_config[section][option]
+                options.append(ConfigOption(section, option, value))
+
+        for copter in copters:
+            for ip in ips:
+                if copter.ip == ip:
+                    copter.client.send_config_options(*options)
+        os.remove('files/' + key_name)
     return jsonify({'m': 'ok'})
 
 
@@ -22,7 +41,8 @@ def set_aruco():
             for ip in loads(request.args.get('ips')):
                 for copter in copters:
                     if copter.ip == ip:
-                        copter.client.send_file('files/' + key_name, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+                        copter.client.send_file('files/' + key_name,
+                                                "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
                         copter.client.send_message("service_restart", {"name": "clever"})
             os.remove('files/' + key_name)
     return jsonify({'m': 'ok'})
