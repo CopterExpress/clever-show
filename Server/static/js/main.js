@@ -26,6 +26,10 @@ function updateData() {
     tabledata = JSON.parse(req.response);
 }
 
+function colorRow(row) {
+    console.log(row._row.data);
+}
+
 var table = new Tabulator("#copters-table", {
     data: tabledata,
     reactiveData: true,
@@ -41,6 +45,11 @@ var table = new Tabulator("#copters-table", {
     ],
 });
 
+let rows = table.getRows();
+for (let i = 0; i < rows.length; i++) {
+    colorRow(rows[i]);
+}
+
 function refreshRows(selectedRows) {
     spinner.style.display = 'inline-block';
     setTimeout(function () {
@@ -52,6 +61,7 @@ function refreshRows(selectedRows) {
             let response = JSON.parse(req.response);
             Object.keys(response).forEach(function (item) {
                 element._row.data[item] = response[item];
+                colorRow(element);
             });
         });
         spinner.style.display = 'none';
@@ -85,7 +95,6 @@ function sendCommandToSelected(command) {
             let req = new XMLHttpRequest();
             req.open('POST', '/' + command + '/selected?ip=' + element._row.data.ip);
             req.send();
-            element.deselect();
         });
         spinner.style.display = 'none';
     }, 20);
