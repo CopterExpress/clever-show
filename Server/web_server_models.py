@@ -1,4 +1,5 @@
 from server import Client
+from time import time
 
 copters = []
 delay = 0
@@ -31,6 +32,7 @@ class WebCopter:
         self.client.get_response("cell_voltage", save, callback_args=(self, 'cell_voltage'))
         self.client.get_response("selfcheck", save, callback_args=(self, 'selfcheck'))
         self.client.get_response("time", save, callback_args=(self, 'time'))
+        return time()
 
 
 def save(m, self, param_name):
