@@ -87,7 +87,6 @@ function sendCommandToSelected(command) {
             req.send();
             element.deselect();
         });
-        deselectAll();
         spinner.style.display = 'none';
     }, 20);
 }
@@ -137,6 +136,18 @@ function pauseCopters() {
 
 function resumeCopters() {
     sendCommandToSelected('resume');
+}
+
+function restart_fcu() {
+    sendCommandToSelected('reboot_fcu');
+}
+
+function calibrate_gyro() {
+    sendCommandToSelected('calibrate_gyro');
+}
+
+function calibrate_level() {
+    sendCommandToSelected('calibrate_level');
 }
 
 function emLand() {

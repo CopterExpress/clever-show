@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from web_server_models import copters, WebCopter
 from server import Client
+from time import time
 
 selfcheck_api = Blueprint('selfcheck_api', __name__, template_folder='templates')
 
@@ -17,7 +18,7 @@ def selfcheck_selected():
                 'batt_voltage': copter.batt_voltage,
                 'cell_voltage': copter.cell_voltage,
                 'selfcheck': copter.selfcheck,
-                'time': copter.time,
+                'time': round(float(copter.time) - time(), 3),
                 'name': copter.name,
             }
     # data = {"anim_id": "No animation", "batt_voltage": 3.259999990463257, "cell_voltage": 1.0850000381469727,
@@ -39,9 +40,10 @@ def selfcheck_all():
             'time': copter.time,
             'name': copter.name,
         })
-    # data = [{"anim_id": "No animation", "batt_voltage": 4.259999990463257, "cell_voltage": 4.0850000381469727,
-    #        "ip": "192.168.43.31", "name": "CLever7", "selfcheck": "OK", "time": 4554723269.57106}]
-    # data *= 12
+    #return jsonify([{"anim_id": "No animation", "batt_voltage": 12.333000183105469, "cell_voltage": 4.111999988555908,
+    #                 "ip": "192.168.1.191", "name": "Clever8", "selfcheck": "OK", "time": 1554720157.469769},
+    #                {"anim_id": "No animation", "batt_voltage": 12.244999885559082, "cell_voltage": 4.0879998207092285,
+    #                 "ip": "192.168.1.134", "name": "Clever7", "selfcheck": "OK", "time": 1554720082.641047}])
     return jsonify(data)
 
 
@@ -66,4 +68,31 @@ def test_led_selected():
     for copter in copters:
         if copter.ip == ip:
             copter.client.send_message("led_test")
+    return jsonify({'m': 'ok'})
+
+
+@selfcheck_api.route('/reboot_fcu/selected', methods=['GET', 'POST'])
+def reboot_fcu_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("reboot_fcu")
+    return jsonify({'m': 'ok'})
+
+
+@selfcheck_api.route('/calibrate_gyro/selected', methods=['GET', 'POST'])
+def calibrate_gyro_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("calibrate_gyro")
+    return jsonify({'m': 'ok'})
+
+
+@selfcheck_api.route('/calibrate_level/selected', methods=['GET', 'POST'])
+def calibrate_level_selected():
+    ip = request.args.get("ip")
+    for copter in copters:
+        if copter.ip == ip:
+            copter.client.send_message("calibrate_level")
     return jsonify({'m': 'ok'})

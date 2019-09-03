@@ -73,7 +73,8 @@
                 <button type="button" class="btn btn-info btn-lg" onclick="testLedSelected()">Test led</button>
             </div>
             <div class="btn-group">
-                <input id="delay" class="form-control form-control-lg" type="number" onchange="setStartTime()" placeholder="Delay">
+                <input id="delay" class="form-control form-control-lg" type="number" onchange="setStartTime()"
+                       placeholder="Delay">
                 <button type="button" class="btn btn-success btn-lg" onclick="startAnimation()">Start animation</button>
             </div>
             <div class="btn-group">
@@ -91,6 +92,11 @@
             <div class="btn-group">
                 <button type="button" class="btn btn-outline-primary btn-lg" onclick="land()">Land</button>
                 <button type="button" class="btn btn-outline-primary btn-lg" onclick="disarm()">Disarm</button>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="restart_fcu()">Restart FCU</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="calibrate_gyro()">Calibrate gyro</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" onclick="calibrate_level()">Calibrate level</button>
             </div>
         </div>
         <div class="action-container"></div>
