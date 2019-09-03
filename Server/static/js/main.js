@@ -1,6 +1,8 @@
 let spinner = document.getElementById('spinner');
 var tabledata = [];
 var delay = 0;
+const green = "#20E828";
+const red = "#FF2F1B";
 updateData();
 updateDelay();
 
@@ -26,9 +28,6 @@ function updateData() {
     tabledata = JSON.parse(req.response);
 }
 
-function colorRow(row) {
-    console.log(row._row.data);
-}
 
 var table = new Tabulator("#copters-table", {
     data: tabledata,
@@ -37,18 +36,62 @@ var table = new Tabulator("#copters-table", {
     layout: "fitColumns",
     columns: [
         {title: "Name", field: "name"},
-        {title: "Animation id", field: "anim_id"},
+        {
+            title: "Animation id", field: "anim_id", formatter: function (cell) {
+                let animation = cell.getValue();
+                if (animation === "No animation") {
+                    cell.getElement().style.background = red;
+                } else if (animation) {
+                    cell.getElement().style.background = green;
+                } else {
+                    cell.getElement().style.background = null;
+                }
+                return animation;
+            }
+        },
         {title: "Batt voltage", field: "batt_voltage"},
-        {title: "Cell voltage", field: "cell_voltage"},
-        {title: "Selfcheck", field: "selfcheck"},
-        {title: "Time delta", field: "time"},
+        {
+            title: "Cell voltage", field: "cell_voltage", formatter: function (cell) {
+                let cell_voltage = cell.getValue();
+                if (parseFloat(cell_voltage) > 3.2) {
+                    cell.getElement().style.background = green;
+                } else if (cell_voltage) {
+                    cell.getElement().style.background = red;
+                } else {
+                    cell.getElement().style.background = null;
+                }
+                return cell_voltage;
+            }
+        },
+        {
+            title: "Selfcheck", field: "selfcheck", formatter: function (cell) {
+                let selfcheck = cell.getValue();
+                if (selfcheck === "OK") {
+                    cell.getElement().style.background = green;
+                } else if (selfcheck) {
+                    cell.getElement().style.background = red;
+                } else {
+                    cell.getElement().style.background = null;
+                }
+                return selfcheck;
+            }
+        },
+        {
+            title: "Time delta", field: "time", formatter: function (cell) {
+                let time = cell.getValue();
+                if (Math.abs(parseFloat(time)) > 1) {
+                    cell.getElement().style.background = red;
+                } else if (time) {
+                    cell.getElement().style.background = green;
+                } else {
+                    cell.getElement().style.background = null;
+                }
+                return time;
+            }
+        },
     ],
 });
 
-let rows = table.getRows();
-for (let i = 0; i < rows.length; i++) {
-    colorRow(rows[i]);
-}
 
 function refreshRows(selectedRows) {
     spinner.style.display = 'inline-block';
