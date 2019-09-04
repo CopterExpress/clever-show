@@ -36,7 +36,7 @@ def selfcheck_all():
             'cell_voltage': copter.cell_voltage,
             'selfcheck': copter.selfcheck,
             'ip': copter.ip,
-            'time': round(float(copter.time) - time, 3),
+            'time': round(float(copter.time) - time(), 3),
             'name': copter.name,
         })
     # return jsonify([{"anim_id": "No animation", "batt_voltage": 12.333000183105469, "cell_voltage": 4.111999988555908,
@@ -98,9 +98,69 @@ def calibrate_level_selected():
     return jsonify({'m': 'ok'})
 
 
-def all_checks(copter_item):
-    return False
+def all_checks(copter):
+    time = copter.refresh()
+    checks = [check_anim(copter.anim_id),
+              check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
+              check_bat_v(copter.cell_voltage),
+              check_selfcheck(copter.selfcheck),
+              check_time_delta(round(float(copter.time) - time, 3))
+              ]
+    return not (False in checks)
 
 
-def takeoff_checks(copter_item):
-    return False
+def takeoff_checks(copter):
+    time = copter.refresh()
+    checks = [check_anim(copter.anim_id),
+              check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
+              check_bat_v(copter.cell_voltage),
+              check_selfcheck(copter.selfcheck),
+              check_time_delta(round(float(copter.time) - time, 3))
+              ]
+    return not (False in checks)
+
+
+def check_anim(item):
+    if not item:
+        return None
+    if str(item) == 'No animation':
+        return False
+    else:
+        return True
+
+
+def check_bat_v(item):
+    if not item:
+        return None
+    if float(item) > 3.2:  # todo config
+        return True
+    else:
+        return False
+
+
+def check_bat_p(item):
+    if not item:
+        return None
+    if float(item) > 30:  # todo config
+        return True
+    else:
+        return False
+        # return True #For testing
+
+
+def check_selfcheck(item):
+    if not item:
+        return None
+    if item == "OK":
+        return True
+    else:
+        return False
+
+
+def check_time_delta(item):
+    if not item:
+        return None
+    if abs(float(item)) < 1:
+        return True
+    else:
+        return False
