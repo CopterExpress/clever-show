@@ -31,8 +31,10 @@ class WebCopter:
         self.client.get_response("batt_voltage", save, callback_args=(self, 'batt_voltage'))
         self.client.get_response("cell_voltage", save, callback_args=(self, 'cell_voltage'))
         self.client.get_response("selfcheck", save, callback_args=(self, 'selfcheck'))
+        t1 = self.time
         self.client.get_response("time", save, callback_args=(self, 'time'))
-        return time()
+        while t1 == self.time:
+            pass
 
 
 def save(m, self, param_name):

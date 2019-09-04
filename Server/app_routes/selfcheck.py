@@ -36,7 +36,7 @@ def selfcheck_all():
             'cell_voltage': copter.cell_voltage,
             'selfcheck': copter.selfcheck,
             'ip': copter.ip,
-            'time': round(float(copter.time) - time, 3),
+            'time': round(float(copter.time) - time(), 3),
             'name': copter.name,
         })
     # return jsonify([{"anim_id": "No animation", "batt_voltage": 12.333000183105469, "cell_voltage": 4.111999988555908,
