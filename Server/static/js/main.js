@@ -49,7 +49,19 @@ var table = new Tabulator("#copters-table", {
                 return animation;
             }
         },
-        {title: "Batt voltage", field: "batt_voltage"},
+        {
+            title: "Batt voltage", field: "batt_voltage", formatter: function (cell) {
+                let voltage = cell.getValue();
+                if (parseFloat(voltage) > 30) {
+                    cell.getElement().style.background = green;
+                } else if (voltage) {
+                    cell.getElement().style.background = red;
+                } else {
+                    cell.getElement().style.background = null;
+                }
+                return voltage;
+            }
+        },
         {
             title: "Cell voltage", field: "cell_voltage", formatter: function (cell) {
                 let cell_voltage = cell.getValue();
