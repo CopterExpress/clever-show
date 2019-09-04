@@ -1,6 +1,3 @@
-from server import Client
-from time import time
-
 copters = []
 delay = 0
 

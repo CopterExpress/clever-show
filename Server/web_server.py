@@ -1,9 +1,9 @@
 from server import Server
 from web_server_models import copters, get_delay_manually
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify
 from app_routes.selfcheck import selfcheck_api, refresh_copters
 from app_routes.file_sender import file_sender_api
-from app_routes.misc import misc_api
+from app_routes.misc import misc_api, all_checks
 
 app = Flask(__name__, static_url_path='/static')
 app.register_blueprint(selfcheck_api)
@@ -21,7 +21,8 @@ def home():
 @app.route('/start_animation', methods=['GET', 'POST'])
 def resume_selected():
     for copter in copters:
-        server.send_starttime(copter.client, get_delay_manually())
+        if all_checks(copter):
+            server.send_starttime(copter.client, get_delay_manually())
     return jsonify({'m': 'ok'})
 
 

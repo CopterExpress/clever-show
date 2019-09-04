@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from web_server_models import copters, WebCopter
 from server import Client
-from time import time
 
 selfcheck_api = Blueprint('selfcheck_api', __name__, template_folder='templates')
 
@@ -97,67 +96,3 @@ def calibrate_level_selected():
         if copter.ip == ip:
             copter.client.send_message("calibrate_level")
     return jsonify({'m': 'ok'})
-
-
-def all_checks(copter):
-    copter.refresh()
-    checks = [check_anim(copter.anim_id),
-              check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
-              check_bat_v(copter.cell_voltage),
-              check_selfcheck(copter.selfcheck),
-              check_time_delta(round(float(copter.time) - time(), 3))]
-    return not (False in checks)
-
-
-def takeoff_checks(copter):
-    copter.refresh()
-    checks = [check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
-              check_bat_v(copter.cell_voltage),
-              check_selfcheck(copter.selfcheck)]
-    return not (False in checks)
-
-
-def check_anim(item):
-    if not item:
-        return None
-    if str(item) == 'No animation':
-        return False
-    else:
-        return True
-
-
-def check_bat_v(item):
-    if not item:
-        return None
-    if float(item) > 3.2:  # todo config
-        return True
-    else:
-        return False
-
-
-def check_bat_p(item):
-    if not item:
-        return None
-    if float(item) > 30:  # todo config
-        return True
-    else:
-        return False
-        # return True #For testing
-
-
-def check_selfcheck(item):
-    if not item:
-        return None
-    if item == "OK":
-        return True
-    else:
-        return False
-
-
-def check_time_delta(item):
-    if not item:
-        return None
-    if abs(float(item)) < 1:
-        return True
-    else:
-        return False
