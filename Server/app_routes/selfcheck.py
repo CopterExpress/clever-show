@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from web_server_models import copters, WebCopter
 from server import Client
+from time import time
 
 selfcheck_api = Blueprint('selfcheck_api', __name__, template_folder='templates')
 
@@ -99,24 +100,20 @@ def calibrate_level_selected():
 
 
 def all_checks(copter):
-    time = copter.refresh()
+    copter.refresh()
     checks = [check_anim(copter.anim_id),
               check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
               check_bat_v(copter.cell_voltage),
               check_selfcheck(copter.selfcheck),
-              check_time_delta(round(float(copter.time) - time, 3))
-              ]
+              check_time_delta(round(float(copter.time) - time(), 3))]
     return not (False in checks)
 
 
 def takeoff_checks(copter):
-    time = copter.refresh()
-    checks = [check_anim(copter.anim_id),
-              check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
+    copter.refresh()
+    checks = [check_bat_p(((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100),
               check_bat_v(copter.cell_voltage),
-              check_selfcheck(copter.selfcheck),
-              check_time_delta(round(float(copter.time) - time, 3))
-              ]
+              check_selfcheck(copter.selfcheck)]
     return not (False in checks)
 
 
