@@ -116,7 +116,6 @@ function refreshRows(selectedRows) {
             let response = JSON.parse(req.response);
             Object.keys(response).forEach(function (item) {
                 element._row.data[item] = response[item];
-                colorRow(element);
             });
         });
         spinner.style.display = 'none';
