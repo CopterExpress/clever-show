@@ -1,6 +1,7 @@
+from server import Client
+
 copters = []
 delay = 0
-
 
 def set_delay_manually(_delay):
     global delay

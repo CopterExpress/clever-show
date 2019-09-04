@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from web_server_models import copters, WebCopter
 from server import Client
+from time import time
 
 selfcheck_api = Blueprint('selfcheck_api', __name__, template_folder='templates')
 
@@ -11,13 +12,13 @@ def selfcheck_selected():
     ip = request.args.get("ip")
     for copter in copters:
         if copter.ip == ip:
-            time = copter.refresh()
+            copter.refresh()
             data = {
                 'anim_id': copter.anim_id,
                 'batt_voltage': copter.batt_voltage,
                 'cell_voltage': copter.cell_voltage,
                 'selfcheck': copter.selfcheck,
-                'time': round(float(copter.time) - time, 3),
+                'time': round(float(copter.time) - time(), 3),
                 'name': copter.name,
             }
     # data = {"anim_id": "No animation", "batt_voltage": 3.259999990463257, "cell_voltage": 1.0850000381469727,
@@ -29,7 +30,7 @@ def selfcheck_selected():
 def selfcheck_all():
     data = []
     for copter in copters:
-        time = copter.refresh()
+        copter.refresh()
         data.append({
             'anim_id': copter.anim_id,
             'batt_voltage': copter.batt_voltage,
