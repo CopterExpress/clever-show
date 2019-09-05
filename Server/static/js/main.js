@@ -112,7 +112,6 @@ function refreshRows(selectedRows) {
             let req = new XMLHttpRequest();
             req.open('POST', '/selfcheck/selected?ip=' + element._row.data.ip, false);
             req.send();
-            element.deselect();
             let response = JSON.parse(req.response);
             Object.keys(response).forEach(function (item) {
                 element._row.data[item] = response[item];
