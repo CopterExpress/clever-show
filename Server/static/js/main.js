@@ -174,11 +174,19 @@ function setStartTime() {
 }
 
 function takeOff() {
-    sendCommandToSelected('takeoff');
+    if (table.getSelectedRows().length > 0) {
+        askPermission('Are you sure you want to take off this copters?', function () {
+            sendCommandToSelected('takeoff');
+        });
+    }
 }
 
 function flipCopters() {
-    sendCommandToSelected('flip');
+    if (table.getSelectedRows().length > 0) {
+        askPermission('Are you sure you want to flip this copters?', function () {
+            sendCommandToSelected('flip');
+        });
+    }
 }
 
 function land() {
@@ -224,11 +232,24 @@ function emLand() {
 }
 
 function startAnimation() {
-    spinner.style.display = 'inline-block';
-    setTimeout(function () {
-        let req = new XMLHttpRequest();
-        req.open('POST', '/start_animation', false);
-        req.send();
-        spinner.style.display = 'none';
-    }, 20);
+    askPermission('Are you sure you want to start animation?', function () {
+        spinner.style.display = 'inline-block';
+        setTimeout(function () {
+            let req = new XMLHttpRequest();
+            req.open('POST', '/start_animation', false);
+            req.send();
+            spinner.style.display = 'none';
+        }, 20);
+    });
+}
+
+function askPermission(text, func) {
+    Ply.dialog("confirm",
+        {},
+        text
+    ).done(function (e) {
+        if (e.state) {
+            func();
+        }
+    });
 }
