@@ -112,7 +112,7 @@ def check_bat_v(item):
 def check_bat_p(item):
     if not item:
         return None
-    if float(item) > 30:  # todo config
+    if float(item) > 10:  # todo config
         return True
     else:
         return False

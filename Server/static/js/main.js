@@ -52,7 +52,7 @@ var table = new Tabulator("#copters-table", {
         {
             title: "Batt voltage", field: "batt_voltage", formatter: function (cell) {
                 let voltage = cell.getValue();
-                if (parseFloat(voltage) > 30) {
+                if (parseFloat(voltage) > 10) {
                     cell.getElement().style.background = green;
                 } else if (voltage) {
                     cell.getElement().style.background = red;

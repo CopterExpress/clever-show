@@ -15,7 +15,7 @@ def selfcheck_selected():
             copter.refresh()
             data = {
                 'anim_id': copter.anim_id,
-                'batt_voltage': ((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100,
+                'batt_voltage': copter.batt_voltage,
                 'cell_voltage': copter.cell_voltage,
                 'selfcheck': copter.selfcheck,
                 'time': round(float(copter.time) - time(), 3),
@@ -33,7 +33,7 @@ def selfcheck_all():
         copter.refresh()
         data.append({
             'anim_id': copter.anim_id,
-            'batt_voltage': ((float(copter.batt_voltage) - 3.2) / (4.2 - 3.2)) * 100,
+            'batt_voltage': copter.batt_voltage,
             'cell_voltage': copter.cell_voltage,
             'selfcheck': copter.selfcheck,
             'ip': copter.ip,
