@@ -110,12 +110,19 @@ function refreshRows(selectedRows) {
     setTimeout(function () {
         selectedRows.forEach(function (element) {
             let req = new XMLHttpRequest();
-            req.open('POST', '/selfcheck/selected?ip=' + element._row.data.ip, false);
-            req.send();
-            let response = JSON.parse(req.response);
-            Object.keys(response).forEach(function (item) {
-                element._row.data[item] = response[item];
-            });
+            req.open('POST', '/selfcheck/selected?ip=' + element._row.data.ip, true);
+            req.onload = function (e) {
+                if (req.readyState === 4) {
+                    if (req.status === 200) {
+                        let response = JSON.parse(req.response);
+                        Object.keys(response).forEach(function (item) {
+                            element._row.data[item] = response[item];
+                        });
+                    }
+                }
+            };
+            req.onerror = function (e) {};
+            req.send(null);
         });
         spinner.style.display = 'none';
     }, 20);
