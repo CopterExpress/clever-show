@@ -246,7 +246,7 @@ function askPermission(text, func) {
     Ply.dialog("confirm",
         {},
         text
-    ).done(function (e) {
+    ).always(function (e) {
         if (e.state) {
             func();
         }

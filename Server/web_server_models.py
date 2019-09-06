@@ -1,7 +1,8 @@
-from server import Client
+from time import time
 
 copters = []
 delay = 0
+
 
 def set_delay_manually(_delay):
     global delay
@@ -30,8 +31,9 @@ class WebCopter:
         self.client.get_response("cell_voltage", save, callback_args=(self, 'cell_voltage'))
         self.client.get_response("selfcheck", save, callback_args=(self, 'selfcheck'))
         t1 = self.time
+        time_started = time()
         self.client.get_response("time", save, callback_args=(self, 'time'))
-        while t1 == self.time:
+        while t1 == self.time and time() - time_started < 5:
             pass
 
 
