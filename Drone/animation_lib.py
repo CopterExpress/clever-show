@@ -1,5 +1,6 @@
 import time
 import csv
+import copy
 import rospy
 import logging
 import threading
@@ -84,6 +85,40 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
                     'blue': int(blue),
                 })
         return imported_frames
+
+def correct_animation(frames, frame_delay=0.1, min_takeoff_height=0.5, move_delta=0.01, check_takeoff=True, check_land=True):
+    corrected_frames = copy.deepcopy(frames)
+    start_action = 'takeoff'
+    start_delay = 0.
+    if len(corrected_frames) == 0:
+        raise Exception('Nothing to correct!')
+    # Check takeoff
+    # If copter takes off in animation, set_position can be used
+    if (corrected_frames[0]['z'] < min_takeoff_height) and check_takeoff:
+        start_action = 'set_position'
+        # If the first point is low, then detect moment to arm,
+        # delete all points, where copter is standing, and count time_delta
+        frames_to_start = 0
+        for i in range(len(corrected_frames)-1):
+            if corrected_frames[i-frames_to_start+1]['z'] - corrected_frames[i-frames_to_start]['z'] > move_delta:
+                break
+            del corrected_frames[i-frames_to_start]
+            frames_to_start += 1
+    start_delay = frames_to_start*frame_delay
+    # Check Land
+    # If copter lands in animation, landing points can be deleted
+    if (corrected_frames[len(corrected_frames)-1]['z'] < min_takeoff_height) and check_land:
+        for i in range(len(corrected_frames)-1,0,-1):
+            print i
+            if abs(corrected_frames[i-1]['z'] - corrected_frames[i]['z']) > move_delta:
+                break
+            del corrected_frames[i]
+        for i in range(len(corrected_frames)-1,0,-1):
+            if (abs(corrected_frames[i-1]['x'] - corrected_frames[i]['x']) > move_delta or
+                abs(corrected_frames[i-1]['y'] - corrected_frames[i]['y']) > move_delta):
+                break
+            del corrected_frames[i]
+    return corrected_frames, start_action, start_delay
 
 
 def convert_frame(frame):
