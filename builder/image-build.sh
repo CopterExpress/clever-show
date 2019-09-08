@@ -72,6 +72,15 @@ get_image ${IMAGE_PATH} ${SOURCE_IMAGE}
 # Make free space
 img-resize ${IMAGE_PATH} max '5G'
 
+# Checkout to tag's branch if built with travis tag
+if [[ ! -z ${TRAVIS_TAG} ]]; then
+  REMOTE_BRANCH="$(git branch -r --contains ${TRAVIS_TAG} | sed -n 1p | cut -d ' ' -f 5)"
+  BRANCH="$(echo ${REMOTE_BRANCH} | cut -d '/' -f 2)"
+  echo_stamp "Checkout to ${REMOTE_BRANCH} from ${TRAVIS_TAG}" "INFO"
+  git branch ${BRANCH} ${REMOTE_BRANCH}
+  git checkout ${BRANCH}
+fi
+
 # Copy cloned repository to the image
 # Include dotfiles in globs (asterisks)
 shopt -s dotglob
@@ -104,15 +113,6 @@ img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 # Reconfiguring clever show repository for simplier unshallowing
 cd ${REPO_DIR}
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-
-# Checkout to tag's branch if built with travis tag
-if [[ ! -z ${TRAVIS_TAG} ]]; then
-  REMOTE_BRANCH="$(git branch -r --contains ${TRAVIS_TAG} | sed -n 1p | cut -d ' ' -f 5)"
-  BRANCH="$(echo ${REMOTE_BRANCH} | cut -d '/' -f 2)"
-  echo_stamp "Checkout to ${REMOTE_BRANCH} from ${TRAVIS_TAG}" "INFO"
-  git branch ${BRANCH} ${REMOTE_BRANCH}
-  git checkout ${BRANCH}
-fi
 
 # Copy service file for clever show client
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
