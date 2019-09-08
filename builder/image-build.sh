@@ -105,6 +105,11 @@ img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 cd ${REPO_DIR}
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 
+# Checkout to master if built with travis tag
+if [[ ! -z ${TRAVIS_TAG} ]]; then
+  git checkout $(git branch --contains ${TRAVIS_TAG} | sed -n 2p)
+fi
+
 # Copy service file for clever show client
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
 
