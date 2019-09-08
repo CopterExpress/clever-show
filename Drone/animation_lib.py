@@ -89,16 +89,15 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
 def correct_animation(frames, frame_delay=0.1, min_takeoff_height=0.5, move_delta=0.01, check_takeoff=True, check_land=True):
     corrected_frames = copy.deepcopy(frames)
     start_action = 'takeoff'
-    start_delay = 0.
+    frames_to_start = 0
     if len(corrected_frames) == 0:
         raise Exception('Nothing to correct!')
     # Check takeoff
-    # If copter takes off in animation, set_position can be used
+    # If copter takes off in animation file, copter must be armed first and then all animation can be played
     if (corrected_frames[0]['z'] < min_takeoff_height) and check_takeoff:
-        start_action = 'set_position'
+        start_action = 'arm'
         # If the first point is low, then detect moment to arm,
         # delete all points, where copter is standing, and count time_delta
-        frames_to_start = 0
         for i in range(len(corrected_frames)-1):
             if corrected_frames[i-frames_to_start+1]['z'] - corrected_frames[i-frames_to_start]['z'] > move_delta:
                 break
