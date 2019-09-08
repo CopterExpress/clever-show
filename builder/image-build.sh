@@ -59,7 +59,7 @@ get_image() {
     echo_stamp "Downloading original clever distribution"
     wget --progress=dot:giga -O ${BUILD_DIR}/${RPI_ZIP_NAME} $2
     echo_stamp "Downloading complete" "SUCCESS"
-  else echo_stamp "clever distribution already donwloaded" "INFO"; fi
+  else echo_stamp "Clever distribution already downloaded" "INFO"; fi
 
   echo_stamp "Unzipping clever distribution image" \
   && unzip -p ${BUILD_DIR}/${RPI_ZIP_NAME} ${RPI_IMAGE_NAME} > $1 \
