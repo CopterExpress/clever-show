@@ -119,6 +119,14 @@ def correct_animation(frames, frame_delay=0.1, min_takeoff_height=0.5, move_delt
             del corrected_frames[i]
     return corrected_frames, start_action, start_delay
 
+# Needs for test
+def save_corrected_animation(frames, filename="corrected_animation.csv"):
+    corrected_animation = open(filename, mode='w+')
+    csv_writer = csv.writer(corrected_animation, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    for frame in frames:
+        csv_writer.writerow([frame['number'],frame['x'], frame['y'], frame['z']])
+        # print frame
+    corrected_animation.close()
 
 def convert_frame(frame):
     return ((frame['x'], frame['y'], frame['z']), (frame['red'], frame['green'], frame['blue']), frame['yaw'])

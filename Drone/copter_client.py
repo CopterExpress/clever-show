@@ -103,7 +103,23 @@ def _response_selfcheck():
 
 @messaging.request_callback("anim_id")
 def _response_animation_id():
-    return animation.get_id()
+    # Load animation
+    result = animation.get_id()
+    if result != 'No animation':
+        print ("Saving corrected animation")
+        frames = animation.load_animation(os.path.abspath("animation.csv"),
+                                            x0=client.active_client.X0 + client.active_client.X0_COMMON,
+                                            y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
+                                            )
+        # Correct start and land frames in animation
+        corrected_frames, start_action, start_delay = animation.correct_animation(frames,
+                                            check_takeoff=client.active_client.TAKEOFF_CHECK,
+                                            check_land=client.active_client.LAND_CHECK,
+                                            )
+        print("Start action: {}".format(start_action))
+        # Save corrected animation
+        animation.save_corrected_animation(corrected_frames)
+    return result
 
 
 @messaging.request_callback("batt_voltage")
@@ -247,7 +263,7 @@ def _play_animation(**kwargs):
         # Calculate first frame start time
         frame_time = rfp_time + client.active_client.RFP_TIME
 
-    elif start_action == 'arm'
+    elif start_action == 'arm':
         # Calculate start time
         start_time += start_delay
         # Arm
