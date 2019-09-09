@@ -1,0 +1,11 @@
+[Unit]
+Description=Clever Show Client Service
+
+[Service]
+WorkingDirectory=/home/pi/CleverSwarm/Server
+ExecStart=/usr/bin/python /home/pi/CleverSwarm/Server/web_server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
