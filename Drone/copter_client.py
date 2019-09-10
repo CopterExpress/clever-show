@@ -245,7 +245,7 @@ def _play_animation(**kwargs):
                                 "z": client.active_client.TAKEOFF_HEIGHT,
                                 "timeout": client.active_client.TAKEOFF_TIME,
                                 "safe_takeoff": client.active_client.SAFE_TAKEOFF,
-                                # "frame_id": client.active_client.FRAME_ID,
+                                "frame_id": client.active_client.FRAME_ID,
                                 "use_leds": client.active_client.USE_LEDS,
                             }
                             )

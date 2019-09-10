@@ -160,14 +160,13 @@ def execute_animation(frames, frame_delay, frame_id='aruco_map', use_leds=True, 
 
 def takeoff(z=1.5, safe_takeoff=True, frame_id='map', timeout=5.0, use_leds=True,
             interrupter=interrupt_event):
-    print(interrupter.is_set())
     if use_leds:
         LedLib.wipe_to(255, 0, 0, interrupter=interrupter)
     if interrupter.is_set():
         return
-    result = FlightLib.takeoff(z=z, wait=False, timeout_takeoff=timeout, frame_id=frame_id, emergency_land=safe_takeoff,
-                               interrupter=interrupter)
-    if result == 'not armed':
+    result = FlightLib.takeoff(height=z, timeout_takeoff=timeout, frame_id=frame_id,
+                               emergency_land=safe_takeoff, interrupter=interrupter)
+    if result == 'not armed' or result == 'timeout':
         raise Exception('STOP')  # Raise exception to clear task_manager if copter can't arm
     if interrupter.is_set():
         return

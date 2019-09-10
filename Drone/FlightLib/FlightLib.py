@@ -30,13 +30,13 @@ logger.info("Proxy services inited")
 FREQUENCY = 40  # HZ
 TOLERANCE = 0.2
 SPEED = 1.0
-SPEED_TAKEOFF = 1.0
+TAKEOFF_SPEED = 1.0
 TIMEOUT = 5.0
 TIMEOUT_ARMED = 2.0
 TIMEOUT_DESCEND = TIMEOUT
 TIMEOUT_LAND = 8.0
 Z_DESCEND = 0.5
-Z_TAKEOFF = 1.0
+TAKEOFF_HEIGHT = 1.0
 FRAME_ID = 'map'
 INTERRUPTER = threading.Event()
 FLIP_MIN_Z = 2.0
@@ -297,78 +297,37 @@ def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRA
     #print("Landing succeeded!")
     return True
 
-
-def takeoff(z=Z_TAKEOFF, speed=SPEED_TAKEOFF, frame_id='body', freq=FREQUENCY,
-            timeout_arm=TIMEOUT_ARMED, timeout_takeoff=TIMEOUT, wait=False, tolerance=TOLERANCE, emergency_land=False,
-            interrupter=INTERRUPTER):
-    logger.info("Starting takeoff!")
-    #print("Starting takeoff!")
-    logger.info("Arming, going to OFFBOARD mode")
-
-    # Arming check
-    set_rates(thrust=0.05, auto_arm=True)
-    telemetry = get_telemetry()
-    rate = rospy.Rate(freq)
+def takeoff(height=TAKEOFF_HEIGHT, speed=TAKEOFF_SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID, timeout_takeoff=TIMEOUT, interrupter=INTERRUPTER, emergency_land=False):
+    rospy.loginfo("Takeoff started...")
+    rate = rospy.Rate(FREQUENCY)
+    start = get_telemetry(frame_id=frame_id)
+    climb = 0.
     time_start = time.time()
-
-    while (not telemetry.armed) or wait:
-        if interrupter.is_set():
-            logger.warning("Takeoff function interrupted!")
-            #print("Takeoff function interrupted!")
-            interrupter.clear()
-            return 'interrupted'
-
-        telemetry = get_telemetry()
-        logger.info("Arming...")
-        #print("Arming...")
-        time_passed = time.time() - time_start
-
-        if timeout_arm is not None:
-            if time_passed >= timeout_arm:
-                if not telemetry.armed:
-                    logger.warning('Arming timed out! | time: {:3f} seconds'.format(time_passed))
-                    #print('Arming timed out! | time: {:3f} seconds'.format(time_passed))
-                    return 'not armed'
-                else:
-                    break
-        rate.sleep()
-
-    logger.info("Armed!")
-    #print("Armed")
-
-    # Reach height
-    z0 = get_telemetry().z
-    z_dest = z + z0
-    navigate(z=z, speed=speed, yaw = float('nan'), frame_id = 'body', auto_arm=True)
-    current_diff = abs(get_telemetry().z - z_dest)
-    while (current_diff > tolerance) or wait:
+    result = navigate(z=height, speed=speed, yaw=float('nan'), frame_id="body", auto_arm=True)
+    rospy.loginfo(result)
+    if result.success == False:
+        return 'not armed'
+    rospy.logdebug(result)
+    while abs(climb - height) > tolerance:
         if interrupter.is_set():
             logger.warning("Flight function interrupted!")
-            #print("Flight function interrupted!")
             interrupter.clear()
             return 'interrupted'
 
-        current_diff = abs(get_telemetry().z - z_dest)
-        logger.info("Takeoff...")
-        #print("Takeoff...")
+        climb = abs(get_telemetry(frame_id=frame_id).z - start.z)
+        rospy.logdebug("Takeoff to {:.2f} of {:.2f} meters".format(climb, height))
+
         time_passed = time.time() - time_start
 
         if timeout_takeoff is not None:
             if time_passed >= timeout_takeoff:
-                if not wait:
-                    logger.warning('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
-                    #print('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
-                    if emergency_land:
-                        logger.info("Preforming emergency land")
-                        #print("Preforming emergency land")
-                        land(descend=False, interrupter=interrupter)
-                    return 'time out'
-                else:
-                    break
+                rospy.loginfo('Takeoff timed out! | time: {:3f} seconds'.format(time_passed))
+                if emergency_land:
+                    land(descend=False, interrupter=interrupter)
+                return 'timeout'    
+        
         rate.sleep()
-
-    logger.info("Takeoff succeeded!")
-    #print("Takeoff succeeded!")
+    rospy.loginfo("Takeoff succeeded!")
     return 'success'
 
 def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different directions
