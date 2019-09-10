@@ -28,7 +28,7 @@
                 <div class="dropdown-menu" aria-labelledby="navbarDropdown">
                     <div class="dropdown-item">
                         <label for="animationFile" class="btn">Set animation</label>
-                        <input accept=".csv" id="animationFile" style="visibility:hidden;" type="file">
+                        <input accept=".csv" id="animationFile" style="visibility:hidden;" type="file" multiple="multiple">
                     </div>
                     <div class="dropdown-item">
                         <label for="configFile" class="btn">Set configuration</label>
@@ -37,6 +37,10 @@
                     <div class="dropdown-item">
                         <label for="arucoFile" class="btn">Set ArUco map</label>
                         <input accept=".txt" id="arucoFile" style="visibility:hidden;" type="file">
+                    </div>
+                    <div class="dropdown-item">
+                        <label for="launchFile" class="btn">Set launch files</label>
+                        <input accept=".launch" id="launchFile" style="visibility:hidden;" type="file" multiple="multiple">
                     </div>
                 </div>
             </li>

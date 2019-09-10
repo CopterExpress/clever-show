@@ -1,6 +1,7 @@
 let animationInput = document.getElementById('animationFile');
 let configInput = document.getElementById('configFile');
 let arucoInput = document.getElementById('arucoFile');
+let launchInput = document.getElementById('launchFile');
 
 animationInput.onchange = function (e) {
     spinner.style.display = 'inline-block';
@@ -13,7 +14,6 @@ animationInput.onchange = function (e) {
             }
             fileReq.open("POST", '/set/animation', false);
             fileReq.send(fileFormData);
-            deselectAll();
             spinner.style.display = 'none';
         }
     }, 20);
@@ -35,7 +35,6 @@ configInput.onchange = function (e) {
             fileFormData.append('ips', ips);
             fileReq.open("POST", '/set/config', false);
             fileReq.send(fileFormData);
-            deselectAll();
             spinner.style.display = 'none';
         }
     }, 20);
@@ -50,7 +49,27 @@ arucoInput.onchange = function (e) {
             fileFormData.append(arucoInput.files[0].name, arucoInput.files[0]);
             fileReq.open("POST", '/set/aruco', false);
             fileReq.send(fileFormData);
-            deselectAll();
+            spinner.style.display = 'none';
+        }
+    }, 20);
+};
+
+launchInput.onchange = function (e) {
+    spinner.style.display = 'inline-block';
+    setTimeout(function () {
+        if (launchInput.files.length > 0) {
+            let fileReq = new XMLHttpRequest();
+            let fileFormData = new FormData();
+            for (let i = 0; i < launchInput.files.length; i++) {
+                fileFormData.append(launchInput.files[i].name, launchInput.files[i]);
+            }
+            let ips = [];
+            table.getSelectedRows().forEach(function (element) {
+                ips.push(element._row.data.ip);
+            });
+            fileFormData.append('ips', ips);
+            fileReq.open("POST", '/set/launch', false);
+            fileReq.send(fileFormData);
             spinner.style.display = 'none';
         }
     }, 20);

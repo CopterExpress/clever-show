@@ -38,12 +38,10 @@ def set_aruco():
     if request.method == 'POST':
         for key_name in request.files.keys():
             request.files[key_name].save(os.path.join('files', key_name))
-            for ip in loads(request.args.get('ips')):
-                for copter in copters:
-                    if copter.ip == ip:
-                        copter.client.send_file('files/' + key_name,
-                                                "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
-                        copter.client.send_message("service_restart", {"name": "clever"})
+            for copter in copters:
+                copter.client.send_file('files/' + key_name,
+                                        "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
+                copter.client.send_message("service_restart", {"name": "clever"})
             os.remove('files/' + key_name)
     return jsonify({'m': 'ok'})
 
@@ -63,4 +61,27 @@ def set_animation():
                     copter.client.send_file(file, "animation.csv")
         for filename in files:
             os.remove(filename)
+    return jsonify({'m': 'ok'})
+
+
+@file_sender_api.route('/set/launch', methods=['GET', 'POST'])
+def set_launch():
+    if request.method == 'POST':
+        ips = request.values.get('ips').split(',')
+        files = []
+        names = []
+        for key_name in request.files.keys():
+            names.append(key_name)
+            request.files[key_name].save(os.path.join('files', key_name))
+            files.append('files/' + key_name)
+        if len(files) > 0:
+            for copter in copters:
+                if copter.ip in ips:
+                    for file, name in zip(files, names):
+                        copter.client.send_file('files/' + name,
+                                                "/home/pi/catkin_ws/src/clever/launch/" + name)
+                    copter.client.send_message("service_restart", {"name": "clever"})
+        for filename in files:
+            os.remove(filename)
+
     return jsonify({'m': 'ok'})
