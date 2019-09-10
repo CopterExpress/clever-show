@@ -77,7 +77,7 @@ class TaskManager(object):
         self._wait_interrupt_event.clear()
         self._running_event.set()
         
-        #print(self.task_queue)
+        # #print(self.task_queue)
 
     def pop_task(self):
         with self._task_queue_lock:
@@ -100,9 +100,6 @@ class TaskManager(object):
     def shutdown(self, timeout=5.0):
         self.stop()
         self._shutdown_event.set()
-        # self._wait_interrupt_event.set()
-        # self._task_interrupt_event.set()
-        # self._running_event.clear() #already exists in pause
         self._processor_thread.join(timeout=timeout)
 
     def pause(self, interrupt=True):
@@ -118,33 +115,39 @@ class TaskManager(object):
             next_task_time = self.task_queue[0][0]
             if time_to_start_next_task > next_task_time:
                 self._timeshift = time_to_start_next_task - next_task_time 
-        self._running_event.set()
         self._wait_interrupt_event.clear()
         self._task_interrupt_event.clear()
+        self._running_event.set()
         #logger.info("Task queue resumed with timeshift {}".format(self._timeshift))
         #print("Task queue resumed with timeshift {}".format(self._timeshift))
 
-    def reset(self):
+    def reset(self, interrupt_next_task=True):
         self.stop()
         self.resume()
-        self._reset_event.set()
+        if interrupt_next_task:
+            self._reset_event.set()
 
     def execute_task(self):
         with self._task_queue_lock:
-            if self.task_queue:
+            try:
                 start_time, priority, count, task = self.task_queue[0]
-            else: 
+            except Exception as e:
+                #print("Task queue checking exception: {}".format(e))
                 self._timeshift = 0.0
+                self._wait_interrupt_event.clear()
+                self._task_interrupt_event.clear()
+                self._running_event.clear()
                 return
 
         task_start_time = start_time + self._timeshift
         #logger.info("Waiting util task execution time:{}".format(task_start_time))
-        #print("Waiting util task execution time:{}".format(task_start_time))
+        #print("Waiting until task execution time:{}".format(task_start_time))
         wait(task_start_time, self._wait_interrupt_event)
 
         if not self._wait_interrupt_event.is_set():
             #logger.info("Executing task {}".format(task))
-            #print("Executing task {}".format(task))
+            #print("{} Executing task {}".format(time.time(),task))
+            #print("Interrupter is set: {}".format(self._task_interrupt_event.is_set()))
             try:
                 task.func(*task.args, interrupter=self._task_interrupt_event, **task.kwargs)
             except Exception as e:
@@ -160,13 +163,21 @@ class TaskManager(object):
             return
 
         if time.time() > start_time:
-            start_time_n, priority_n, count_n, task_n = self.task_queue[0]
+            try:
+                start_time_n, priority_n, count_n, task_n = self.task_queue[0]
+            except Exception as e:
+                #print("Timeout checking exception: {}".format(e))
+                self._timeshift = 0.0
+                self._wait_interrupt_event.clear()
+                self._task_interrupt_event.clear()
+                self._running_event.clear()
+                return
             if (task_n == task) and (start_time_n == start_time):
                 self.pop_task()
-            #try:
-                #print("Pop {} function!".format(task.func.__name__))
-            #except Exception as e:
-                #print("Pop something!") 
+                #try:
+                    #print("Pop {} function!".format(task.func.__name__))
+                #except Exception as e:
+                    #print("Pop something!") 
 
         if self._task_interrupt_event.is_set():
             self._task_interrupt_event.clear()     

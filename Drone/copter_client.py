@@ -205,7 +205,7 @@ def _command_disarm(**kwargs):
 
 @messaging.message_callback("stop")
 def _command_stop(**kwargs):
-    task_manager.stop()
+    task_manager.reset()
 
 
 @messaging.message_callback("pause")
@@ -226,7 +226,9 @@ def _play_animation(**kwargs):
         print("Can't start animation without animation file!")
         return
 
-    print("Start time = {}, wait for {} seconds".format(start_time, time.time() - start_time))
+    task_manager.reset(interrupt_next_task=False)
+    
+    print("Start time = {}, wait for {} seconds".format(start_time, start_time-time.time()))
     # Load animation
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                         x0=client.active_client.X0 + client.active_client.X0_COMMON,
@@ -245,7 +247,7 @@ def _play_animation(**kwargs):
                                 "z": client.active_client.TAKEOFF_HEIGHT,
                                 "timeout": client.active_client.TAKEOFF_TIME,
                                 "safe_takeoff": client.active_client.SAFE_TAKEOFF,
-                                "frame_id": client.active_client.FRAME_ID,
+                                # "frame_id": client.active_client.FRAME_ID,
                                 "use_leds": client.active_client.USE_LEDS,
                             }
                             )
@@ -273,8 +275,7 @@ def _play_animation(**kwargs):
                             }
                             )
         # Calculate first frame start time
-        frame_time = start_time + 0.5 # TODO Think about arming time
-        
+        frame_time = start_time + 0.5 # TODO Think about arming time   
     # Play animation file
     for frame in corrected_frames:
         point, color, yaw = animation.convert_frame(frame)
@@ -299,6 +300,7 @@ def _play_animation(**kwargs):
                         "use_leds": client.active_client.USE_LEDS,
                     },
                     )
+    #print(task_manager.task_queue)
         
 
 
