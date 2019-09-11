@@ -15,6 +15,8 @@ from server import *
 from copter_table_models import *
 from emergency import *
 
+import threading
+
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
@@ -49,6 +51,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.model = CopterDataModel()
         self.proxy_model = CopterProxyModel()
         self.signals = SignalManager()
+        self.gyro_calibrated = {}
+        self.level_calibrated = {}
 
         self.init_model()
         
@@ -103,8 +107,10 @@ class MainWindow(QtWidgets.QMainWindow):
             client.get_response("anim_id", self._set_copter_data, callback_args=(1, copter.copter_id))
             client.get_response("batt_voltage", self._set_copter_data, callback_args=(2, copter.copter_id))
             client.get_response("cell_voltage", self._set_copter_data, callback_args=(3, copter.copter_id))
-            client.get_response("selfcheck", self._set_copter_data, callback_args=(4, copter.copter_id))
-            client.get_response("time", self._set_copter_data, callback_args=(5, copter.copter_id))
+            client.get_response("sys_status", self._set_copter_data, callback_args=(4, copter.copter_id))
+            client.get_response("cal_status", self._set_copter_data, callback_args=(5, copter.copter_id))
+            client.get_response("selfcheck", self._set_copter_data, callback_args=(6, copter.copter_id))
+            client.get_response("time", self._set_copter_data, callback_args=(7, copter.copter_id))
 
     def _set_copter_data(self, value, col, copter_id):
         row = self.model.data_contents.index(next(
@@ -120,6 +126,10 @@ class MainWindow(QtWidgets.QMainWindow):
         elif col == 4:
             data = str(value)
         elif col == 5:
+            data = str(value)
+        elif col == 6:
+            data = str(value)
+        elif col == 7:
             #data = time.ctime(int(value))
             data = "{}".format(round(float(value) - time.time(), 3))
             if abs(float(data)) > 1:
@@ -185,6 +195,14 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def disarm_all(self):
         Client.broadcast_message("disarm")
+
+    @pyqtSlot()
+    def calibrate_gyro(self):
+        for copter in self.model.user_selected():
+            client = copter.client
+            client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(copter.copter_id))
+    
+
 
     @pyqtSlot()
     def send_animations(self):

@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt as Qt
 
 class CopterData:
     class_attrs = collections.OrderedDict([('copter_id', None), ('anim_id', None), ('batt_v', None), ('batt_p', None),
-                                           ('selfcheck', None), ('time_utc', None), ("time_delta", None),
+                                           ('sys_status', None), ('cal_status', None), ('selfcheck', None), ("time_delta", None),
                                            ("client", None), ("checked", 0)], )
 
     def __init__(self, **kwargs):
@@ -29,10 +29,11 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     checks = {}
     selected_ready_signal = QtCore.pyqtSignal(bool)
     selected_takeoff_ready_signal = QtCore.pyqtSignal(bool)
+    selected_not_calibrating_signal = QtCore.pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'selfcheck', 'time delta')
+        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'sys status', 'calibration status', 'selfcheck', 'time delta')
         self.data_contents = []
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
@@ -54,6 +55,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def takeoff_ready(self, contents=()):
         contents = contents or self.data_contents
         return filter(lambda x: takeoff_checks(x), contents)
+
+    def not_calibrating(self, contents=()):
+        contents = contents or self.data_contents
+        return filter(lambda x: not_calibrating_check(x), contents)
 
     def rowCount(self, n=None):
         return len(self.data_contents)
@@ -92,6 +97,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         #self.modelReset.emit()
         self.selected_ready_signal.emit(set(self.user_selected()).issubset(self.selfchecked_ready()))
         self.selected_takeoff_ready_signal.emit(set(self.user_selected()).issubset(self.takeoff_ready()))
+        self.selected_not_calibrating_signal.emit(set(self.user_selected()).issubset(self.not_calibrating()))
         self.dataChanged.emit(index, index, (QtCore.Qt.EditRole,))
 
     @QtCore.pyqtSlot()
@@ -167,8 +173,25 @@ def check_bat_p(item):
         return False
         #return True #For testing
 
-
 @col_check(4)
+def check_sys_status(item):
+    if not item:
+        return None
+    if item == "MAV_STATE_STANDBY":
+        return True
+    else:
+        return False  
+
+@col_check(5)
+def check_cal_status(item):
+    if not item:
+        return None
+    if item == "OK":
+        return True
+    else:
+        return False
+
+@col_check(6)
 def check_selfcheck(item):
     if not item:
         return None
@@ -177,7 +200,7 @@ def check_selfcheck(item):
     else:
         return False
 
-@col_check(5)
+@col_check(7)
 def check_time_delta(item):
     if not item:
         return None
@@ -194,9 +217,14 @@ def all_checks(copter_item):
     return True
 
 def takeoff_checks(copter_item):
-    for i in range(3):
+    for i in range(5):
         if not CopterDataModel.checks[2+i](copter_item[2+i]):
             return False
+    return True
+
+def not_calibrating_check(copter_item):
+    if copter_item[5] == "CALIBRATING":
+        return False
     return True
 
 class CopterProxyModel(QtCore.QSortFilterProxyModel):
