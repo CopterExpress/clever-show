@@ -12,6 +12,8 @@ import messaging_lib as messaging
 import tasking_lib as tasking
 import animation_lib as animation
 
+from mavros_mavlink import *
+
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
 #    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
@@ -49,18 +51,17 @@ class CopterClient(client.Client):
 
     def start(self, task_manager_instance):
         client.logger.info("Init ROS node")
-        rospy.init_node('Swarm_client', anonymous=True)
+        rospy.init_node('Swarm_client')
         if self.USE_LEDS:
             LedLib.init_led(self.LED_PIN)
-
         task_manager_instance.start()
-
+        start_subscriber()
+        # print(check_state_topic())
         super(CopterClient, self).start()
 
 
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
-
 
 def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
     try:
@@ -121,7 +122,6 @@ def _response_animation_id():
         animation.save_corrected_animation(corrected_frames)
     return result
 
-
 @messaging.request_callback("batt_voltage")
 def _response_batt():
     return FlightLib.get_telemetry('body').voltage
@@ -131,11 +131,31 @@ def _response_batt():
 def _response_cell():
     return FlightLib.get_telemetry('body').cell_voltage
 
+@messaging.request_callback("sys_status")
+def _response_sys_status():
+    return get_sys_status()
+
+@messaging.request_callback("cal_status")
+def _response_cal_status():
+    return get_calibration_status()
+
+@messaging.request_callback("calibrate_gyro")
+def _calibrate_gyro():
+    return calibrate('gyro')
+
+@messaging.request_callback("calibrate_level")
+def _calibrate_level():
+    return calibrate('level')
+
 
 @messaging.message_callback("test")
 def _command_test(**kwargs):
     logger.info("logging info test")
     print("stdout test")
+
+@messaging.message_callback("reboot_fcu")
+def _command_reboot():
+    reboot_fcu()
 
 
 @messaging.message_callback("service_restart")
@@ -307,7 +327,6 @@ def _play_animation(**kwargs):
 if __name__ == "__main__":
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
-
     copter_client.start(task_manager)
 
     # ros_logging.route_logger_to_ros()
