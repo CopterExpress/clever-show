@@ -328,8 +328,14 @@ def _play_animation(**kwargs):
         # Calculate start time
         start_time += start_delay
         # Arm
+        task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
+                            task_kwargs={
+                                "state": True
+                            }
+                            )
+        frame_time = start_time + 1.0
         point, color, yaw = animation.convert_frame(corrected_frames[0])
-        task_manager.add_task(start_time, 0, animation.execute_frame,
+        task_manager.add_task(frame_time, 0, animation.execute_frame,
                         task_kwargs={
                             "point": point,
                             "color": color,
@@ -340,7 +346,7 @@ def _play_animation(**kwargs):
                         }
                         )
         # Calculate first frame start time
-        frame_time = start_time + client.active_client.FRAME_DELAY # TODO Think about arming time   
+        frame_time += client.active_client.FRAME_DELAY # TODO Think about arming time   
     # Play animation file
     for frame in corrected_frames:
         point, color, yaw = animation.convert_frame(frame)
