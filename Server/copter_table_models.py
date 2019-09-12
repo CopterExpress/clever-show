@@ -33,7 +33,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'sys status', 'calibration status', 'selfcheck', 'time delta')
+        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'system status', 'calibration status', 'selfcheck', 'time delta')
         self.data_contents = []
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
@@ -92,6 +92,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         elif role == Qt.CheckStateRole and col == 0:
             return self.data_contents[row].checked
+
+        if role == QtCore.Qt.TextAlignmentRole and col != 0:
+                return QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
 
     def update_model(self, index=QtCore.QModelIndex()):
         #self.modelReset.emit()

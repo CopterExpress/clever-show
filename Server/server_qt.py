@@ -64,8 +64,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Initiate table and table self.model
         self.ui.tableView.setModel(self.proxy_model)
-        self.ui.tableView.horizontalHeader().setStretchLastSection(True)
-        self.ui.tableView.setSortingEnabled(True)
+        #self.ui.tableView.horizontalHeader().setStretchLastSection(True)
+        #self.ui.tableView.setSortingEnabled(True)
 
         # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
