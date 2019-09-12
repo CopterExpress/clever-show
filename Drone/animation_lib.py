@@ -108,7 +108,7 @@ def correct_animation(frames, frame_delay=0.1, min_takeoff_height=0.5, move_delt
     # If copter lands in animation, landing points can be deleted
     if (corrected_frames[len(corrected_frames)-1]['z'] < min_takeoff_height) and check_land:
         for i in range(len(corrected_frames)-1,0,-1):
-            print i
+            # print i
             if abs(corrected_frames[i-1]['z'] - corrected_frames[i]['z']) > move_delta:
                 break
             del corrected_frames[i]
@@ -133,11 +133,11 @@ def convert_frame(frame):
 
 
 def execute_frame(point=(), color=(), yaw=float('Nan'), frame_id='aruco_map', use_leds=True,
-                  flight_func=FlightLib.navto, flight_kwargs=None, interrupter=interrupt_event):
+                  flight_func=FlightLib.navto, auto_arm=False, flight_kwargs=None, interrupter=interrupt_event):
     if flight_kwargs is None:
         flight_kwargs = {}
 
-    flight_func(*point, yaw=yaw, frame_id=frame_id, interrupter=interrupt_event, **flight_kwargs)
+    flight_func(*point, yaw=yaw, frame_id=frame_id, auto_arm=auto_arm, interrupter=interrupt_event, **flight_kwargs)
     if use_leds:
         if color:
             LedLib.fill(*color)

@@ -163,8 +163,8 @@ def selfcheck():
     return checks
 
 
-def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, **kwargs):
-    set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw)
+def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, auto_arm=False, **kwargs):
+    set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, auto_arm=auto_arm)
     #telemetry = get_telemetry(frame_id=frame_id)
 
     logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
