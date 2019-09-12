@@ -1,5 +1,6 @@
 import os
 import time
+import math
 import rospy
 import logging
 
@@ -13,6 +14,12 @@ import tasking_lib as tasking
 import animation_lib as animation
 
 from mavros_mavlink import *
+
+from geometry_msgs.msg import Point, Quaternion, TransformStamped
+from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
+import tf2_ros
+
+static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
@@ -30,6 +37,7 @@ class CopterClient(client.Client):
     def load_config(self):
         super(CopterClient, self).load_config()
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
+        self.FRAME_FLIPPED_HEIGHT = 0.
         self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
         self.TAKEOFF_TIME = self.config.getfloat('COPTERS', 'takeoff_time')
         self.SAFE_TAKEOFF = self.config.getboolean('COPTERS', 'safe_takeoff')
@@ -55,6 +63,21 @@ class CopterClient(client.Client):
         if self.USE_LEDS:
             LedLib.init_led(self.LED_PIN)
         task_manager_instance.start()
+        if self.FRAME_ID == "aruco_map_flipped":
+            try:
+                self.FRAME_FLIPPED_HEIGHT = self.config.getfloat('COPTERS', 'frame_flipped_height')
+                self.FRAME_FLIPPED_WIDTH = self.config.getfloat('COPTERS', 'frame_flipped_width')
+            except Exception as e:
+                pass
+            else:
+                trans = TransformStamped()
+                trans.transform.translation.x = 0.
+                trans.transform.translation.y = self.FRAME_FLIPPED_WIDTH
+                trans.transform.translation.z = self.FRAME_FLIPPED_HEIGHT
+                trans.transform.rotation = Quaternion(*quaternion_from_euler(math.pi,0,0))
+                trans.header.frame_id = "aruco_map"
+                trans.child_frame_id = "aruco_map_flipped"
+                static_bloadcaster.sendTransform(trans)
         start_subscriber()
         # print(check_state_topic())
         super(CopterClient, self).start()
@@ -272,7 +295,8 @@ def _play_animation(**kwargs):
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
                                         check_takeoff=client.active_client.TAKEOFF_CHECK,
                                         check_land=client.active_client.LAND_CHECK,
-                                        )  
+                                        ) 
+
     # Choose start action
     if start_action == 'takeoff':
         # Takeoff first
@@ -300,16 +324,23 @@ def _play_animation(**kwargs):
         frame_time = rfp_time + client.active_client.RFP_TIME
 
     elif start_action == 'arm':
+        print ("Start_time")
         # Calculate start time
         start_time += start_delay
         # Arm
-        task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
-                            task_kwargs={
-                                "state": True
-                            }
-                            )
+        point, color, yaw = animation.convert_frame(corrected_frames[0])
+        task_manager.add_task(start_time, 0, animation.execute_frame,
+                        task_kwargs={
+                            "point": point,
+                            "color": color,
+                            "frame_id": client.active_client.FRAME_ID,
+                            "use_leds": client.active_client.USE_LEDS,
+                            "flight_func": FlightLib.navto,
+                            "auto_arm": True,
+                        }
+                        )
         # Calculate first frame start time
-        frame_time = start_time + 0.5 # TODO Think about arming time   
+        frame_time = start_time + client.active_client.FRAME_DELAY # TODO Think about arming time   
     # Play animation file
     for frame in corrected_frames:
         point, color, yaw = animation.convert_frame(frame)
