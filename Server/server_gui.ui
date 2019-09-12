@@ -144,7 +144,7 @@
           <item row="7" column="0" colspan="2">
            <widget class="QPushButton" name="disarm_button">
             <property name="text">
-             <string>Disarm</string>
+             <string>Disarm selected</string>
             </property>
            </widget>
           </item>
@@ -152,6 +152,13 @@
            <widget class="QPushButton" name="emergency_button">
             <property name="text">
              <string>Emergency land</string>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="0" colspan="2">
+           <widget class="QPushButton" name="disarm_all_button">
+            <property name="text">
+             <string>Disarm ALL</string>
             </property>
            </widget>
           </item>
