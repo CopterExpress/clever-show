@@ -97,15 +97,15 @@ def get_sys_status():
     global system_status
     if check_state_topic():
         status_text = {
-            mavlink.MAV_STATE_UNINIT: "MAV_STATE_UNINIT",
-            mavlink.MAV_STATE_BOOT: "MAV_STATE_BOOT",
-            mavlink.MAV_STATE_CALIBRATING: "MAV_STATE_CALIBRATING",
-            mavlink.MAV_STATE_STANDBY: "MAV_STATE_STANDBY",
-            mavlink.MAV_STATE_ACTIVE: "MAV_STATE_ACTIVE",
-            mavlink.MAV_STATE_CRITICAL: "MAV_STATE_CRITICAL",
-            mavlink.MAV_STATE_EMERGENCY: "MAV_STATE_EMERGENCY",
-            mavlink.MAV_STATE_POWEROFF: "MAV_STATE_POWEROFF",
-            mavlink.MAV_STATE_FLIGHT_TERMINATION: "MAV_STATE_FLIGHT_TERMINATION"
+            mavlink.MAV_STATE_UNINIT: "UNINIT",
+            mavlink.MAV_STATE_BOOT: "BOOT",
+            mavlink.MAV_STATE_CALIBRATING: "CALIBRATING",
+            mavlink.MAV_STATE_STANDBY: "STANDBY",
+            mavlink.MAV_STATE_ACTIVE: "ACTIVE",
+            mavlink.MAV_STATE_CRITICAL: "CRITICAL",
+            mavlink.MAV_STATE_EMERGENCY: "EMERGENCY",
+            mavlink.MAV_STATE_POWEROFF: "POWEROFF",
+            mavlink.MAV_STATE_FLIGHT_TERMINATION: "TERMINATION"
         }.get(system_status, "NOT_CONNECTED_TO_FCU")
         return status_text
     return "NOT_CONNECTED_TO_FCU"
