@@ -98,8 +98,12 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
 
 @messaging.request_callback("selfcheck")
 def _response_selfcheck():
-    check = FlightLib.selfcheck()
-    return check if check else "OK"
+    if check_state_topic(wait_new_status=True):
+        check = FlightLib.selfcheck()
+        return check if check else "OK"
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
 
 
 @messaging.request_callback("anim_id")
@@ -124,12 +128,20 @@ def _response_animation_id():
 
 @messaging.request_callback("batt_voltage")
 def _response_batt():
-    return FlightLib.get_telemetry('body').voltage
+    if check_state_topic(wait_new_status=True):
+        return FlightLib.get_telemetry('body').voltage
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
 
 
 @messaging.request_callback("cell_voltage")
 def _response_cell():
-    return FlightLib.get_telemetry('body').cell_voltage
+    if check_state_topic(wait_new_status=True):
+        return FlightLib.get_telemetry('body').cell_voltage
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
 
 @messaging.request_callback("sys_status")
 def _response_sys_status():
@@ -141,11 +153,13 @@ def _response_cal_status():
 
 @messaging.request_callback("calibrate_gyro")
 def _calibrate_gyro():
-    return calibrate('gyro')
+    calibrate('gyro')
+    return get_calibration_status()
 
 @messaging.request_callback("calibrate_level")
 def _calibrate_level():
-    return calibrate('level')
+    calibrate('level')
+    return get_calibration_status()
 
 
 @messaging.message_callback("test")

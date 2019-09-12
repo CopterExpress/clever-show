@@ -15,16 +15,18 @@ def state_callback(data):
     global system_status
     system_status = data.system_status
 
-def check_state_topic():
+def check_state_topic(wait_new_status = False):
     global system_status, heartbeat_sub, heartbeat_sub_status
     # Check subscriber
     if (not heartbeat_sub) or (not heartbeat_sub_status):
-        rospy.loginfo('Not subscribed to topic')
-        return False
+        start_subscriber()
+        system_status = -1
+    if wait_new_status:
+        system_status = -1
     # Wait for heartbeat
     start_time = time.time()
     while system_status == -1:
-        if time.time() - start_time > 3.:
+        if time.time() - start_time > 1.:
             rospy.loginfo("Not connected to fcu. Check connection.")
             return False
         rospy.sleep(0.1)
@@ -35,6 +37,7 @@ def reboot_fcu():
     if check_state_topic():
         rospy.loginfo("Send reboot message to fcu")
         send_command_long(False, mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 0, 1, 0, 0, 0, 0, 0, 0)
+        stop_subscriber()
         return True
     return False
 
