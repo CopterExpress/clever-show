@@ -74,6 +74,20 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
         self.model.selected_takeoff_ready_signal.connect(self.ui.takeoff_button.setEnabled)
+        self.model.selected_flip_ready_signal.connect(self.ui.flip_button.setEnabled)
+        # Connect calibrating signal (testing)
+        self.model.selected_calibrating_signal.connect(self.ui.check_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.pause_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.stop_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.emergency_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.disarm_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.disarm_all_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.leds_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.land_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.reboot_fcu.setDisabled)
+        self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
+        self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
+
 
     def client_connected(self, client: Client):
         self.signals.add_client_signal.emit(CopterData(copter_id=client.copter_id, client=client))
@@ -81,16 +95,23 @@ class MainWindow(QtWidgets.QMainWindow):
     def init_ui(self):
         # Connecting
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
-        self.ui.start_button.clicked.connect(self.send_starttime)
+        self.ui.start_button.clicked.connect(self.send_starttime_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
-        self.ui.stop_button.clicked.connect(self.stop_all)
-        self.ui.emergency_button.clicked.connect(self.emergency)
+        self.ui.stop_button.clicked.connect(self.land_all)
 
-        self.ui.leds_button.clicked.connect(self.test_leds)
+        self.ui.emergency_button.clicked.connect(self.emergency)
+        self.ui.disarm_button.clicked.connect(self.disarm_selected)
+        self.ui.disarm_all_button.clicked.connect(self.disarm_all)
+
+        self.ui.leds_button.clicked.connect(self.test_leds_selected)
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
-        self.ui.land_button.clicked.connect(self.land_all)
-        self.ui.disarm_button.clicked.connect(self.disarm_all)
-        self.ui.flip_button.clicked.connect(self.flip)
+        self.ui.flip_button.clicked.connect(self.flip_selected)
+        self.ui.land_button.clicked.connect(self.land_selected)        
+
+        self.ui.reboot_fcu.clicked.connect(self.reboot_selected)
+        self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
+        self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
+
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
@@ -98,6 +119,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set most safety-important buttons disabled
         self.ui.start_button.setEnabled(False)
         self.ui.takeoff_button.setEnabled(False)
+        self.ui.flip_button.setEnabled(False)
 
     @pyqtSlot()
     def selfcheck_selected(self):
@@ -143,34 +165,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
     @pyqtSlot()
-    def send_starttime(self, **kwargs):
+    def send_starttime_selected(self, **kwargs):
         dt = self.ui.start_delay_spin.value()
+        self.selfcheck_selected()
         for copter in self.model.user_selected():
             if all_checks(copter):
                 server.send_starttime(copter.client, dt)
-
-    @confirmation_required("This operation will takeoff copters immediately. Proceed?")
-    @pyqtSlot()
-    def takeoff_selected(self, **kwargs):
-        for copter in self.model.user_selected():
-            if takeoff_checks(copter):
-                copter.client.send_message("takeoff")
-
-    @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
-    @pyqtSlot()
-    def flip(self, **kwargs):
-        for copter in self.model.user_selected():
-            if takeoff_checks(copter):
-                copter.client.send_message("flip")
-
-    @pyqtSlot()
-    def test_leds(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("led_test")
-
-    @pyqtSlot()
-    def stop_all(self):
-        Client.broadcast_message("stop")
 
     @pyqtSlot()
     def pause_resume_selected(self):
@@ -181,7 +181,6 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self._resume_selected()
 
-    #@confirmation_required("This operation will resume ALL copter tasks with given delay. Proceed?")
     def _resume_selected(self, **kwargs):
         time_gap = 0.1
         for copter in self.model.user_selected():
@@ -193,15 +192,74 @@ class MainWindow(QtWidgets.QMainWindow):
         Client.broadcast_message("land")
 
     @pyqtSlot()
+    def disarm_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("disarm")
+
+    @pyqtSlot()
+    def test_leds_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("led_test")
+    
+    @pyqtSlot()
     def disarm_all(self):
         Client.broadcast_message("disarm")
 
+    @confirmation_required("This operation will takeoff copters immediately. Proceed?")
     @pyqtSlot()
-    def calibrate_gyro(self):
+    def takeoff_selected(self, **kwargs):
+        for copter in self.model.user_selected():
+            if takeoff_checks(copter):
+                copter.client.send_message("takeoff")
+
+    @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
+    @pyqtSlot()
+    def flip_selected(self, **kwargs):
+        for copter in self.model.user_selected():
+            if flip_checks(copter):
+                copter.client.send_message("flip")
+
+    @pyqtSlot()
+    def land_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("land")
+
+    @pyqtSlot()
+    def reboot_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("reboot_fcu")   
+
+    @pyqtSlot()
+    def calibrate_gyro_selected(self):
         for copter in self.model.user_selected():
             client = copter.client
-            client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(copter.copter_id))
-    
+            # Update calibration status
+            row = self.model.data_contents.index(next(filter(
+                lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
+            col = 5
+            data = 'CALIBRATING'
+            self.signals.update_data_signal.emit(row, col, data)
+            # Send request
+            client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(5, copter.copter_id))
+
+    @pyqtSlot()
+    def calibrate_level_selected(self):
+        for copter in self.model.user_selected():
+            client = copter.client
+            # Update calibration status
+            row = self.model.data_contents.index(next(filter(
+                lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
+            col = 5
+            data = 'CALIBRATING'
+            self.signals.update_data_signal.emit(row, col, data)
+            # Send request
+            client.get_response("calibrate_level", self._get_calibration_info, callback_args=(5, copter.copter_id))
+
+    def _get_calibration_info(self, value, col, copter_id):
+        row = self.model.data_contents.index(next(
+            filter(lambda x: x.copter_id == copter_id, self.model.data_contents)))
+        data = str(value)
+        self.signals.update_data_signal.emit(row, col, data)    
 
 
     @pyqtSlot()
