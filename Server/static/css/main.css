@@ -53,3 +53,10 @@ html {
 .dropdown-menu div {
     width: 200px;
 }
+
+.navbar img {
+    margin-left: 12px;
+    height: 40px;
+    width: auto;
+    cursor: pointer;
+}
