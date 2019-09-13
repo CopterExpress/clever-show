@@ -190,6 +190,12 @@ def _command_test(**kwargs):
     logger.info("logging info test")
     print("stdout test")
 
+@messaging.message_callback("update_repo")
+def _command_update_repo(**kwargs):
+    os.system("git reset --hard HEAD")
+    os.system("git fetch")
+    os.system("git pull")
+
 @messaging.message_callback("reboot_fcu")
 def _command_reboot():
     reboot_fcu()
