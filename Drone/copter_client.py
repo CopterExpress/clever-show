@@ -155,7 +155,7 @@ def _response_batt():
         return FlightLib.get_telemetry('body').voltage
     else:
         stop_subscriber()
-        return "NOT_CONNECTED_TO_FCU"
+        return float('nan')
 
 
 @messaging.request_callback("cell_voltage")
@@ -164,7 +164,7 @@ def _response_cell():
         return FlightLib.get_telemetry('body').cell_voltage
     else:
         stop_subscriber()
-        return "NOT_CONNECTED_TO_FCU"
+        return float('nan')
 
 @messaging.request_callback("sys_status")
 def _response_sys_status():
@@ -192,9 +192,10 @@ def _command_test(**kwargs):
 
 @messaging.message_callback("update_repo")
 def _command_update_repo(**kwargs):
-    os.system("git reset --hard HEAD")
+    os.system("git reset --hard origin/master")
     os.system("git fetch")
     os.system("git pull")
+    os.system("chown -R pi ~/CleverSwarm")
 
 @messaging.message_callback("reboot_fcu")
 def _command_reboot():
