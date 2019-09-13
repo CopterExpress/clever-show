@@ -115,6 +115,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
+        self.ui.action_send_launch_file.triggered.connect(self.send_launch)
+        self.ui.action_restart_clever.triggered.connect(self.restart_clever)
+        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
+        self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
 
         # Set most safety-important buttons disabled
         self.ui.start_button.setEnabled(False)
@@ -304,6 +308,31 @@ class MainWindow(QtWidgets.QMainWindow):
             for copter in self.model.user_selected():
                 copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
                 copter.client.send_message("service_restart", {"name": "clever"})
+
+    @pyqtSlot()
+    def send_launch(self):
+        path = QFileDialog.getOpenFileName(self, "Select launch file for clever", filter="Launch files (*.launch)")[0]
+        if path:
+            filename = os.path.basename(path)
+            print("Selected file:", path, filename)
+            for copter in self.model.user_selected():
+                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
+                # copter.client.send_message("service_restart", {"name": "clever"})
+    
+    @pyqtSlot()
+    def restart_clever(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("service_restart", {"name": "clever"})
+    
+    @pyqtSlot()
+    def restart_clever_show(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("service_restart", {"name": "clever-show"})
+
+    @pyqtSlot()
+    def update_client_repo(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("update_repo")   
 
     @pyqtSlot()
     def emergency(self):

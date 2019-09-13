@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1220</width>
-    <height>600</height>
+    <height>613</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -266,9 +266,20 @@
     <property name="title">
      <string>Actions</string>
     </property>
+    <widget class="QMenu" name="menuDeveloper_mode">
+     <property name="title">
+      <string>Developer mode</string>
+     </property>
+     <addaction name="action_send_launch_file"/>
+     <addaction name="action_restart_clever"/>
+     <addaction name="action_restart_clever_show"/>
+     <addaction name="action_update_client_repo"/>
+    </widget>
     <addaction name="action_send_animations"/>
     <addaction name="action_send_configurations"/>
     <addaction name="action_send_Aruco_map"/>
+    <addaction name="separator"/>
+    <addaction name="menuDeveloper_mode"/>
    </widget>
    <addaction name="menuOptions"/>
   </widget>
@@ -285,6 +296,31 @@
   <action name="action_send_Aruco_map">
    <property name="text">
     <string>Send Aruco map</string>
+   </property>
+  </action>
+  <action name="action_update_client_repo">
+   <property name="text">
+    <string>Update client repo</string>
+   </property>
+  </action>
+  <action name="actionSend_launch_file_for_clever">
+   <property name="text">
+    <string>Send launch file for clever</string>
+   </property>
+  </action>
+  <action name="action_send_launch_file">
+   <property name="text">
+    <string>Send .launch file to clever</string>
+   </property>
+  </action>
+  <action name="action_restart_clever">
+   <property name="text">
+    <string>Restart clever service</string>
+   </property>
+  </action>
+  <action name="action_restart_clever_show">
+   <property name="text">
+    <string>Restart clever-show service</string>
    </property>
   </action>
  </widget>
