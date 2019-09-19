@@ -37,6 +37,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         super(CopterDataModel, self).__init__(parent)
         self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'system status', 'calibration status', 'selfcheck', 'time delta')
         self.data_contents = []
+        self.first_col_is_checked = False
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
         rows = len(contents)
@@ -130,6 +131,13 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             return False
 
         return True
+
+    def select_all(self):
+        self.first_col_is_checked = not self.first_col_is_checked
+        for copter in self.data_contents:
+            copter.checked = int(self.first_col_is_checked)*2
+        for row in range(len(self.data_contents)):
+            self.update_model(self.index(row, 0))
 
     def flags(self, index):
         roles = Qt.ItemIsSelectable | Qt.ItemIsEnabled

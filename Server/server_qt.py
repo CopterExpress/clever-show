@@ -53,6 +53,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.signals = SignalManager()
         self.gyro_calibrated = {}
         self.level_calibrated = {}
+        self.first_col_is_checked = False
 
         self.init_model()
         
@@ -64,8 +65,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Initiate table and table self.model
         self.ui.tableView.setModel(self.proxy_model)
-        #self.ui.tableView.horizontalHeader().setStretchLastSection(True)
-        #self.ui.tableView.setSortingEnabled(True)
+        self.ui.tableView.resizeColumnsToContents()
 
         # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
@@ -87,6 +87,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.model.selected_calibrating_signal.connect(self.ui.reboot_fcu.setDisabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
+
+        self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
 
 
     def client_connected(self, client: Client):
