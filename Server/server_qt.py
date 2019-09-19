@@ -138,7 +138,8 @@ class MainWindow(QtWidgets.QMainWindow):
             client.get_response("sys_status", self._set_copter_data, callback_args=(4, copter.copter_id))
             client.get_response("cal_status", self._set_copter_data, callback_args=(5, copter.copter_id))
             client.get_response("selfcheck", self._set_copter_data, callback_args=(6, copter.copter_id))
-            client.get_response("time", self._set_copter_data, callback_args=(7, copter.copter_id))
+            client.get_response("position", self._set_copter_data, callback_args=(7, copter.copter_id))
+            client.get_response("time", self._set_copter_data, callback_args=(8, copter.copter_id))
 
     def _set_copter_data(self, value, col, copter_id):
         row = self.model.data_contents.index(next(
@@ -158,6 +159,8 @@ class MainWindow(QtWidgets.QMainWindow):
         elif col == 6:
             data = str(value)
         elif col == 7:
+            data = str(value)
+        elif col == 8:
             #data = time.ctime(int(value))
             data = "{}".format(round(float(value) - time.time(), 3))
             if abs(float(data)) > 1:

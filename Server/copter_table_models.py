@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt as Qt
 
 class CopterData:
     class_attrs = collections.OrderedDict([('copter_id', None), ('anim_id', None), ('batt_v', None), ('batt_p', None),
-                                           ('sys_status', None), ('cal_status', None), ('selfcheck', None), ("time_delta", None),
+                                           ('sys_status', None), ('cal_status', None), ('selfcheck', None), ('position', None), ("time_delta", None),
                                            ("client", None), ("checked", 0)], )
 
     def __init__(self, **kwargs):
@@ -35,7 +35,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'animation ID', 'battery V', 'battery %', 'system status', 'calibration status', 'selfcheck', 'time delta')
+        self.headers = ('copter ID', '  animation ID  ', 'batt V', 'batt %', 'system', 'calibration', 'selfcheck', 'current x y z yaw frame_id', 'time delta')
         self.data_contents = []
         self.first_col_is_checked = False
 
@@ -224,6 +224,13 @@ def check_selfcheck(item):
         return False
 
 @col_check(7)
+def check_cal_status(item):
+    if not item:
+        return None
+    else:
+        return True
+
+@col_check(8)
 def check_time_delta(item):
     if not item:
         return None
