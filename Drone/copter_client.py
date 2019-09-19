@@ -196,6 +196,36 @@ def _command_test(**kwargs):
     logger.info("logging info test")
     print("stdout test")
 
+@messaging.message_callback("move_start")
+def _command_move_start_to_current_position(**kwargs):
+    # Load animation
+    frames = animation.load_animation(os.path.abspath("animation.csv"),
+                                        x0=client.active_client.X0_COMMON,
+                                        y0=client.active_client.Y0_COMMON,
+                                        )
+    # Correct start and land frames in animation
+    corrected_frames, start_action, start_delay = animation.correct_animation(frames,
+                                        check_takeoff=client.active_client.TAKEOFF_CHECK,
+                                        check_land=client.active_client.LAND_CHECK,
+                                        )
+    x_start = corrected_frames[0]['x']
+    y_start = corrected_frames[0]['y']
+    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
+    client.active_client.config.set('PRIVATE', 'y0', telem.y - y_start)
+    client.active_client.rewrite_config()
+    client.active_client.load_config()
+    print ("Start delta: {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+
+@messaging.message_callback("reset_start")
+def _command_reset_start(**kwargs):
+    client.active_client.config.set('PRIVATE', 'x0', 0)
+    client.active_client.config.set('PRIVATE', 'y0', 0)
+    client.active_client.rewrite_config()
+    client.active_client.load_config()
+    print ("Reset start to {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+
+
 @messaging.message_callback("update_repo")
 def _command_update_repo(**kwargs):
     os.system("git reset --hard origin/master")

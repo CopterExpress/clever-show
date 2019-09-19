@@ -19,7 +19,6 @@ anim_id = "Empty id"
 # TODO refactor as class
 # TODO separate code for frames transformations (e.g. for gps)
 
-
 def get_id(filepath="animation.csv"):
     global anim_id
     try:
@@ -40,7 +39,6 @@ def get_id(filepath="animation.csv"):
             else:
                 print("No animation id in file")
     return anim_id
-
 
 def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
     imported_frames = []
