@@ -287,7 +287,15 @@
     </property>
     <addaction name="action_select_all_rows"/>
    </widget>
+   <widget class="QMenu" name="menuAnimation">
+    <property name="title">
+     <string>Animation</string>
+    </property>
+    <addaction name="action_set_start_to_current_position"/>
+    <addaction name="action_reset_start"/>
+   </widget>
    <addaction name="menuOptions"/>
+   <addaction name="menuAnimation"/>
    <addaction name="menuTable"/>
   </widget>
   <action name="action_send_animations">
@@ -336,6 +344,16 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+A</string>
+   </property>
+  </action>
+  <action name="action_set_start_to_current_position">
+   <property name="text">
+    <string>Set start to current position</string>
+   </property>
+  </action>
+  <action name="action_reset_start">
+   <property name="text">
+    <string>Reset start position</string>
    </property>
   </action>
  </widget>

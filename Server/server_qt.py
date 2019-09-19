@@ -121,6 +121,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_restart_clever.triggered.connect(self.restart_clever)
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
+        self.ui.action_set_start_to_current_position.triggered.connect(self.update_start_to_current_position)
+        self.ui.action_reset_start.triggered.connect(self.reset_start)
 
         # Set most safety-important buttons disabled
         self.ui.start_button.setEnabled(False)
@@ -337,7 +339,17 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def update_client_repo(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("update_repo")   
+            copter.client.send_message("update_repo")  
+
+    @pyqtSlot()
+    def update_start_to_current_position(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("move_start")
+
+    @pyqtSlot()
+    def reset_start(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("reset_start")
 
     @pyqtSlot()
     def emergency(self):
