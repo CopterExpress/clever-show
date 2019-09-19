@@ -201,7 +201,7 @@ def _command_update_repo(**kwargs):
     os.system("git reset --hard origin/master")
     os.system("git fetch")
     os.system("git pull")
-    os.system("chown -R pi ~/CleverSwarm")
+    os.system("chown -R pi:pi ~/CleverSwarm")
 
 @messaging.message_callback("reboot_fcu")
 def _command_reboot():
