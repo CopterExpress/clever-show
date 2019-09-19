@@ -174,6 +174,12 @@ def _response_sys_status():
 def _response_cal_status():
     return get_calibration_status()
 
+@messaging.request_callback("position")
+def _response_position():
+    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    return "{:.1f} {:.1f} {:.1f} {:.1f} {}".format(
+        telem.x, telem.y, telem.z, math.degrees(telem.yaw), client.active_client.FRAME_ID)
+
 @messaging.request_callback("calibrate_gyro")
 def _calibrate_gyro():
     calibrate('gyro')
