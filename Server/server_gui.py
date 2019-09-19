@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'server_gui.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.2
+# Created by: PyQt5 UI code generator 5.13.1
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -27,7 +28,7 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.tableView.sizePolicy().hasHeightForWidth())
         self.tableView.setSizePolicy(sizePolicy)
-        self.tableView.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContentsOnFirstShow)
+        self.tableView.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
         self.tableView.setTextElideMode(QtCore.Qt.ElideMiddle)
         self.tableView.setSortingEnabled(True)
@@ -35,7 +36,7 @@ class Ui_MainWindow(object):
         self.tableView.setObjectName("tableView")
         self.tableView.horizontalHeader().setCascadingSectionResizes(False)
         self.tableView.horizontalHeader().setDefaultSectionSize(125)
-        self.tableView.horizontalHeader().setMinimumSectionSize(100)
+        self.tableView.horizontalHeader().setMinimumSectionSize(50)
         self.tableView.horizontalHeader().setStretchLastSection(True)
         self.horizontalLayout.addWidget(self.tableView)
         self.verticalLayout = QtWidgets.QVBoxLayout()
@@ -138,6 +139,8 @@ class Ui_MainWindow(object):
         self.menuOptions.setObjectName("menuOptions")
         self.menuDeveloper_mode = QtWidgets.QMenu(self.menuOptions)
         self.menuDeveloper_mode.setObjectName("menuDeveloper_mode")
+        self.menuTable = QtWidgets.QMenu(self.menubar)
+        self.menuTable.setObjectName("menuTable")
         MainWindow.setMenuBar(self.menubar)
         self.action_send_animations = QtWidgets.QAction(MainWindow)
         self.action_send_animations.setObjectName("action_send_animations")
@@ -155,6 +158,8 @@ class Ui_MainWindow(object):
         self.action_restart_clever.setObjectName("action_restart_clever")
         self.action_restart_clever_show = QtWidgets.QAction(MainWindow)
         self.action_restart_clever_show.setObjectName("action_restart_clever_show")
+        self.action_select_all_rows = QtWidgets.QAction(MainWindow)
+        self.action_select_all_rows.setObjectName("action_select_all_rows")
         self.menuDeveloper_mode.addAction(self.action_send_launch_file)
         self.menuDeveloper_mode.addAction(self.action_restart_clever)
         self.menuDeveloper_mode.addAction(self.action_restart_clever_show)
@@ -164,7 +169,9 @@ class Ui_MainWindow(object):
         self.menuOptions.addAction(self.action_send_Aruco_map)
         self.menuOptions.addSeparator()
         self.menuOptions.addAction(self.menuDeveloper_mode.menuAction())
+        self.menuTable.addAction(self.action_select_all_rows)
         self.menubar.addAction(self.menuOptions.menuAction())
+        self.menubar.addAction(self.menuTable.menuAction())
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -196,6 +203,7 @@ class Ui_MainWindow(object):
         self.calibrate_level.setText(_translate("MainWindow", "Calibrate level"))
         self.menuOptions.setTitle(_translate("MainWindow", "Actions"))
         self.menuDeveloper_mode.setTitle(_translate("MainWindow", "Developer mode"))
+        self.menuTable.setTitle(_translate("MainWindow", "Table"))
         self.action_send_animations.setText(_translate("MainWindow", "Send Animations"))
         self.action_send_configurations.setText(_translate("MainWindow", "Send Configurations"))
         self.action_send_Aruco_map.setText(_translate("MainWindow", "Send Aruco map"))
@@ -204,5 +212,5 @@ class Ui_MainWindow(object):
         self.action_send_launch_file.setText(_translate("MainWindow", "Send .launch file to clever"))
         self.action_restart_clever.setText(_translate("MainWindow", "Restart clever service"))
         self.action_restart_clever_show.setText(_translate("MainWindow", "Restart clever-show service"))
-
-
+        self.action_select_all_rows.setText(_translate("MainWindow", "Select All"))
+        self.action_select_all_rows.setShortcut(_translate("MainWindow", "Ctrl+A"))
