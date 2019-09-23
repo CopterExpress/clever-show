@@ -66,6 +66,7 @@ echo_stamp "Install python libs"
 my_travis_retry pip install selectors2
 
 cd /home/pi/catkin_ws
+source devel/setup.bash
 catkin_make aruco_pose
 
 echo_stamp "End of software installation"
