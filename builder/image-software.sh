@@ -65,4 +65,7 @@ chrony \
 echo_stamp "Install python libs"
 my_travis_retry pip install selectors2
 
+cd ~/catkin_ws
+catkin_make aruco_pose
+
 echo_stamp "End of software installation"

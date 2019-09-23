@@ -109,6 +109,9 @@ done
 umount -fR ${MOUNT_POINT}
 losetup -d ${DEV_IMAGE}
 
+# Make patch for aruco_pose node
+img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/aruco_detect.cpp' '/home/pi/catkin_ws/src/clever/aruco_pose/src'
+
 # Install software
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-software.sh'
 
