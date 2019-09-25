@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1220</width>
-    <height>613</height>
+    <height>750</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -68,62 +68,80 @@
         <item>
          <layout class="QFormLayout" name="formLayout">
           <property name="labelAlignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           <set>Qt::AlignCenter</set>
           </property>
           <property name="formAlignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+           <set>Qt::AlignCenter</set>
           </property>
-          <item row="1" column="0" colspan="2">
-           <widget class="QPushButton" name="check_button">
-            <property name="enabled">
-             <bool>true</bool>
+          <item row="3" column="0">
+           <widget class="QLabel" name="music_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
             </property>
             <property name="text">
-             <string>Preflight check</string>
+             <string>  Music after</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="start_text">
-            <property name="text">
-             <string>Start after</string>
+          <item row="3" column="1">
+           <widget class="QDoubleSpinBox" name="music_delay_spin">
+            <property name="suffix">
+             <string> s</string>
             </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
+            <property name="decimals">
+             <number>1</number>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QCheckBox" name="music_checkbox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="autoFillBackground">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="music_play_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="text">
+             <string>  Play music</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
            <widget class="QSpinBox" name="start_delay_spin">
             <property name="suffix">
-             <string> seconds</string>
+             <string> s</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="0" colspan="2">
-           <widget class="QPushButton" name="start_button">
-            <property name="enabled">
-             <bool>true</bool>
+          <item row="2" column="0">
+           <widget class="QLabel" name="start_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
             </property>
             <property name="text">
-             <string>Start animation</string>
+             <string>  Start after</string>
             </property>
-            <property name="flat">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0" colspan="2">
-           <widget class="QPushButton" name="pause_button">
-            <property name="text">
-             <string>Pause</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="0" colspan="2">
-           <widget class="QPushButton" name="stop_button">
-            <property name="text">
-             <string>Stop and land all</string>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -141,24 +159,40 @@
           <property name="formAlignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
-          <item row="7" column="0" colspan="2">
-           <widget class="QPushButton" name="disarm_button">
+          <item row="10" column="1">
+           <widget class="QPushButton" name="stop_button">
             <property name="text">
-             <string>Disarm selected</string>
+             <string>Stop and land all</string>
             </property>
            </widget>
           </item>
-          <item row="6" column="0" colspan="2">
-           <widget class="QPushButton" name="emergency_button">
+          <item row="9" column="1">
+           <widget class="QPushButton" name="pause_button">
             <property name="text">
-             <string>Emergency land</string>
+             <string>Pause</string>
             </property>
            </widget>
           </item>
-          <item row="8" column="0" colspan="2">
-           <widget class="QPushButton" name="disarm_all_button">
+          <item row="8" column="1">
+           <widget class="QPushButton" name="start_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="text">
-             <string>Disarm ALL</string>
+             <string>Start animation</string>
+            </property>
+            <property name="flat">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="1">
+           <widget class="QPushButton" name="check_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Preflight check</string>
             </property>
            </widget>
           </item>
@@ -179,34 +213,24 @@
           <property name="verticalSpacing">
            <number>6</number>
           </property>
-          <item row="0" column="0" colspan="2">
-           <widget class="QPushButton" name="leds_button">
+          <item row="3" column="1">
+           <widget class="QPushButton" name="disarm_all_button">
             <property name="text">
-             <string>Test leds</string>
+             <string>Disarm ALL</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="0" colspan="2">
-           <widget class="QPushButton" name="takeoff_button">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="disarm_button">
             <property name="text">
-             <string>Takeoff</string>
+             <string>Disarm selected</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0" colspan="2">
-           <widget class="QPushButton" name="flip_button">
+          <item row="0" column="1">
+           <widget class="QPushButton" name="emergency_button">
             <property name="text">
-             <string>Flip</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0" colspan="2">
-           <widget class="QPushButton" name="land_button">
-            <property name="text">
-             <string>Land</string>
+             <string>Emergency land</string>
             </property>
            </widget>
           </item>
@@ -222,23 +246,68 @@
         <item>
          <layout class="QFormLayout" name="formLayout_4">
           <property name="formAlignment">
-           <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
-          <item row="0" column="0" colspan="2">
+          <item row="3" column="1">
+           <widget class="QPushButton" name="land_button">
+            <property name="text">
+             <string>Land</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="flip_button">
+            <property name="text">
+             <string>Flip</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="takeoff_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Takeoff</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QPushButton" name="leds_button">
+            <property name="text">
+             <string>Test leds</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="Line" name="line_4">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_6">
+          <property name="formAlignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+          <item row="0" column="1">
            <widget class="QPushButton" name="reboot_fcu">
             <property name="text">
              <string>Reboot FCU</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="0" colspan="2">
+          <item row="1" column="1">
            <widget class="QPushButton" name="calibrate_gyro">
             <property name="text">
              <string>Calibrate gyro</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0" colspan="2">
+          <item row="2" column="1">
            <widget class="QPushButton" name="calibrate_level">
             <property name="text">
              <string>Calibrate level</string>
@@ -294,8 +363,25 @@
     <addaction name="action_set_start_to_current_position"/>
     <addaction name="action_reset_start"/>
    </widget>
+   <widget class="QMenu" name="menuDrone">
+    <property name="title">
+     <string>Drone</string>
+    </property>
+    <addaction name="action_set_z_offset_to_ground"/>
+    <addaction name="action_reset_z_offset"/>
+   </widget>
+   <widget class="QMenu" name="menuMusic">
+    <property name="title">
+     <string>Music</string>
+    </property>
+    <addaction name="action_select_music_file"/>
+    <addaction name="action_play_music"/>
+    <addaction name="action_test_music_after"/>
+   </widget>
    <addaction name="menuOptions"/>
    <addaction name="menuAnimation"/>
+   <addaction name="menuDrone"/>
+   <addaction name="menuMusic"/>
    <addaction name="menuTable"/>
   </widget>
   <action name="action_send_animations">
@@ -348,7 +434,7 @@
   </action>
   <action name="action_set_start_to_current_position">
    <property name="text">
-    <string>Set start to current position</string>
+    <string>Set start X Y to current position</string>
    </property>
   </action>
   <action name="action_reset_start">
@@ -356,14 +442,34 @@
     <string>Reset start position</string>
    </property>
   </action>
+  <action name="action_set_z_offset_to_ground">
+   <property name="text">
+    <string>Set Z offset to ground</string>
+   </property>
+  </action>
+  <action name="action_reset_z_offset">
+   <property name="text">
+    <string>Reset Z offset</string>
+   </property>
+  </action>
+  <action name="action_select_music_file">
+   <property name="text">
+    <string>Select music file</string>
+   </property>
+  </action>
+  <action name="action_play_music">
+   <property name="text">
+    <string>Play music</string>
+   </property>
+  </action>
+  <action name="action_test_music_after">
+   <property name="text">
+    <string>Test music after</string>
+   </property>
+  </action>
  </widget>
  <tabstops>
-  <tabstop>check_button</tabstop>
   <tabstop>start_delay_spin</tabstop>
-  <tabstop>start_button</tabstop>
-  <tabstop>pause_button</tabstop>
-  <tabstop>stop_button</tabstop>
-  <tabstop>disarm_button</tabstop>
   <tabstop>tableView</tabstop>
  </tabstops>
  <resources/>
