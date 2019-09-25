@@ -170,74 +170,49 @@ def col_check(col):
 def check_anim(item):
     if not item:
         return None
-    if str(item) == 'No animation':
-        return False
-    else:
-        return True
-
+    return str(item) != 'No animation'
 
 @col_check(2)
 def check_bat_v(item):
     if not item:
         return None
-    if float(item) > 3.2:  # todo config
-        return True
-    else:
-        return False
-
+    return float(item) > 3.2
 
 @col_check(3)
 def check_bat_p(item):
     if not item:
         return None
-    if float(item) > 30:  # todo config
-        return True
-    else:
-        return False
-        #return True #For testing
+    return float(item) > 30
 
 @col_check(4)
 def check_sys_status(item):
     if not item:
         return None
-    if item == "STANDBY":
-        return True
-    else:
-        return False  
+    return item == "STANDBY"
 
 @col_check(5)
 def check_cal_status(item):
     if not item:
         return None
-    if item == "OK":
-        return True
-    else:
-        return False
+    return item == "OK"
 
 @col_check(6)
 def check_selfcheck(item):
     if not item:
         return None
-    if item == "OK":
-        return True
-    else:
-        return False
+    return item == "OK"
 
 @col_check(7)
 def check_cal_status(item):
     if not item:
         return None
-    else:
-        return True
+    return True
 
 @col_check(8)
 def check_time_delta(item):
     if not item:
         return None
-    if abs(float(item)) < 1:
-        return True
-    else:
-        return False
+    return abs(float(item)) < 1
 
 
 def all_checks(copter_item):
@@ -263,9 +238,7 @@ def flip_checks(copter_item):
     return True
 
 def calibrating_check(copter_item):
-    if copter_item[5] == "CALIBRATING":
-        return True
-    return False
+    return copter_item[5] == "CALIBRATING"
 
 def calibration_ready_check(copter_item):
     if not CopterDataModel.checks[4](copter_item[4]):
