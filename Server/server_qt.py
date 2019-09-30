@@ -137,6 +137,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
         self.ui.action_set_start_to_current_position.triggered.connect(self.update_start_to_current_position)
         self.ui.action_reset_start.triggered.connect(self.reset_start)
+        self.ui.action_set_z_offset_to_ground.triggered.connect(self.set_z_offset_to_ground)
+        self.ui.action_reset_z_offset.triggered.connect(self.reset_z_offset)
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_test_music_after.triggered.connect(self.test_music_after)
@@ -372,6 +374,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def reset_start(self):
         for copter in self.model.user_selected():
             copter.client.send_message("reset_start")
+
+    @pyqtSlot()
+    def set_z_offset_to_ground(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("set_z_to_ground")
+
+    @pyqtSlot()
+    def reset_z_offset(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("reset_z_offset")
 
     @pyqtSlot()
     def select_music_file(self):
