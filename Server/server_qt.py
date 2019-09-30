@@ -196,7 +196,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def send_starttime_selected(self, **kwargs):
         dt = self.ui.start_delay_spin.value()
         logging.info('Wait {} seconds to start animation'.format(dt))
-        if self.ui.music_checkbox.checked:
+        if self.ui.music_checkbox.isChecked():
             music_dt = self.ui.music_delay_spin.value()
             asyncio.ensure_future(self.play_music_after(music_dt), loop=self.loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
