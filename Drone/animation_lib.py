@@ -40,7 +40,7 @@ def get_id(filepath="animation.csv"):
                 print("No animation id in file")
     return anim_id
 
-def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
+def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, ratio=1):
     imported_frames = []
     global anim_id
     try:
@@ -62,9 +62,9 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
                 frame_number, x, y, z, yaw, red, green, blue = row_0
                 imported_frames.append({
                     'number': int(frame_number),
-                    'x': float(x) + x0,
-                    'y': float(y) + y0,
-                    'z': float(z) + z0,
+                    'x': ratio*float(x) + x0,
+                    'y': ratio*float(y) + y0,
+                    'z': ratio*float(z) + z0,
                     'yaw': float(yaw),
                     'red': int(red),
                     'green': int(green),
@@ -74,9 +74,9 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0):
                 frame_number, x, y, z, yaw, red, green, blue = row
                 imported_frames.append({
                     'number': int(frame_number),
-                    'x': float(x) + x0,
-                    'y': float(y) + y0,
-                    'z': float(z) + z0,
+                    'x': ratio*float(x) + x0,
+                    'y': ratio*float(y) + y0,
+                    'z': ratio*float(z) + z0,
                     'yaw': float(yaw),
                     'red': int(red),
                     'green': int(green),

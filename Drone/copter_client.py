@@ -151,6 +151,7 @@ def _response_animation_id():
                                             x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                             y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                             z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
+                                            ratio=client.active_client.RATIO,
                                             )
         # Correct start and land frames in animation
         corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -215,6 +216,7 @@ def _command_move_start_to_current_position(**kwargs):
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                         x0=client.active_client.X0_COMMON,
                                         y0=client.active_client.Y0_COMMON,
+                                        ratio=client.active_client.RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -362,6 +364,7 @@ def _play_animation(**kwargs):
                                         x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                         y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                         z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
+                                        ratio=client.active_client.RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
