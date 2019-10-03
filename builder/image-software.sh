@@ -65,4 +65,11 @@ chrony \
 echo_stamp "Install python libs"
 my_travis_retry pip install selectors2
 
+echo_stamp "Install catkin packages"
+cd /home/pi/catkin_ws/src
+source ../devel/setup.bash
+git clone https://github.com/CopterExpress/clever_tools.git
+catkin_make --pkg clever_flight_routines
+source devel/setup.bash
+
 echo_stamp "End of software installation"

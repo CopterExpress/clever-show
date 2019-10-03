@@ -2,7 +2,7 @@
 
 set -e # Exit immidiately on non-zero result
 
-SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.17/clever_v0.17.img.zip"
+SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.18/clever_v0.18.img.zip"
 
 export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:='noninteractive'}
 export LANG=${LANG:='C.UTF-8'}
