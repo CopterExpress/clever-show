@@ -10,7 +10,7 @@
 * [Аддон для Blender 2.8](https://github.com/artem30801/CleverSwarm/tree/master/blender-addon) для преобразования анимации полёта коптеров, созданной в Blender, в файлы полётов для каждого коптера
 * [Образ для Raspberry Pi](https://github.com/artem30801/CleverSwarm/releases/latest) для быстрого запуска ПО на коптере
 
-## Документация
+## Документация:
 Инструкция по запуску ПО находится [здесь](docs/start-tutorial.md).
 
 Подробная документация расположена в папке [docs](https://github.com/artem30801/CleverSwarm/tree/master/docs).
