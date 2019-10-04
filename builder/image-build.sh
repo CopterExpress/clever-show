@@ -41,6 +41,7 @@ if [[ -z ${TRAVIS_TAG} ]]; then IMAGE_VERSION="$(cd ${REPO_DIR}; git log --forma
 # IMAGE_VERSION="${TRAVIS_TAG:=$(cd ${REPO_DIR}; git log --format=%h -1)}"
 REPO_URL="$(cd ${REPO_DIR}; git remote --verbose | grep origin | grep fetch | cut -f2 | cut -d' ' -f1 | sed 's/git@github\.com\:/https\:\/\/github.com\//')"
 REPO_NAME="$(basename -s '.git' ${REPO_URL})"
+echo_stamp "REPO_NAME=${REPO_NAME}" "INFO"
 IMAGE_NAME="${REPO_NAME}_${IMAGE_VERSION}.img"
 echo_stamp "IMAGE_NAME=${IMAGE_NAME}" "INFO"
 IMAGE_PATH="${IMAGES_DIR}/${IMAGE_NAME}"
@@ -99,10 +100,10 @@ echo_stamp "Mount dirs ${MOUNT_POINT} & ${MOUNT_POINT}/boot"
 mount "${DEV_IMAGE}p2" ${MOUNT_POINT}
 mount "${DEV_IMAGE}p1" ${MOUNT_POINT}/boot
 
-mkdir -p ${MOUNT_POINT}'/home/pi/CleverSwarm/'
+mkdir -p ${MOUNT_POINT}'/home/pi/clever-show/'
 for dir in ${REPO_DIR}/*; do
   if [[ $dir != *"images" && $dir != *"imgcache" ]]; then
-    cp -r $dir ${MOUNT_POINT}'/home/pi/CleverSwarm/'$(basename $dir)
+    cp -r $dir ${MOUNT_POINT}'/home/pi/clever-show/'$(basename $dir)
   fi;
 done
 

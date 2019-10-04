@@ -50,7 +50,7 @@ my_travis_retry() {
 }
 
 echo_stamp "Change repo owner to pi"
-chown -Rf pi:pi /home/pi/CleverSwarm/
+chown -Rf pi:pi /home/pi/clever-show/
 
 echo_stamp "Update apt cache"
 apt-get update -qq
