@@ -68,26 +68,25 @@ class CopterClient(client.Client):
         task_manager_instance.start()
         if self.FRAME_ID == "floor":
             try:
-                self.FRAME_FLOOR_DX = self.config.getfloat('COPTERS', 'frame_floor_dx')
-                self.FRAME_FLOOR_DY = self.config.getfloat('COPTERS', 'frame_floor_dy')
-                self.FRAME_FLOOR_DZ = self.config.getfloat('COPTERS', 'frame_floor_dz')
-                self.FRAME_FLOOR_ROLL = self.config.getfloat('COPTERS', 'frame_floor_roll')
-                self.FRAME_FLOOR_PITCH = self.config.getfloat('COPTERS', 'frame_floor_pitch')
-                self.FRAME_FLOOR_YAW = self.config.getfloat('COPTERS', 'frame_floor_yaw')
-                self.FRAME_FLOOR_PARENT = self.config.get('COPTERS', 'frame_floor_parent')
-                #print(self.FRAME_FLOOR_PARENT)
-                #print(self.FRAME_ID)
+                self.FLOOR_DX = self.config.getfloat('FLOOR FRAME', 'x')
+                self.FLOOR_DY = self.config.getfloat('FLOOR FRAME', 'y')
+                self.FLOOR_DZ = self.config.getfloat('FLOOR FRAME', 'z')
+                self.FLOOR_ROLL = self.config.getfloat('FLOOR FRAME', 'roll')
+                self.FLOOR_PITCH = self.config.getfloat('FLOOR FRAME', 'pitch')
+                self.FLOOR_YAW = self.config.getfloat('FLOOR FRAME', 'yaw')
+                self.FLOOR_PARENT = self.config.get('FLOOR FRAME', 'parent')
             except Exception as e:
-                pass
+                raise Exception("Can't make floor frame!")
+                quit()
             else:
                 trans = TransformStamped()
-                trans.transform.translation.x = self.FRAME_FLOOR_DX
-                trans.transform.translation.y = self.FRAME_FLOOR_DY
-                trans.transform.translation.z = self.FRAME_FLOOR_DZ
-                trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.FRAME_FLOOR_ROLL),
-                                                                            math.radians(self.FRAME_FLOOR_PITCH),
-                                                                            math.radians(self.FRAME_FLOOR_YAW)))
-                trans.header.frame_id = self.FRAME_FLOOR_PARENT
+                trans.transform.translation.x = self.FLOOR_DX
+                trans.transform.translation.y = self.FLOOR_DY
+                trans.transform.translation.z = self.FLOOR_DZ
+                trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.FLOOR_ROLL),
+                                                                            math.radians(self.FLOOR_PITCH),
+                                                                            math.radians(self.FLOOR_YAW)))
+                trans.header.frame_id = self.FLOOR_PARENT
                 trans.child_frame_id = self.FRAME_ID
                 static_bloadcaster.sendTransform(trans)
         start_subscriber()
