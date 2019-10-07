@@ -19,6 +19,7 @@ from emergency import *
 
 import threading
 
+
 def wait(end, interrupter=threading.Event(), maxsleep=0.1):
     # Added features to interrupter sleep and set max sleeping interval
 
@@ -29,6 +30,7 @@ def wait(end, interrupter=threading.Event(), maxsleep=0.1):
             break
         else:
             time.sleep(diff / 2)
+
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
