@@ -50,7 +50,7 @@ my_travis_retry() {
 }
 
 echo_stamp "Change repo owner to pi"
-chown -Rf pi:pi /home/pi/CleverSwarm/
+chown -Rf pi:pi /home/pi/clever-show/
 
 echo_stamp "Update apt cache"
 apt-get update -qq
@@ -64,5 +64,13 @@ chrony \
 
 echo_stamp "Install python libs"
 my_travis_retry pip install selectors2
+
+echo_stamp "Install catkin packages"
+cd /home/pi/catkin_ws/src
+git clone https://github.com/CopterExpress/clever_tools.git
+cd ..
+source devel/setup.bash
+catkin_make --pkg clever_flight_routines
+source devel/setup.bash
 
 echo_stamp "End of software installation"

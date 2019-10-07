@@ -3,9 +3,9 @@ Description=Clever Show Client Service
 After=clever.service
 
 [Service]
-WorkingDirectory=/home/pi/CleverSwarm/Drone
-EnvironmentFile=/lib/systemd/system/roscore.env
-ExecStart=/usr/bin/python /home/pi/CleverSwarm/Drone/copter_client.py
+WorkingDirectory=/home/pi/clever-show/Drone
+ExecStart=/bin/bash -c ". /home/pi/catkin_ws/devel/setup.sh; \
+                      /usr/bin/python /home/pi/clever-show/Drone/copter_client.py"
 KillSignal=SIGKILL
 Restart=on-failure
 RestartSec=3
