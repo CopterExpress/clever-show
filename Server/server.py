@@ -143,20 +143,27 @@ class Server:
         logging.info("Client processor (selector) thread started!")
         self.server_socket.listen()
         self.server_socket.setblocking(False)
-        self.sel.register(self.server_socket, selectors.EVENT_READ | selectors.EVENT_WRITE, data=None)
+        self.sel.register(self.server_socket, selectors.EVENT_READ, data=None) #| selectors.EVENT_WRITE
+
+        messaging.NotifierSock().bind((self.ip, self.port))
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select()
+            logging.error('tick')
             for key, mask in events:
-                if key.data is None:
+                # logging.error(mask)
+                # logging.error(str(key.data))
+                client = key.data
+                if client is None:
                     self._connect_client(key.fileobj)
-                else:
-                    client = key.data
+                elif isinstance(client, messaging.ConnectionManager):
                     try:
                         client.process_events(mask)
                     except Exception as error:
                         logging.error("Exception {} occurred for {}! Resetting connection!".format(error, client.addr))
                         client.close()
+                else:  # Notifier
+                    client.process_events(mask)
 
         logging.info("Client autoconnect thread stopped!")
 
@@ -165,7 +172,11 @@ class Server:
         logging.info("Got connection from: {}".format(str(addr)))
         conn.setblocking(False)
 
-        if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
+        if addr[0] == self.ip and messaging.NotifierSock().addr is None:
+            client = messaging.NotifierSock()
+            logging.info("Notifier sock client")
+
+        elif not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
             logging.info("New client")
         else:
