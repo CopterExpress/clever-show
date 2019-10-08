@@ -1,16 +1,19 @@
 # clever-show
-[![Build Status](https://travis-ci.org/artem30801/CleverSwarm.svg?branch=master)](https://travis-ci.org/artem30801/CleverSwarm)
-[![CodeFactor](https://www.codefactor.io/repository/github/artem30801/cleverswarm/badge)](https://www.codefactor.io/repository/github/artem30801/cleverswarm)
+[Русская версия](README_RU.md)
 
-Програмное обеспечение для запуска шоу дронов под управлением Raspberry Pi с пакетом COEX [Clever](https://github.com/copterexpress/clever).
+Software for making the drone show controlled by Raspberry Pi and COEX [Clever](https://github.com/CopterExpress/clever) package. 
 
-### Пакет включает в себя:
-* [Набор ПО для дрона](https://github.com/artem30801/CleverSwarm/tree/master/Drone), включащее в себя библиотеку для автономного полёта, модуль для воспроизведения анимаций и клиентское приложение для удаленного синхронизированного управления
-* [Серверное приложение](https://github.com/artem30801/CleverSwarm/tree/master/Server) для удаленного синхронизированного управления дронами и удобной настройки системы для воспроизведения анимации
-* [Аддон для Blender 2.8](https://github.com/artem30801/CleverSwarm/tree/master/blender-addon) для преобразования анимации полёта коптеров, созданной в Blender, в файлы полётов для каждого коптера
-* [Образ для Raspberry Pi](https://github.com/artem30801/CleverSwarm/releases/latest) для быстрого запуска ПО на коптере
+[![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
 
-## Документация
-Инструкция по запуску ПО находится [здесь](docs/start-tutorial.md).
+## This software includes
+* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) with autonomous flight module, animation player module and client application for remote synchronized control of drones
+* [Server side](https://github.com/CopterExpress/clever-show/tree/master/Server) for making the drone show with ability of tuning drones, animation and music
+* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for animation export to drone paths
+* [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
 
-Подробная документация расположена в папке [docs](https://github.com/artem30801/CleverSwarm/tree/master/docs).
+## Documentation
+Start tutorial is located [here](docs/start-tutorial.md).
+
+Detailed documentation is located in the [docs](https://github.com/CopterExpress/clever-show/tree/master/docs) folder.
+
+

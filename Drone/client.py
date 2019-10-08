@@ -7,6 +7,7 @@ import logging
 import collections
 import ConfigParser
 import selectors2 as selectors
+import threading
 
 from contextlib import closing
 
@@ -15,7 +16,7 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 import messaging_lib as messaging
@@ -102,7 +103,7 @@ class Client(object):
         try:
             while True:
                 self._reconnect()
-                self._process_connections()
+                #self._process_connections()
 
         except (KeyboardInterrupt, ):
             logger.critical("Caught interrupt, exiting!")
@@ -141,7 +142,7 @@ class Client(object):
     def _connect(self):
         self.connected = True
         self.client_socket.setblocking(False)
-        events = selectors.EVENT_READ | selectors.EVENT_WRITE
+        events = selectors.EVENT_READ # | selectors.EVENT_WRITE
         self.selector.register(self.client_socket, events, data=self.server_connection)
         self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
         self._process_connections()
@@ -186,25 +187,26 @@ class Client(object):
     def _process_connections(self):
         while True:
             events = self.selector.select(timeout=1)
-            if events:
-                for key, mask in events:
-                    if key.data is None:
-                        pass
-                    else:
-                        connection = key.data
-                        try:
-                            connection.process_events(mask)
+            # logging.debug("tick")
+            for key, mask in events:  # TODO add notifier to client!
+                connection = key.data
+                if connection is None:
+                    pass
+                else:
+                    try:
+                        connection.process_events(mask)
 
-                        except Exception as error:
-                            logger.error(
-                                "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
-                            )
-                            self.server_connection.close()
-                            self.connected = False
+                    except Exception as error:
+                        logger.error(
+                            "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
+                        )
+                        self.server_connection.close()
+                        self.connected = False
 
-                            if isinstance(error, OSError):
-                                if error.errno == errno.EINTR:
-                                    raise KeyboardInterrupt
+                        if isinstance(error, OSError):
+                            if error.errno == errno.EINTR:
+                                raise KeyboardInterrupt
+
 
             if not self.selector.get_map():
                 logger.warning("No active connections left!")

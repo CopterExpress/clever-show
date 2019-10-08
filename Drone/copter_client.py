@@ -45,11 +45,14 @@ class CopterClient(client.Client):
         self.LAND_TIME = self.config.getfloat('COPTERS', 'land_time')
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
+        self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
+        self.RATIO = self.config.getfloat('ANIMATION', 'ratio')
         self.X0 = self.config.getfloat('PRIVATE', 'x0')
         self.Y0 = self.config.getfloat('PRIVATE', 'y0')
+        self.Z0 = self.config.getfloat('PRIVATE', 'z0')
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
         self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
 
@@ -63,20 +66,28 @@ class CopterClient(client.Client):
         if self.USE_LEDS:
             LedLib.init_led(self.LED_PIN)
         task_manager_instance.start()
-        if self.FRAME_ID == "aruco_map_flipped":
+        if self.FRAME_ID == "floor":
             try:
-                self.FRAME_FLIPPED_HEIGHT = self.config.getfloat('COPTERS', 'frame_flipped_height')
-                self.FRAME_FLIPPED_WIDTH = self.config.getfloat('COPTERS', 'frame_flipped_width')
+                self.FLOOR_DX = self.config.getfloat('FLOOR FRAME', 'x')
+                self.FLOOR_DY = self.config.getfloat('FLOOR FRAME', 'y')
+                self.FLOOR_DZ = self.config.getfloat('FLOOR FRAME', 'z')
+                self.FLOOR_ROLL = self.config.getfloat('FLOOR FRAME', 'roll')
+                self.FLOOR_PITCH = self.config.getfloat('FLOOR FRAME', 'pitch')
+                self.FLOOR_YAW = self.config.getfloat('FLOOR FRAME', 'yaw')
+                self.FLOOR_PARENT = self.config.get('FLOOR FRAME', 'parent')
             except Exception as e:
-                pass
+                raise Exception("Can't make floor frame!")
+                quit()
             else:
                 trans = TransformStamped()
-                trans.transform.translation.x = 0.
-                trans.transform.translation.y = self.FRAME_FLIPPED_WIDTH
-                trans.transform.translation.z = self.FRAME_FLIPPED_HEIGHT
-                trans.transform.rotation = Quaternion(*quaternion_from_euler(math.pi,0,0))
-                trans.header.frame_id = "aruco_map"
-                trans.child_frame_id = "aruco_map_flipped"
+                trans.transform.translation.x = self.FLOOR_DX
+                trans.transform.translation.y = self.FLOOR_DY
+                trans.transform.translation.z = self.FLOOR_DZ
+                trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.FLOOR_ROLL),
+                                                                            math.radians(self.FLOOR_PITCH),
+                                                                            math.radians(self.FLOOR_YAW)))
+                trans.header.frame_id = self.FLOOR_PARENT
+                trans.child_frame_id = self.FRAME_ID
                 static_bloadcaster.sendTransform(trans)
         start_subscriber()
         # print(check_state_topic())
@@ -138,6 +149,8 @@ def _response_animation_id():
         frames = animation.load_animation(os.path.abspath("animation.csv"),
                                             x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                             y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
+                                            z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
+                                            ratio=client.active_client.RATIO,
                                             )
         # Correct start and land frames in animation
         corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -202,6 +215,7 @@ def _command_move_start_to_current_position(**kwargs):
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                         x0=client.active_client.X0_COMMON,
                                         y0=client.active_client.Y0_COMMON,
+                                        ratio=client.active_client.RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -224,6 +238,21 @@ def _command_reset_start(**kwargs):
     client.active_client.rewrite_config()
     client.active_client.load_config()
     print ("Reset start to {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+
+@messaging.message_callback("set_z_to_ground")
+def _command_set_z(**kwargs):
+    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    client.active_client.config.set('PRIVATE', 'z0', telem.z)
+    client.active_client.rewrite_config()
+    client.active_client.load_config()
+    print ("Set z offset to {:.2f}".format(client.active_client.Z0))
+
+@messaging.message_callback("reset_z_offset")
+def _command_reset_z(**kwargs):
+    client.active_client.config.set('PRIVATE', 'z0', 0)
+    client.active_client.rewrite_config()
+    client.active_client.load_config()
+    print ("Reset z offset to {:.2f}".format(client.active_client.Z0))
 
 
 @messaging.message_callback("update_repo")
@@ -333,6 +362,8 @@ def _play_animation(**kwargs):
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                         x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                         y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
+                                        z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
+                                        ratio=client.active_client.RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,

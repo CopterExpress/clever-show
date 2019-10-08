@@ -1,12 +1,14 @@
 import os
 import glob
 import math
+import asyncio
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtMultimedia
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject, QUrl
 
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from quamash import QEventLoop
 
 # Importing gui form
 from server_gui import Ui_MainWindow
@@ -16,6 +18,18 @@ from copter_table_models import *
 from emergency import *
 
 import threading
+
+
+def wait(end, interrupter=threading.Event(), maxsleep=0.1):
+    # Added features to interrupter sleep and set max sleeping interval
+
+    while not interrupter.is_set():  # Basic implementation of pause module until()
+        now = time.time()
+        diff = min(end - now, maxsleep)
+        if diff <= 0:
+            break
+        else:
+            time.sleep(diff / 2)
 
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
@@ -41,7 +55,7 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
 
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, loop):
         super(MainWindow, self).__init__()
 
         self.ui = Ui_MainWindow()
@@ -54,6 +68,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gyro_calibrated = {}
         self.level_calibrated = {}
         self.first_col_is_checked = False
+        self.player = QtMultimedia.QMediaPlayer()
+        self.loop = loop
 
         self.init_model()
         
@@ -123,6 +139,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
         self.ui.action_set_start_to_current_position.triggered.connect(self.update_start_to_current_position)
         self.ui.action_reset_start.triggered.connect(self.reset_start)
+        self.ui.action_set_z_offset_to_ground.triggered.connect(self.set_z_offset_to_ground)
+        self.ui.action_reset_z_offset.triggered.connect(self.reset_z_offset)
+        self.ui.action_select_music_file.triggered.connect(self.select_music_file)
+        self.ui.action_play_music.triggered.connect(self.play_music)
+        self.ui.action_test_music_after.triggered.connect(self.test_music_after)
 
         # Set most safety-important buttons disabled
         self.ui.start_button.setEnabled(False)
@@ -178,6 +199,11 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_starttime_selected(self, **kwargs):
         dt = self.ui.start_delay_spin.value()
+        logging.info('Wait {} seconds to start animation'.format(dt))
+        if self.ui.music_checkbox.isChecked():
+            music_dt = self.ui.music_delay_spin.value()
+            asyncio.ensure_future(self.play_music_after(music_dt), loop=self.loop)
+            logging.info('Wait {} seconds to play music'.format(music_dt))
         self.selfcheck_selected()
         for copter in self.model.user_selected():
             if all_checks(copter):
@@ -352,6 +378,59 @@ class MainWindow(QtWidgets.QMainWindow):
             copter.client.send_message("reset_start")
 
     @pyqtSlot()
+    def set_z_offset_to_ground(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("set_z_to_ground")
+
+    @pyqtSlot()
+    def reset_z_offset(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("reset_z_offset")
+
+    @pyqtSlot()
+    def select_music_file(self):
+        path = QFileDialog.getOpenFileName(self, "Select music file", filter="Music files (*.mp3)")[0]
+        if path:
+            media = QUrl.fromLocalFile(path)
+            content = QtMultimedia.QMediaContent(media)           
+            self.player.setMedia(content)
+
+    @pyqtSlot()
+    def play_music(self):
+        if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
+            logger.info("Can't play media")
+            return
+        if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
+            logger.info("No media file")
+            return
+        
+        if self.player.state() == QtMultimedia.QMediaPlayer.StoppedState or \
+            self.player.state() == QtMultimedia.QMediaPlayer.PausedState:
+            self.player.play()
+        else:
+            self.player.pause()
+        
+    
+    @asyncio.coroutine
+    def play_music_after(self, delay=0.):
+        if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
+            logger.info("Can't play media")
+            return
+        if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
+            logger.info("No media file")
+            return
+        self.player.stop()
+        wait(time.time()+delay)
+        logging.info("Play music")
+        self.player.play()
+
+    @pyqtSlot()
+    def test_music_after(self):
+        dt = self.ui.music_delay_spin.value()
+        asyncio.ensure_future(self.play_music_after(dt), loop=self.loop)
+        logging.info('Wait {} seconds to play music'.format(dt))
+
+    @pyqtSlot()
     def emergency(self):
         client_row_min = 0
         client_row_max = self.model.rowCount() - 1
@@ -401,13 +480,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    window = MainWindow()
+    loop = QEventLoop(app)
+    asyncio.set_event_loop(loop)
+    window = MainWindow(loop)
 
     Client.on_first_connect = window.client_connected
 
     server = Server(on_stop=app.quit)
     server.start()
 
-    app.exec_()
+    #app.exec_()
+    with loop:
+        loop.run_forever()
+
     server.stop()
     sys.exit()

@@ -52,7 +52,6 @@ sed -i "/127.0.1.1/c 127.0.1.1       $3" /etc/hosts
 
 # set hostname for ROS
 sed -i "/ROS_HOSTNAME/c ROS_HOSTNAME=\'$3\'" /home/pi/.bashrc
-sed -i "/ROS_HOSTNAME/c ROS_HOSTNAME=$3" /lib/systemd/system/roscore.env
 
 # set ssh message
 cat << EOF | tee /etc/motd
@@ -65,7 +64,7 @@ EOF
 cat << EOF | tee /etc/chrony/chrony.conf
 server $4 iburst
 driftfile /var/lib/chrony/drift
-makestep 1.0 3
+makestep 1.0 -1
 rtcsync
 EOF
 

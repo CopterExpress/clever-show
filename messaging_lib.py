@@ -1,6 +1,7 @@
 import io
 import sys
 import json
+import socket
 import struct
 import random
 import logging
@@ -12,13 +13,28 @@ try:
 except ImportError:
     import selectors2 as selectors
 
-#import logging_lib
+# import logging_lib
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
                                                            ])
 logger = logging.getLogger(__name__)
-#logger = logging_lib.Logger(_logger, True)
+
+
+# logger = logging_lib.Logger(_logger, True)
+
+
+class _Singleton(type):
+    """ A metaclass that creates a Singleton base class when called. """
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Singleton(_Singleton('SingletonMeta', (object,), {})): pass
 
 
 class MessageManager:
@@ -196,14 +212,17 @@ class ConnectionManager(object):
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
         else:
             raise ValueError("Invalid events mask mode {}.".format(mode))
-        self.selector.modify(self.socket, events, data=self)
+
+        key = self.selector.modify(self.socket, events, data=self)
+        logging.debug("Switched selector of {} to mode {}".format(self.addr, key.events))
+        return key
 
     def connect(self, client_selector, client_socket, client_addr):
         self.selector = client_selector
         self.socket = client_socket
         self.addr = client_addr
 
-        self._set_selector_events_mask('rw')
+        self._set_selector_events_mask('r')
 
     def close(self):
         logger.info("Closing connection to {}".format(self.addr))
@@ -269,7 +288,8 @@ class ConnectionManager(object):
 
     def process_received(self, income_message):
         message_type = income_message.jsonheader["message-type"]
-        logger.debug("Received message! Header: {}, content: {}".format(income_message.jsonheader, income_message.content))
+        logger.debug(
+            "Received message! Header: {}, content: {}".format(income_message.jsonheader, income_message.content))
 
         if message_type == "message":
             self._process_message(income_message)
@@ -339,6 +359,8 @@ class ConnectionManager(object):
                 self._send_buffer += message
         if self._send_buffer:
             self._write()
+        else:
+            self._set_selector_events_mask('r')  # we're done writing
 
     def _write(self):
         try:
@@ -347,7 +369,8 @@ class ConnectionManager(object):
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         except Exception as error:
-            logger.warning("Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
+            logger.warning(
+                "Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
 
             if not self.resume_queue:
                 self._send_buffer = b''
@@ -360,6 +383,10 @@ class ConnectionManager(object):
     def _send(self, data):
         with self._send_lock:
             self._send_queue.append(data)
+
+        if self.selector.get_key(self.socket).events != selectors.EVENT_WRITE:
+            self._set_selector_events_mask('w')
+            NotifierSock().notify()
 
     def get_response(self, requested_value, callback, request_args=None,  # timeout=30,
                      callback_args=(), callback_kwargs=None):
@@ -397,3 +424,43 @@ class ConnectionManager(object):
             self._send(MessageManager.create_message(
                 data, "binary", "filetransfer", "binary", {"filepath": dest_filepath}
             ))
+
+
+class NotifierSock(Singleton):
+    def __init__(self):
+        self.receive_socket = None
+        self.addr = None
+
+        self._notify_socket = None
+        self._notify_lock = threading.Lock()
+
+    def bind(self, server_addr):
+        self._notify_socket = socket.socket()
+        self._notify_socket.connect(server_addr)
+        logger.info("Notify socket: bind")
+
+    def connect(self, _, client_socket, client_addr):
+        self.receive_socket = client_socket
+        self.addr = client_addr
+
+        logger.info("Notify socket: connected")
+
+    def notify(self):
+        with self._notify_lock:
+            if self.addr is not None:
+                self._notify_socket.sendall(bytes(1))
+                logger.debug("Notify socket: notified")
+
+    def process_events(self, mask):
+        if mask & selectors.EVENT_READ:
+            try:
+                data = self.receive_socket.recv(1024)
+            except Exception:  # TODO remove
+                pass
+            else:
+                if data:
+                    logger.debug("Notifier received {} from {}".format(data, self.addr))
+                else:
+                    self.addr = None
+                    logger.warning("Notifier: connection to {} lost!".format(self.addr))
+
