@@ -198,16 +198,17 @@ class MainWindow(QtWidgets.QMainWindow):
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
     @pyqtSlot()
     def send_starttime_selected(self, **kwargs):
+        time_now = server.time_now()
         dt = self.ui.start_delay_spin.value()
         logging.info('Wait {} seconds to start animation'.format(dt))
         if self.ui.music_checkbox.isChecked():
             music_dt = self.ui.music_delay_spin.value()
-            asyncio.ensure_future(self.play_music_at_time(music_dt+time.time()), loop=loop)
+            asyncio.ensure_future(self.play_music_at_time(music_dt+time_now), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
         self.selfcheck_selected()
         for copter in self.model.user_selected():
             if all_checks(copter):
-                server.send_starttime(copter.client, dt)
+                server.send_starttime(copter.client, dt+time_now)
 
     @pyqtSlot()
     def pause_resume_selected(self):

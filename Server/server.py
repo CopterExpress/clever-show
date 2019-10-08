@@ -238,10 +238,9 @@ class Server:
             broadcast_client.close()
             logging.info("Broadcast listener thread stopped, socked closed!")
 
-    def send_starttime(self, copter, dt=0):
-        timenow = self.time_now()
-        print('Now:', time.ctime(timenow), "+ dt =", dt)
-        copter.send_message("start", {"time": str(timenow + dt)})
+    def send_starttime(self, copter, start_time):
+        print('start_time: {}'.format(start_time))
+        copter.send_message("start", {"time": str(start_time)})
 
 
 def requires_connect(f):
