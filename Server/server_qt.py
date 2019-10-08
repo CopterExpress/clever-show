@@ -1,6 +1,7 @@
 import os
 import glob
 import math
+import time
 import asyncio
 
 from PyQt5 import QtWidgets, QtMultimedia
@@ -8,7 +9,7 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject, QUrl
 
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
-from quamash import QEventLoop
+from quamash import QEventLoop, QThreadExecutor
 
 # Importing gui form
 from server_gui import Ui_MainWindow
@@ -55,7 +56,7 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
 
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, loop):
+    def __init__(self):
         super(MainWindow, self).__init__()
 
         self.ui = Ui_MainWindow()
@@ -69,7 +70,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.level_calibrated = {}
         self.first_col_is_checked = False
         self.player = QtMultimedia.QMediaPlayer()
-        self.loop = loop
 
         self.init_model()
         
@@ -202,7 +202,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logging.info('Wait {} seconds to start animation'.format(dt))
         if self.ui.music_checkbox.isChecked():
             music_dt = self.ui.music_delay_spin.value()
-            asyncio.ensure_future(self.play_music_after(music_dt), loop=self.loop)
+            asyncio.ensure_future(self.play_music_at_time(music_dt+time.time()), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
         self.selfcheck_selected()
         for copter in self.model.user_selected():
@@ -410,9 +410,8 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.player.pause()
         
-    
     @asyncio.coroutine
-    def play_music_after(self, delay=0.):
+    def play_music_at_time(self, t):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
             logger.info("Can't play media")
             return
@@ -420,14 +419,15 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.info("No media file")
             return
         self.player.stop()
-        wait(time.time()+delay)
-        logging.info("Play music")
+        yield from asyncio.sleep(t - time.time())
+        #wait(t)
+        logging.info("Playing music")
         self.player.play()
 
     @pyqtSlot()
     def test_music_after(self):
         dt = self.ui.music_delay_spin.value()
-        asyncio.ensure_future(self.play_music_after(dt), loop=self.loop)
+        asyncio.ensure_future(self.play_music_at_time(dt+time.time()), loop=loop)
         logging.info('Wait {} seconds to play music'.format(dt))
 
     @pyqtSlot()
@@ -482,15 +482,13 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
-    window = MainWindow(loop)
-
-    Client.on_first_connect = window.client_connected
-
-    server = Server(on_stop=app.quit)
-    server.start()
 
     #app.exec_()
     with loop:
+        window = MainWindow()
+        Client.on_first_connect = window.client_connected
+        server = Server(on_stop=app.quit)
+        server.start()
         loop.run_forever()
 
     server.stop()
