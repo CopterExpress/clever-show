@@ -1,0 +1,12 @@
+diff --git a/aruco_pose/src/aruco_detect.cpp b/aruco_pose/src/aruco_detect.cpp
+index cf15bc0..90b409f 100644
+--- a/aruco_pose/src/aruco_detect.cpp
++++ b/aruco_pose/src/aruco_detect.cpp
+@@ -100,6 +100,7 @@ public:
+ 		dictionary_ = cv::aruco::getPredefinedDictionary(static_cast<cv::aruco::PREDEFINED_DICTIONARY_NAME>(dictionary));
+ 		parameters_ = cv::aruco::DetectorParameters::create();
+ 		parameters_->cornerRefinementMethod = cv::aruco::CORNER_REFINE_SUBPIX;
++		parameters_->adaptiveThreshConstant = 2;
+ 
+ 		image_transport::ImageTransport it(nh_);
+ 		image_transport::ImageTransport it_priv(nh_priv_);
