@@ -1,17 +1,19 @@
 # clever-show
+[Русская версия](README_RU.md)
+
+Software for making the drone show controlled by Raspberry Pi and COEX [Clever](https://github.com/CopterExpress/clever) package. 
+
 [![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
 
-Програмное обеспечение для запуска шоу дронов под управлением Raspberry Pi с пакетом COEX [Clever](https://github.com/copterexpress/clever).
+## This software includes
+* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) with autonomous flight module, animation player module and client application for remote synchronized control of drones
+* [Server side](https://github.com/CopterExpress/clever-show/tree/master/Server) for making the drone show with ability of tuning drones, animation and music
+* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for animation export to drone paths
+* [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
 
-### Пакет включает в себя:
-* [Набор ПО для дрона](https://github.com/artem30801/CleverSwarm/tree/master/Drone), включащее в себя библиотеку для автономного полёта, модуль для воспроизведения анимаций и клиентское приложение для удаленного синхронизированного управления
-* [Серверное приложение](https://github.com/artem30801/CleverSwarm/tree/master/Server) для удаленного синхронизированного управления дронами и удобной настройки системы для воспроизведения анимации
-* [Аддон для Blender 2.8](https://github.com/artem30801/CleverSwarm/tree/master/blender-addon) для преобразования анимации полёта коптеров, созданной в Blender, в файлы полётов для каждого коптера
-* [Образ для Raspberry Pi](https://github.com/artem30801/CleverSwarm/releases/latest) для быстрого запуска ПО на коптере
+## Documentation
+Start tutorial is located [here](docs/start-tutorial.md).
 
-## Документация:
-Инструкция по запуску ПО находится [здесь](docs/start-tutorial.md).
-
-Подробная документация расположена в папке [docs](https://github.com/artem30801/CleverSwarm/tree/master/docs).
+Detailed documentation is located in the [docs](https://github.com/CopterExpress/clever-show/tree/master/docs) folder.
 
 
