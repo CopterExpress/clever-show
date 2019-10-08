@@ -107,14 +107,14 @@ def correct_animation(frames, frame_delay=0.1, min_takeoff_height=0.5, move_delt
     if (corrected_frames[len(corrected_frames)-1]['z'] < min_takeoff_height) and check_land:
         for i in range(len(corrected_frames)-1,0,-1):
             # print i
-            if abs(corrected_frames[i-1]['z'] - corrected_frames[i]['z']) > move_delta:
+            if abs(corrected_frames[i-1]['z'] - corrected_frames[i]['z']) < move_delta:
                 break
             del corrected_frames[i]
-        for i in range(len(corrected_frames)-1,0,-1):
-            if (abs(corrected_frames[i-1]['x'] - corrected_frames[i]['x']) > move_delta or
-                abs(corrected_frames[i-1]['y'] - corrected_frames[i]['y']) > move_delta):
-                break
-            del corrected_frames[i]
+        #for i in range(len(corrected_frames)-1,0,-1):
+        #    if (abs(corrected_frames[i-1]['x'] - corrected_frames[i]['x']) > move_delta or
+        #        abs(corrected_frames[i-1]['y'] - corrected_frames[i]['y']) > move_delta):
+        #        break
+        #    del corrected_frames[i]
     return corrected_frames, start_action, start_delay
 
 # Needs for test
