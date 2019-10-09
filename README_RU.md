@@ -12,7 +12,7 @@
 * [Образ для Raspberry Pi](https://github.com/CopterExpress/clever-show/releases/latest) для быстрого запуска ПО на коптере
 
 ## Документация
-Инструкция по запуску ПО находится [здесь](docs/start-tutorial.md).
+Инструкция по запуску ПО находится [здесь](docs/ru/start-tutorial.md).
 
 Подробная документация расположена в папке [docs](https://github.com/CopterExpress/clever-show/tree/master/docs).
 
