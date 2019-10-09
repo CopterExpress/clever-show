@@ -143,7 +143,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_reset_z_offset.triggered.connect(self.reset_z_offset)
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
-        self.ui.action_test_music_after.triggered.connect(self.test_music_after)
+        self.ui.action_stop_music.triggered.connect(self.stop_music)
 
         # Set most safety-important buttons disabled
         self.ui.start_button.setEnabled(False)
@@ -390,46 +390,52 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def select_music_file(self):
-        path = QFileDialog.getOpenFileName(self, "Select music file", filter="Music files (*.mp3)")[0]
+        path = QFileDialog.getOpenFileName(self, "Select music file", filter="Music files (*.mp3 *.wav)")[0]
         if path:
             media = QUrl.fromLocalFile(path)
             content = QtMultimedia.QMediaContent(media)           
             self.player.setMedia(content)
+            self.ui.action_select_music_file.setText(self.ui.action_select_music_file.text() + " (selected)")
 
     @pyqtSlot()
     def play_music(self):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logger.info("Can't play media")
+            logging.info("Can't play media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logger.info("No media file")
+            logging.info("No media file")
             return
         
         if self.player.state() == QtMultimedia.QMediaPlayer.StoppedState or \
             self.player.state() == QtMultimedia.QMediaPlayer.PausedState:
+            self.ui.action_play_music.setText("Pause music")
             self.player.play()
         else:
+            self.ui.action_play_music.setText("Play music")
             self.player.pause()
-        
+
+    @pyqtSlot()
+    def stop_music(self):
+        if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
+            logging.info("Can't stop media")
+            return
+        if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
+            logging.info("No media file")
+            return
+        self.player.stop()
+
     @asyncio.coroutine
     def play_music_at_time(self, t):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logger.info("Can't play media")
+            logging.info("Can't play media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logger.info("No media file")
+            logging.info("No media file")
             return
         self.player.stop()
         yield from asyncio.sleep(t - time.time())
-        #wait(t)
         logging.info("Playing music")
         self.player.play()
-
-    @pyqtSlot()
-    def test_music_after(self):
-        dt = self.ui.music_delay_spin.value()
-        asyncio.ensure_future(self.play_music_at_time(dt+time.time()), loop=loop)
-        logging.info('Wait {} seconds to play music'.format(dt))
 
     @pyqtSlot()
     def emergency(self):
