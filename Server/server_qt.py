@@ -300,7 +300,6 @@ class MainWindow(QtWidgets.QMainWindow):
         data = str(value)
         self.signals.update_data_signal.emit(row, col, data)    
 
-
     @pyqtSlot()
     def send_animations(self):
         path = str(QFileDialog.getExistingDirectory(self, "Select Animation Directory"))
@@ -418,20 +417,20 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def stop_music(self):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logging.info("Can't stop media")
+            logging.error("Can't stop media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logging.info("No media file")
+            logging.error("No media file")
             return
         self.player.stop()
 
     @asyncio.coroutine
     def play_music_at_time(self, t):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logging.info("Can't play media")
+            logging.error("Can't play media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logging.info("No media file")
+            logging.error("No media file")
             return
         self.player.stop()
         yield from asyncio.sleep(t - time.time())
