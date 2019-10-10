@@ -7,6 +7,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
 
 
+ModelStateRole = 999
+
+
 class CopterData:
     class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('anim_id', None),
                                                     ('batt_v', None), ('batt_p', None),
@@ -108,6 +111,14 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         contents = contents or self.data_contents
         return filter(lambda x: calibration_ready_check(x), contents)
 
+    def get_row_by_id(self, copter_id):
+        try:
+            row = next(filter(lambda x: x.copter_id == copter_id, self.data_contents))
+        except StopIteration:
+            return None
+        else:
+            return self.data_contents.index(row)
+
     def rowCount(self, n=None):
         return len(self.data_contents)
 
@@ -164,9 +175,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         if role == Qt.CheckStateRole:
             self.data_contents[index.row()].states.checked = value
-
         elif role == Qt.EditRole:
             self.data_contents[index.row()][index.column()] = value
+        elif role == ModelStateRole:
+            self.data_contents[index.row()].states[index.column()] = value
         else:
             return False
 
@@ -185,9 +197,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             roles |= Qt.ItemIsUserCheckable #| Qt.ItemIsEditable
         return roles
 
-    @QtCore.pyqtSlot(int, int, QtCore.QVariant)
-    def update_item(self, row, col, value):
-        self.setData(self.index(row, col), value)
+    @QtCore.pyqtSlot(int, int, QtCore.QVariant, QtCore.QVariant)
+    def update_item(self, row, col, value, role=Qt.EditRole):
+        self.setData(self.index(row, col), value, role)
 
     @QtCore.pyqtSlot(object)
     def add_client(self, client):
@@ -317,7 +329,7 @@ class CopterProxyModel(QtCore.QSortFilterProxyModel):
 
 
 class SignalManager(QtCore.QObject):
-    update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant)
+    update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant, QtCore.QVariant)
     add_client_signal = QtCore.pyqtSignal(object)
 
 

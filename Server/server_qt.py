@@ -111,6 +111,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def new_client_connected(self, client: Client):
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
+    def client_connection_changed(self, client: Client):
+        row = self.model.get_row_by_id(client.copter_id)
+        if row is not None:
+            self.signals.update_data_signal.emit(row, 0, client.connected, ModelStateRole)
+
     def init_ui(self):
         # Connecting
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
@@ -166,8 +171,10 @@ class MainWindow(QtWidgets.QMainWindow):
             client.get_response("time", self._set_copter_data, callback_args=(8, copter.copter_id))
 
     def _set_copter_data(self, value, col, copter_id):
-        row = self.model.data_contents.index(next(
-            filter(lambda x: x.copter_id == copter_id, self.model.data_contents)))
+        row = self.model.get_row_by_id(copter_id)
+        if row is None:
+            logging.error("No such client!")
+            return
 
         if col == 1:
             data = value
@@ -194,7 +201,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print("No column matched for response")
             return
 
-        self.signals.update_data_signal.emit(row, col, data)
+        self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
@@ -493,7 +500,11 @@ if __name__ == "__main__":
     #app.exec_()
     with loop:
         window = MainWindow()
+
         Client.on_first_connect = window.new_client_connected
+        Client.on_connect = window.client_connection_changed
+        Client.on_disconnect = window.client_connection_changed
+
         server = Server(on_stop=app.quit)
         server.start()
         loop.run_forever()
