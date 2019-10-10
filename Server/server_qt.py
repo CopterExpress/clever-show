@@ -109,7 +109,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
 
     def new_client_connected(self, client: Client):
-        self.signals.add_client_signal.emit(CopterData(copter_id=client.copter_id, client=client))
+        self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def init_ui(self):
         # Connecting
