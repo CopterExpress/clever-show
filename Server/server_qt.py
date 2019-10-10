@@ -3,6 +3,7 @@ import glob
 import math
 import time
 import asyncio
+import functools
 
 from PyQt5 import QtWidgets, QtMultimedia
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
@@ -36,6 +37,7 @@ def wait(end, interrupter=threading.Event(), maxsleep=0.1):
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
 
+        @functools.wraps(f)
         def wrapper(*args, **kwargs):
             reply = QMessageBox.question(
                 args[0], label,
@@ -44,8 +46,8 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
             )
             if reply == QMessageBox.Yes:
                 print("Dialog accepted")
-                #print(args)
-                return f(args[0])
+                return f(*args, **kwargs)
+
             else:
                 print("Dialog declined")
 
@@ -194,8 +196,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.signals.update_data_signal.emit(row, col, data)
 
-    @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
     @pyqtSlot()
+    @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
     def send_starttime_selected(self, **kwargs):
         time_now = server.time_now()
         dt = self.ui.start_delay_spin.value()
@@ -242,15 +244,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def disarm_all(self):
         Client.broadcast_message("disarm")
 
-    @confirmation_required("This operation will takeoff copters immediately. Proceed?")
     @pyqtSlot()
+    @confirmation_required("This operation will takeoff copters immediately. Proceed?")
     def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
             if takeoff_checks(copter):
                 copter.client.send_message("takeoff")
 
-    @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
     @pyqtSlot()
+    @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
     def flip_selected(self, **kwargs):
         for copter in self.model.user_selected():
             if flip_checks(copter):
