@@ -106,8 +106,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
 
-
-    def client_connected(self, client: Client):
+    def new_client_connected(self, client: Client):
         self.signals.add_client_signal.emit(CopterData(copter_id=client.copter_id, client=client))
 
     def init_ui(self):
@@ -493,7 +492,7 @@ if __name__ == "__main__":
     #app.exec_()
     with loop:
         window = MainWindow()
-        Client.on_first_connect = window.client_connected
+        Client.on_first_connect = window.new_client_connected
         server = Server(on_stop=app.quit)
         server.start()
         loop.run_forever()
