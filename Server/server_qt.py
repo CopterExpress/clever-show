@@ -284,7 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data)
+            self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
             # Send request
             client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(5, copter.copter_id))
 
@@ -297,7 +297,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data)
+            self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
             # Send request
             client.get_response("calibrate_level", self._get_calibration_info, callback_args=(5, copter.copter_id))
 
@@ -305,7 +305,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row = self.model.data_contents.index(next(
             filter(lambda x: x.copter_id == copter_id, self.model.data_contents)))
         data = str(value)
-        self.signals.update_data_signal.emit(row, col, data)    
+        self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)    
 
     @pyqtSlot()
     def send_animations(self):
