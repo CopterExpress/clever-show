@@ -87,6 +87,14 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         self.endInsertRows()
 
+    def removeRows(self, position, rows=1, index=QtCore.QModelIndex()):
+        self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows - 1)
+        self.data_contents = self.data_contents[:position] + self.data_contents[position + rows:]
+        self.endRemoveRows()
+        print("removed")
+
+        return True
+
     def user_selected(self, contents=()):
         contents = contents or self.data_contents
         return filter(lambda x: x.states.checked == Qt.Checked, contents)
@@ -204,6 +212,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     @QtCore.pyqtSlot(object)
     def add_client(self, client):
         self.insertRows([client])
+
+    @QtCore.pyqtSlot(int)
+    def remove_client(self, row):
+        self.removeRows(row)
 
 
 def col_check(col):
@@ -331,6 +343,7 @@ class CopterProxyModel(QtCore.QSortFilterProxyModel):
 class SignalManager(QtCore.QObject):
     update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant, QtCore.QVariant)
     add_client_signal = QtCore.pyqtSignal(object)
+    remove_client_signal = QtCore.pyqtSignal(int)
 
 
 if __name__ == '__main__':

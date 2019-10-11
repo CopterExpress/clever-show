@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'server_gui.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -167,7 +167,7 @@ class Ui_MainWindow(object):
         self.gridLayout.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1220, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1220, 26))
         self.menubar.setObjectName("menubar")
         self.menuOptions = QtWidgets.QMenu(self.menubar)
         self.menuOptions.setObjectName("menuOptions")
@@ -222,6 +222,8 @@ class Ui_MainWindow(object):
         self.actionSend_any_command.setObjectName("actionSend_any_command")
         self.action_stop_music = QtWidgets.QAction(MainWindow)
         self.action_stop_music.setObjectName("action_stop_music")
+        self.action_remove_row = QtWidgets.QAction(MainWindow)
+        self.action_remove_row.setObjectName("action_remove_row")
         self.menuDeveloper_mode.addAction(self.action_send_any_file)
         self.menuDeveloper_mode.addAction(self.actionSend_any_command)
         self.menuOptions.addAction(self.action_send_animations)
@@ -241,6 +243,7 @@ class Ui_MainWindow(object):
         self.menuDrone.addAction(self.action_reset_z_offset)
         self.menuDrone.addSeparator()
         self.menuDrone.addAction(self.menuDeveloper_mode_2.menuAction())
+        self.menuDrone.addAction(self.action_remove_row)
         self.menuMusic.addAction(self.action_select_music_file)
         self.menuMusic.addAction(self.action_play_music)
         self.menuMusic.addAction(self.action_stop_music)
@@ -302,3 +305,14 @@ class Ui_MainWindow(object):
         self.action_send_any_file.setText(_translate("MainWindow", "Send any file"))
         self.actionSend_any_command.setText(_translate("MainWindow", "Send any command"))
         self.action_stop_music.setText(_translate("MainWindow", "Stop music"))
+        self.action_remove_row.setText(_translate("MainWindow", "Remove from table"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(MainWindow)
+    MainWindow.show()
+    sys.exit(app.exec_())

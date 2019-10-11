@@ -103,7 +103,7 @@ class Client(object):
         try:
             while True:
                 self._reconnect()
-                #self._process_connections()
+                self._process_connections()
 
         except (KeyboardInterrupt, ):
             logger.critical("Caught interrupt, exiting!")
@@ -138,15 +138,12 @@ class Client(object):
                 self.broadcast_bind(timeout*2, attempt_limit)
                 attempt_count = 0
 
-
     def _connect(self):
         self.connected = True
         self.client_socket.setblocking(False)
         events = selectors.EVENT_READ # | selectors.EVENT_WRITE
         self.selector.register(self.client_socket, events, data=self.server_connection)
         self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
-        self._process_connections()
-
 
     def broadcast_bind(self, timeout=3.0, attempt_limit=5):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -200,7 +197,7 @@ class Client(object):
                         logger.error(
                             "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
                         )
-                        self.server_connection.close()
+                        self.server_connection._close()
                         self.connected = False
 
                         if isinstance(error, OSError):

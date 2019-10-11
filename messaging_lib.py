@@ -185,9 +185,7 @@ class ConnectionManager(object):
         self.socket = None
         self.addr = None
 
-        self.selector = None
-        self.socket = None
-        self.addr = None
+        self._should_close = False
 
         self._recv_buffer = b""
         self._send_buffer = b""
@@ -198,6 +196,7 @@ class ConnectionManager(object):
 
         self._send_lock = threading.Lock()
         self._request_lock = threading.Lock()
+        self._close_lock = threading.Lock()
 
         self.BUFFER_SIZE = 1024
         self.resume_queue = False
@@ -225,8 +224,16 @@ class ConnectionManager(object):
         self._set_selector_events_mask('r')
 
     def close(self):
+        with self._close_lock:
+            self._should_close = True
+
+        self._set_selector_events_mask('w')
+        NotifierSock().notify()
+
+    def _close(self):
         logger.info("Closing connection to {}".format(self.addr))
         try:
+            logger.info("Unregistering selector of {}".format(self.addr))
             self.selector.unregister(self.socket)
         except AttributeError:
             pass
@@ -236,6 +243,7 @@ class ConnectionManager(object):
             self.selector = None
 
         try:
+            logger.info("Closing socket of of {}".format(self.addr))
             self.socket.close()
         except AttributeError:
             pass
@@ -244,7 +252,18 @@ class ConnectionManager(object):
         finally:
             self.socket = None
 
+        with self._close_lock:
+            self._should_close = False
+
+        logger.info("CLOSED connection to {}".format(self.addr))
+
     def process_events(self, mask):
+        with self._close_lock:
+            close = self._should_close
+        if close:
+            self._close()
+            return
+
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:

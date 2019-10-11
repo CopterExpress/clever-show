@@ -68,9 +68,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.model = CopterDataModel()
         self.proxy_model = CopterProxyModel()
         self.signals = SignalManager()
-        self.gyro_calibrated = {}
-        self.level_calibrated = {}
-        self.first_col_is_checked = False
         self.player = QtMultimedia.QMediaPlayer()
 
         self.init_model()
@@ -88,6 +85,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
         self.signals.add_client_signal.connect(self.model.add_client)
+        self.signals.remove_client_signal.connect(self.model.remove_client)
+
 
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
@@ -135,6 +134,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.reboot_fcu.clicked.connect(self.reboot_selected)
         self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
         self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
+
+        self.ui.action_remove_row.triggered.connect(self.remove_selected)
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
@@ -202,6 +203,18 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
+
+    @pyqtSlot()
+    def remove_selected(self):
+        for copter in self.model.user_selected():
+            row_num = self.model.data_contents.index(copter)
+
+            print(1)
+            copter.client.remove()
+            print(2)
+
+            self.signals.remove_client_signal.emit(row_num)
+            print(3)
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
@@ -284,7 +297,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data)
+            self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
             # Send request
             client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(5, copter.copter_id))
 
@@ -297,7 +310,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data)
+            self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
             # Send request
             client.get_response("calibrate_level", self._get_calibration_info, callback_args=(5, copter.copter_id))
 
@@ -305,7 +318,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row = self.model.data_contents.index(next(
             filter(lambda x: x.copter_id == copter_id, self.model.data_contents)))
         data = str(value)
-        self.signals.update_data_signal.emit(row, col, data)    
+        self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
 
     @pyqtSlot()
     def send_animations(self):

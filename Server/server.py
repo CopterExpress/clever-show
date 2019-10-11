@@ -161,7 +161,7 @@ class Server:
                         client.process_events(mask)
                     except Exception as error:
                         logging.error("Exception {} occurred for {}! Resetting connection!".format(error, client.addr))
-                        client.close()
+                        client.close(True)
                 else:  # Notifier
                     client.process_events(mask)
 
@@ -301,16 +301,29 @@ class Client(messaging.ConnectionManager):
     def _got_id(self, value):
         logging.info("Got copter id: {} for client {}".format(value, self.addr))
         self.copter_id = value
-        if Client.on_first_connect:
-            Client.on_first_connect(self)
+        if self.on_first_connect:
+            self.on_first_connect(self)
 
-    def close(self):
+    def close(self, inner=False):
         self.connected = False
 
-        if Client.on_disconnect:
-            Client.on_disconnect(self)
+        if self.on_disconnect:
+            self.on_disconnect(self)
 
-        super(Client, self).close()
+        if inner:
+            super(Client, self)._close()
+        else:
+            super(Client, self).close()
+
+        logging.info("Connection to {} closed!".format(self.copter_id))
+
+    def remove(self):
+        if self.connected:
+            self.close()
+
+        print("closed")
+        self.clients.pop(self.addr[0])
+        logging.info("Client {} successfully removed!".format(self.copter_id))
 
     @requires_connect
     def _send(self, data):
