@@ -28,9 +28,7 @@ logging.basicConfig(  # TODO all prints as logs
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 
 
-class Server:
-    BUFFER_SIZE = 1024
-
+class Server(messaging.Singleton):
     def __init__(self, server_id=None, config_path="server_config.ini", on_stop=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
@@ -65,7 +63,9 @@ class Server:
     def load_config(self):
         self.config.read(self.config_path)
         self.port = int(self.config['SERVER']['port'])  # TODO try, init def
-        Server.BUFFER_SIZE = int(self.config['SERVER']['buffer_size'])
+        self.BUFFER_SIZE = int(self.config['SERVER']['buffer_size']) # TODO connect to connection manager
+
+        self.remove_disconnected = self.config.getboolean('SERVER', 'remove_disconnected')
 
         self.use_broadcast = self.config.getboolean('BROADCAST', 'use_broadcast')
         self.broadcast_port = int(self.config['BROADCAST']['broadcast_port'])
@@ -321,7 +321,6 @@ class Client(messaging.ConnectionManager):
         if self.connected:
             self.close()
 
-        print("closed")
         self.clients.pop(self.addr[0])
         logging.info("Client {} successfully removed!".format(self.copter_id))
 

@@ -91,7 +91,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows - 1)
         self.data_contents = self.data_contents[:position] + self.data_contents[position + rows:]
         self.endRemoveRows()
-        print("removed")
 
         return True
 

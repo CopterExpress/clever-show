@@ -111,9 +111,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
-        row = self.model.get_row_by_id(client.copter_id)
-        if row is not None:
-            self.signals.update_data_signal.emit(row, 0, client.connected, ModelStateRole)
+        row_num = self.model.get_row_by_id(client.copter_id)
+        if row_num is not None:
+            if Server().remove_disconnected:
+                client.remove()
+                self.signals.remove_client_signal.emit(row_num)
+            else:
+                self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
 
     def init_ui(self):
         # Connecting
@@ -208,13 +212,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def remove_selected(self):
         for copter in self.model.user_selected():
             row_num = self.model.data_contents.index(copter)
-
-            print(1)
             copter.client.remove()
-            print(2)
-
             self.signals.remove_client_signal.emit(row_num)
-            print(3)
+            logging.info("Client removed from table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
