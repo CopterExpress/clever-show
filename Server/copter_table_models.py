@@ -2,11 +2,13 @@ import sys
 import re
 import collections
 import indexed
+from server import ConfigOption
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
 
 
+ModelDataRole = 998
 ModelStateRole = 999
 
 
@@ -76,6 +78,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.headers = ('copter ID', '  animation ID  ', 'batt V', 'batt %', '  system  ',
                         'calibration', 'selfcheck', 'current x y z yaw frame_id', 'time delta')
         self.data_contents = []
+
+        self.on_id_changed = None
+
         self.first_col_is_checked = False
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
@@ -118,13 +123,21 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         contents = contents or self.data_contents
         return filter(lambda x: calibration_ready_check(x), contents)
 
-    def get_row_by_id(self, copter_id):
+    def get_row_index(self, row_data):
         try:
-            row = next(filter(lambda x: x.copter_id == copter_id, self.data_contents))
+            index = self.data_contents.index(row_data)
+        except ValueError:
+            return None
+        else:
+            return index
+
+    def get_row_by_attr(self, attr, value):
+        try:
+            row_data = next(filter(lambda x: getattr(x, attr, None) == value, self.data_contents))
         except StopIteration:
             return None
         else:
-            return self.data_contents.index(row)
+            return row_data
 
     def rowCount(self, n=None):
         return len(self.data_contents)
@@ -140,7 +153,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def data(self, index, role=Qt.DisplayRole):
         row = index.row()
         col = index.column()
-        if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole or role == Qt.EditRole:  # Separate editRole in case of editing non-text
             return self.data_contents[row][col] or ""
 
         elif role == Qt.BackgroundRole:
@@ -180,12 +193,26 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         if not index.isValid():
             return False
 
+        col = index.column()
+        row = index.row()
+
         if role == Qt.CheckStateRole:
-            self.data_contents[index.row()].states.checked = value
-        elif role == Qt.EditRole:
-            self.data_contents[index.row()][index.column()] = value
+            self.data_contents[row].states.checked = value
+        elif role == Qt.EditRole:  # For user actions with data
+            if col == 0 and self.on_id_changed:
+                self.data_contents[row][col] = "Awaiting for response"
+                self.data_contents[row].states.copter_id = None
+
+                self.data_contents[row].client.get_response("id", self.on_id_changed,
+                                                            request_args={"new_id": value},
+                                                            callback_args=(self.data_contents[row],))
+            else:
+                self.data_contents[row][col] = value
+
+        elif role == ModelDataRole:  # For inner setting\editing of data
+            self.data_contents[row][col] = value
         elif role == ModelStateRole:
-            self.data_contents[index.row()].states[index.column()] = value
+            self.data_contents[row].states[col] = value
         else:
             return False
 
@@ -201,7 +228,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def flags(self, index):
         roles = Qt.ItemIsSelectable | Qt.ItemIsEnabled
         if index.column() == 0:
-            roles |= Qt.ItemIsUserCheckable #| Qt.ItemIsEditable
+            roles |= Qt.ItemIsUserCheckable | Qt.ItemIsEditable
         return roles
 
     @QtCore.pyqtSlot(int, int, QtCore.QVariant, QtCore.QVariant)

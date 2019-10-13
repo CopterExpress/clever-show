@@ -40,7 +40,7 @@ class Server(messaging.Singleton):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.host = socket.gethostname()
-        self.ip = Server.get_ip_address()
+        self.ip = messaging.get_ip_address()
 
         # Init configs
         self.config_path = config_path
@@ -111,16 +111,6 @@ class Server(messaging.Singleton):
             self.on_stop()
 
         sys.exit("Stopped")
-
-    @staticmethod
-    def get_ip_address():
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ip_socket:
-                ip_socket.connect(("8.8.8.8", 80))
-                return ip_socket.getsockname()[0]
-        except OSError:
-            logging.warning("No network connection detected, starting on localhost")
-            return "localhost"
 
     @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
@@ -218,7 +208,7 @@ class Server(messaging.Singleton):
 
         try:
             while self.listener_thread_running.is_set():
-                data, addr = broadcast_client.recvfrom(1024) # TODO nonblock
+                data, addr = broadcast_client.recvfrom(1024)  # TODO nonblock
                 message = messaging.MessageManager()
                 message.income_raw = data
                 message.process_message()

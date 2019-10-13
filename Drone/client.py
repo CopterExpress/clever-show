@@ -58,14 +58,16 @@ class Client(object):
         self.NTP_HOST = self.config.get('NTP', 'host')
         self.NTP_PORT = self.config.getint('NTP', 'port')
 
-        self.files_directory = self.config.get('FILETRANSFER', 'files_directory')
+        self.files_directory = self.config.get('FILETRANSFER', 'files_directory') # not used?!
 
         self.client_id = self.config.get('PRIVATE', 'id')
-        if self.client_id == 'default':
+        if self.client_id == '/default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
-            self.write_config(False, 'PRIVATE', 'id', self.client_id)
+            self.write_config(False, ConfigOption('PRIVATE', 'id', self.client_id))
         elif self.client_id == '/hostname':
             self.client_id = socket.gethostname()
+        elif self.client_id == '/ip':
+            self.client_id = messaging.get_ip_address()
 
     def rewrite_config(self):
         with open(self.config_path, 'w') as file:
@@ -210,19 +212,27 @@ class Client(object):
                 return
 
 
-@messaging.request_callback("id")
-def _response_id():
-    return active_client.client_id
-
-@messaging.request_callback("time")
-def _response_time():
-    return active_client.time_now()
-
 @messaging.message_callback("config_write")
 def _command_config_write(*args, **kwargs):
     options = [ConfigOption(**raw_option) for raw_option in kwargs["options"]]
     logger.info("Writing config options: {}".format(options))
     active_client.write_config(kwargs["reload"], *options)
+
+
+@messaging.request_callback("id")
+def _response_id(*args, **kwargs):
+    new_id = kwargs.get("new_id", None)
+    if new_id is not None:
+        cfg = ConfigOption("PRIVATE", "id", new_id)
+        active_client.write_config(True, cfg)
+
+    return active_client.client_id
+
+
+@messaging.request_callback("time")
+def _response_time(*args, **kwargs):
+    return active_client.time_now()
+
 
 if __name__ == "__main__":
     client = Client()

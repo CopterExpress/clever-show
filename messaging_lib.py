@@ -8,6 +8,8 @@ import logging
 import threading
 import collections
 
+from contextlib import closing
+
 try:
     import selectors
 except ImportError:
@@ -22,6 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 # logger = logging_lib.Logger(_logger, True)
+
+
+def get_ip_address():
+    try:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as ip_socket:
+            ip_socket.connect(("8.8.8.8", 80))
+            return ip_socket.getsockname()[0]
+    except OSError:
+        logging.warning("No network connection detected, using localhost")
+        return "localhost"
 
 
 class _Singleton(type):
@@ -323,7 +335,7 @@ class ConnectionManager(object):
         command = message.content["command"]
         args = message.content["args"]
         try:
-            self.messages_callbacks[command](**args)
+            self.messages_callbacks[command](self, **args)
         except KeyError:
             logger.warning("Command {} does not exist!".format(command))
         except Exception as error:
@@ -334,7 +346,7 @@ class ConnectionManager(object):
         request_id = message.content["request_id"]
         args = message.content["args"]
         try:
-            value = self.requests_callbacks[command](**args)
+            value = self.requests_callbacks[command](self, **args)
         except KeyError:
             logger.warning("Request {} does not exist!".format(command))
         except Exception as error:  # TODO send response error\cancel

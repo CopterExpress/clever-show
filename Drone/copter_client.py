@@ -131,7 +131,7 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
 
 
 @messaging.request_callback("selfcheck")
-def _response_selfcheck():
+def _response_selfcheck(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
         check = FlightLib.selfcheck()
         return check if check else "OK"
@@ -141,7 +141,7 @@ def _response_selfcheck():
 
 
 @messaging.request_callback("anim_id")
-def _response_animation_id():
+def _response_animation_id(*args, **kwargs):
     # Load animation
     result = animation.get_id()
     if result != 'No animation':
@@ -163,7 +163,7 @@ def _response_animation_id():
     return result
 
 @messaging.request_callback("batt_voltage")
-def _response_batt():
+def _response_batt(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
         return FlightLib.get_telemetry('body').voltage
     else:
@@ -172,7 +172,7 @@ def _response_batt():
 
 
 @messaging.request_callback("cell_voltage")
-def _response_cell():
+def _response_cell(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
         return FlightLib.get_telemetry('body').cell_voltage
     else:
@@ -180,37 +180,37 @@ def _response_cell():
         return float('nan')
 
 @messaging.request_callback("sys_status")
-def _response_sys_status():
+def _response_sys_status(*args, **kwargs):
     return get_sys_status()
 
 @messaging.request_callback("cal_status")
-def _response_cal_status():
+def _response_cal_status(*args, **kwargs):
     return get_calibration_status()
 
 @messaging.request_callback("position")
-def _response_position():
+def _response_position(*args, **kwargs):
     telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
     return "{:.2f} {:.2f} {:.2f} {:.1f} {}".format(
         telem.x, telem.y, telem.z, math.degrees(telem.yaw), client.active_client.FRAME_ID)
 
 @messaging.request_callback("calibrate_gyro")
-def _calibrate_gyro():
+def _calibrate_gyro(*args, **kwargs):
     calibrate('gyro')
     return get_calibration_status()
 
 @messaging.request_callback("calibrate_level")
-def _calibrate_level():
+def _calibrate_level(*args, **kwargs):
     calibrate('level')
     return get_calibration_status()
 
 
 @messaging.message_callback("test")
-def _command_test(**kwargs):
+def _command_test(*args, **kwargs):
     logger.info("logging info test")
     print("stdout test")
 
 @messaging.message_callback("move_start")
-def _command_move_start_to_current_position(**kwargs):
+def _command_move_start_to_current_position(*args, **kwargs):
     # Load animation
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                         x0=client.active_client.X0_COMMON,
@@ -232,7 +232,7 @@ def _command_move_start_to_current_position(**kwargs):
     print ("Start delta: {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
 
 @messaging.message_callback("reset_start")
-def _command_reset_start(**kwargs):
+def _command_reset_start(*args, **kwargs):
     client.active_client.config.set('PRIVATE', 'x0', 0)
     client.active_client.config.set('PRIVATE', 'y0', 0)
     client.active_client.rewrite_config()
@@ -240,7 +240,7 @@ def _command_reset_start(**kwargs):
     print ("Reset start to {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
 
 @messaging.message_callback("set_z_to_ground")
-def _command_set_z(**kwargs):
+def _command_set_z(*args, **kwargs):
     telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
     client.active_client.config.set('PRIVATE', 'z0', telem.z)
     client.active_client.rewrite_config()
@@ -248,7 +248,7 @@ def _command_set_z(**kwargs):
     print ("Set z offset to {:.2f}".format(client.active_client.Z0))
 
 @messaging.message_callback("reset_z_offset")
-def _command_reset_z(**kwargs):
+def _command_reset_z(*args, **kwargs):
     client.active_client.config.set('PRIVATE', 'z0', 0)
     client.active_client.rewrite_config()
     client.active_client.load_config()
@@ -256,36 +256,36 @@ def _command_reset_z(**kwargs):
 
 
 @messaging.message_callback("update_repo")
-def _command_update_repo(**kwargs):
+def _command_update_repo(*args, **kwargs):
     os.system("git reset --hard origin/master")
     os.system("git fetch")
     os.system("git pull")
     os.system("chown -R pi:pi ~/CleverSwarm")
 
 @messaging.message_callback("reboot_fcu")
-def _command_reboot():
+def _command_reboot(*args, **kwargs):
     reboot_fcu()
 
 
 @messaging.message_callback("service_restart")
-def _command_service_restart(**kwargs):
+def _command_service_restart(*args, **kwargs):
     restart_service(kwargs["name"])
 
 @messaging.message_callback("repair_chrony")
-def _command_chrony_repair():
+def _command_chrony_repair(*args, **kwargs):
     configure_chrony_ip(client.active_client.server_host)
     restart_service("chrony")
 
 
 @messaging.message_callback("led_test")
-def _command_led_test(**kwargs):
+def _command_led_test(*args, **kwargs):
     LedLib.chase(255, 255, 255)
     time.sleep(2)
     LedLib.off()
 
 
 @messaging.message_callback("led_fill")
-def _command_led_fill(**kwargs):
+def _command_led_fill(*args, **kwargs):
     r = kwargs.get("red", 0)
     g = kwargs.get("green", 0)
     b = kwargs.get("blue", 0)
@@ -294,11 +294,11 @@ def _command_led_fill(**kwargs):
 
 
 @messaging.message_callback("flip")
-def _copter_flip():
+def _copter_flip(*args, **kwargs):
     FlightLib.flip(frame_id=client.active_client.FRAME_ID)
 
 @messaging.message_callback("takeoff")
-def _command_takeoff(**kwargs):
+def _command_takeoff(*args, **kwargs):
     task_manager.add_task(time.time(), 0, animation.takeoff,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
@@ -310,7 +310,7 @@ def _command_takeoff(**kwargs):
 
 
 @messaging.message_callback("land")
-def _command_land(**kwargs):
+def _command_land(*args, **kwargs):
     task_manager.reset()
     task_manager.add_task(0, 0, animation.land,
                           task_kwargs={
@@ -323,7 +323,7 @@ def _command_land(**kwargs):
 
 
 @messaging.message_callback("disarm")
-def _command_disarm(**kwargs):
+def _command_disarm(*args, **kwargs):
     task_manager.reset()
     task_manager.add_task(-5, 0, FlightLib.arming_wrapper,
                           task_kwargs={
@@ -333,22 +333,22 @@ def _command_disarm(**kwargs):
 
 
 @messaging.message_callback("stop")
-def _command_stop(**kwargs):
+def _command_stop(*args, **kwargs):
     task_manager.reset()
 
 
 @messaging.message_callback("pause")
-def _command_pause(**kwargs):
+def _command_pause(*args, **kwargs):
     task_manager.pause()
 
 
 @messaging.message_callback("resume")
-def _command_resume(**kwargs):
+def _command_resume(*args, **kwargs):
     task_manager.resume(time_to_start_next_task=kwargs.get("time", 0))
 
 
 @messaging.message_callback("start")
-def _play_animation(**kwargs):
+def _play_animation(*args, **kwargs):
     start_time = float(kwargs["time"])
     # Check if animation file is available
     if animation.get_id() == 'No animation':

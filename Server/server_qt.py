@@ -45,11 +45,10 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No
             )
             if reply == QMessageBox.Yes:
-                print("Dialog accepted")
+                logging.debug("Dialog accepted")
                 return f(*args, **kwargs)
 
-            else:
-                print("Dialog declined")
+            logging.debug("Dialog declined")
 
         return wrapper
 
@@ -75,6 +74,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show()
         
     def init_model(self):
+        self.model.on_id_changed = self.set_copter_id
+
         self.proxy_model.setDynamicSortFilter(True)
         self.proxy_model.setSourceModel(self.model)
 
@@ -111,9 +112,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
-        row_num = self.model.get_row_by_id(client.copter_id)
+        row_data = self.model.get_row_by_attr("client", client)
+        row_num = self.model.get_row_index(row_data)
         if row_num is not None:
-            if Server().remove_disconnected:
+            if Server().remove_disconnected and (not client.connected):
                 client.remove()
                 self.signals.remove_client_signal.emit(row_num)
             else:
@@ -163,20 +165,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def selfcheck_selected(self):
-        for copter in self.model.user_selected():
-            client = copter.client
+        for copter_data_row in self.model.user_selected():
+            client = copter_data_row.client
 
-            client.get_response("anim_id", self._set_copter_data, callback_args=(1, copter.copter_id))
-            client.get_response("batt_voltage", self._set_copter_data, callback_args=(2, copter.copter_id))
-            client.get_response("cell_voltage", self._set_copter_data, callback_args=(3, copter.copter_id))
-            client.get_response("sys_status", self._set_copter_data, callback_args=(4, copter.copter_id))
-            client.get_response("cal_status", self._set_copter_data, callback_args=(5, copter.copter_id))
-            client.get_response("selfcheck", self._set_copter_data, callback_args=(6, copter.copter_id))
-            client.get_response("position", self._set_copter_data, callback_args=(7, copter.copter_id))
-            client.get_response("time", self._set_copter_data, callback_args=(8, copter.copter_id))
+            client.get_response("anim_id", self.set_copter_data, callback_args=(1, copter_data_row))
+            client.get_response("batt_voltage", self.set_copter_data, callback_args=(2, copter_data_row))
+            client.get_response("cell_voltage", self.set_copter_data, callback_args=(3, copter_data_row))
+            client.get_response("sys_status", self.set_copter_data, callback_args=(4, copter_data_row))
+            client.get_response("cal_status", self.set_copter_data, callback_args=(5, copter_data_row))
+            client.get_response("selfcheck", self.set_copter_data, callback_args=(6, copter_data_row))
+            client.get_response("position", self.set_copter_data, callback_args=(7, copter_data_row))
+            client.get_response("time", self.set_copter_data, callback_args=(8, copter_data_row))
 
-    def _set_copter_data(self, value, col, copter_id):
-        row = self.model.get_row_by_id(copter_id)
+    def set_copter_data(self, value, col, copter_data_row):
+        row = self.model.get_row_index(copter_data_row)
         if row is None:
             logging.error("No such client!")
             return
@@ -197,16 +199,25 @@ class MainWindow(QtWidgets.QMainWindow):
         elif col == 7:
             data = str(value)
         elif col == 8:
-            #data = time.ctime(int(value))
             data = "{}".format(round(float(value) - time.time(), 3))
             if abs(float(data)) > 1:
-                Client.get_by_id(copter_id).send_message("repair_chrony")
-            #self.signals.update_data_signal.emit(row, col + 1, data2)
+                copter_data_row.client.send_message("repair_chrony")
         else:
-            print("No column matched for response")
+            logging.error("No column matched for response")
             return
 
-        self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
+        self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
+
+    def set_copter_id(self, value, copter_data_row):
+        col = 0
+        row = self.model.get_row_index(copter_data_row)
+        if row is None:
+            logging.error("No such client!")
+            return
+
+        copter_data_row.client.copter_id = value
+        self.signals.update_data_signal.emit(row, col, value, ModelDataRole)
+        self.signals.update_data_signal.emit(row, col, True, ModelStateRole)
 
     @pyqtSlot()
     def remove_selected(self):
@@ -290,35 +301,33 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def calibrate_gyro_selected(self):
-        for copter in self.model.user_selected():
-            client = copter.client
+        for copter_data_row in self.model.user_selected():
+            client = copter_data_row.client
             # Update calibration status
-            row = self.model.data_contents.index(next(filter(
-                lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
+            row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
+            self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
             # Send request
-            client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(5, copter.copter_id))
+            client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(copter_data_row, ))
 
     @pyqtSlot()
     def calibrate_level_selected(self):
-        for copter in self.model.user_selected():
-            client = copter.client
+        for copter_data_row in self.model.user_selected():
+            client = copter_data_row.client
             # Update calibration status
-            row = self.model.data_contents.index(next(filter(
-                lambda x: x.copter_id == client.copter_id, self.model.data_contents)))
+            row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
+            self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
             # Send request
-            client.get_response("calibrate_level", self._get_calibration_info, callback_args=(5, copter.copter_id))
+            client.get_response("calibrate_level", self._get_calibration_info, callback_args=(copter_data_row, ))
 
-    def _get_calibration_info(self, value, col, copter_id):
-        row = self.model.data_contents.index(next(
-            filter(lambda x: x.copter_id == copter_id, self.model.data_contents)))
+    def _get_calibration_info(self, value, copter_data_row):
+        col = 5
+        row = self.model.get_row_index(copter_data_row)
         data = str(value)
-        self.signals.update_data_signal.emit(row, col, data, Qt.EditRole)
+        self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
 
     @pyqtSlot()
     def send_animations(self):
