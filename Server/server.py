@@ -310,8 +310,8 @@ class Client(messaging.ConnectionManager):
     def remove(self):
         if self.connected:
             self.close()
-
-        self.clients.pop(self.addr[0])
+        if self.clients:
+            self.clients.pop(self.addr[0])
         logging.info("Client {} successfully removed!".format(self.copter_id))
 
     @requires_connect
