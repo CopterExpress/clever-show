@@ -56,6 +56,8 @@ class CopterClient(client.Client):
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
         self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
 
+        self.RESTART_DHCPCD = self.config.getboolean('PRIVATE', 'restart_dhcpcd')
+
     def on_broadcast_bind(self):
         configure_chrony_ip(self.server_host)
         restart_service("chrony")
@@ -97,6 +99,7 @@ class CopterClient(client.Client):
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
 
+
 def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
     try:
         with open(path, 'r') as f:
@@ -128,6 +131,98 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
             return False
 
     return True
+
+
+def configure_hostname(hostname):
+    path = "/etc/hostname"
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        print("Reading error {}".format(e))
+        return False
+
+    current_hostname = str(raw_content)
+
+    if current_hostname != hostname:
+        content = hostname + '\n'
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except IOError:
+            print("Error writing")
+            return False
+
+    return True
+
+
+def configure_hosts(hostname):
+    path = "/etc/hosts"
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        print("Reading error {}".format(e))
+        return False
+
+    index_start = raw_content.find("127.0.1.1", )
+    index_stop = raw_content.find("\n", index_start)
+
+    _ip, current_hostname = raw_content[index_start:index_stop].split()
+    if current_hostname != hostname:
+        content = raw_content[:index_start] + "{}       {}".format(_ip, hostname) + raw_content[index_stop:]
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except IOError:
+            print("Error writing")
+            return False
+
+    return True
+
+
+def configure_bashrc(hostname):
+    path = "~/.bashrc"
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        print("Reading error {}".format(e))
+        return False
+
+    index_start = raw_content.find("ROS_HOSTNAME='", ) + 14
+    index_stop = raw_content.find("'", index_start)
+
+    current_hostname = raw_content[index_start:index_stop]
+    if current_hostname != hostname:
+        content = raw_content[:index_start] + hostname + raw_content[index_stop:]
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except IOError:
+            print("Error writing")
+            return False
+
+    return True
+
+
+@messaging.request_callback("id")
+def _response_id(*args, **kwargs):
+    new_id = kwargs.get("new_id", None)
+    if new_id is not None:
+        old_id = client.active_client.client_id
+        if new_id != old_id:
+            cfg = client.ConfigOption("PRIVATE", "id", new_id)
+            client.active_client.write_config(True, cfg)
+            if new_id != '/hostname':
+                hostname = client.active_client.client_id
+                configure_hostname(hostname)
+                configure_hosts(hostname)
+                configure_bashrc(hostname)
+                if client.active_client.RESTART_DHCPCD:
+                    restart_service("dhcpcd")
+
+    return client.active_client.client_id
 
 
 @messaging.request_callback("selfcheck")
