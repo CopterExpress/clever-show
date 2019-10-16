@@ -344,8 +344,9 @@
     </widget>
     <addaction name="action_send_animations"/>
     <addaction name="action_send_configurations"/>
-    <addaction name="action_send_Aruco_map"/>
     <addaction name="action_send_launch_file"/>
+    <addaction name="action_send_Aruco_map"/>
+    <addaction name="action_send_calibrations"/>
     <addaction name="separator"/>
     <addaction name="menuDeveloper_mode"/>
     <addaction name="separator"/>
@@ -495,6 +496,11 @@
   <action name="action_remove_row">
    <property name="text">
     <string>Remove from table</string>
+   </property> 
+  </action>
+  <action name="action_send_calibrations">
+   <property name="text">
+    <string>Send camera calibrations</string>
    </property>
   </action>
  </widget>

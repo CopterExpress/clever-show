@@ -144,6 +144,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_remove_row.triggered.connect(self.remove_selected)
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
+        self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
@@ -337,11 +338,27 @@ class MainWindow(QtWidgets.QMainWindow):
             print("Selected directory:", path)
             files = [file for file in glob.glob(path + '/*.csv')]
             names = [os.path.basename(file).split(".")[0] for file in files]
-            print(files)
+            # print(files)
             for file, name in zip(files, names):
                 for copter in self.model.user_selected():
                     if name == copter.copter_id:
                         copter.client.send_file(file, "animation.csv")  # TODO config
+                else:
+                    print("Filename has no matches with any drone selected")
+
+    @pyqtSlot()
+    def send_calibrations(self):
+        path = str(QFileDialog.getExistingDirectory(self, "Select directory with calibration files"))
+
+        if path:
+            print("Selected directory:", path)
+            files = [file for file in glob.glob(path + '/*.yaml')]
+            names = [os.path.basename(file).split(".")[0] for file in files]
+            # print(files)
+            for file, name in zip(files, names):
+                for copter in self.model.user_selected():
+                    if name == copter.copter_id:
+                        copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
                 else:
                     print("Filename has no matches with any drone selected")
 
