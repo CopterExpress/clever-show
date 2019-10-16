@@ -399,7 +399,16 @@ if __name__ == '__main__':
     tableView.setSortingEnabled(True)
 
     tableView.show()
-    myModel.add_client(StatedCopterData(copter_id=1000, checked=0, time_utc=1))
+
+    msgs = []
+    msg = "[{}]: Failure: {}".format("FCU connection", "Angular velocities estimation is not available")
+    msgs.append(msg)
+    msg = "[{}]: Failure: {}".format("FCU connection1", "Angular velocities estimation is not available")
+    msgs.append(msg)
+    msg = "[{}]: Failure: {}".format("FCU connection2", "Angular velocities estimation is not available")
+    msgs.append(msg)
+
+    myModel.add_client(StatedCopterData(copter_id=1000, checked=0, selfcheck=msgs, time_utc=1))
     myModel.add_client(StatedCopterData(checked=2, selfcheck="OK", time_utc=2))
     myModel.add_client(StatedCopterData(checked=2, selfcheck="not ok", time_utc="no"))
 

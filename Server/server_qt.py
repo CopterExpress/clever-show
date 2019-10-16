@@ -83,11 +83,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.tableView.setModel(self.proxy_model)
         self.ui.tableView.resizeColumnsToContents()
 
+        self.ui.tableView.doubleClicked.connect(self.selfcheck_info_dialog)
+
         # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
         self.signals.add_client_signal.connect(self.model.add_client)
         self.signals.remove_client_signal.connect(self.model.remove_client)
-
 
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
@@ -195,7 +196,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif col == 5:
             data = str(value)
         elif col == 6:
-            data = str(value)
+            data = value
         elif col == 7:
             data = str(value)
         elif col == 8:
@@ -218,6 +219,27 @@ class MainWindow(QtWidgets.QMainWindow):
         copter_data_row.client.copter_id = value
         self.signals.update_data_signal.emit(row, col, value, ModelDataRole)
         self.signals.update_data_signal.emit(row, col, True, ModelStateRole)
+
+    @pyqtSlot(QtCore.QModelIndex)
+    def selfcheck_info_dialog(self, index):
+        col = index.column()
+        if col == 6:
+            data = self.proxy_model.data(index, role=ModelDataRole)
+            if data and data != "OK":
+                dialog = QMessageBox()
+                dialog.setIcon(QMessageBox.NoIcon)
+                dialog.setStandardButtons(QMessageBox.Ok)
+                dialog.setWindowTitle("Selfcheck info")
+                dialog.setText("\n".join(data[:10]))
+                dialog.setDetailedText("\n".join(data))
+                dialog.exec()
+
+    def _selfcheck_shortener(self, data):
+        shortened = []
+        for line in data:
+            if len(line) > 89:
+                pass
+        return shortened
 
     @pyqtSlot()
     def remove_selected(self):
