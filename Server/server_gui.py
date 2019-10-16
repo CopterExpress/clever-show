@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'server_gui.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.13.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -224,12 +224,15 @@ class Ui_MainWindow(object):
         self.action_stop_music.setObjectName("action_stop_music")
         self.action_remove_row = QtWidgets.QAction(MainWindow)
         self.action_remove_row.setObjectName("action_remove_row")
+        self.action_send_calibrations = QtWidgets.QAction(MainWindow)
+        self.action_send_calibrations.setObjectName("action_send_calibrations")
         self.menuDeveloper_mode.addAction(self.action_send_any_file)
         self.menuDeveloper_mode.addAction(self.actionSend_any_command)
         self.menuOptions.addAction(self.action_send_animations)
         self.menuOptions.addAction(self.action_send_configurations)
-        self.menuOptions.addAction(self.action_send_Aruco_map)
         self.menuOptions.addAction(self.action_send_launch_file)
+        self.menuOptions.addAction(self.action_send_Aruco_map)
+        self.menuOptions.addAction(self.action_send_calibrations)
         self.menuOptions.addSeparator()
         self.menuOptions.addAction(self.menuDeveloper_mode.menuAction())
         self.menuOptions.addSeparator()
@@ -306,13 +309,4 @@ class Ui_MainWindow(object):
         self.actionSend_any_command.setText(_translate("MainWindow", "Send any command"))
         self.action_stop_music.setText(_translate("MainWindow", "Stop music"))
         self.action_remove_row.setText(_translate("MainWindow", "Remove from table"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())
+        self.action_send_calibrations.setText(_translate("MainWindow", "Send camera calibrations"))
