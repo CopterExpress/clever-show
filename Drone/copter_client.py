@@ -21,6 +21,8 @@ import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 
+import threading
+
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
 #    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
@@ -98,6 +100,9 @@ class CopterClient(client.Client):
 
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
+
+def execute_command(command):
+    os.system(command)
 
 
 def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
@@ -182,7 +187,7 @@ def configure_hosts(hostname):
 
 
 def configure_bashrc(hostname):
-    path = "~/.bashrc"
+    path = "/home/pi/.bashrc"
     try:
         with open(path, 'r') as f:
             raw_content = f.read()
@@ -206,7 +211,7 @@ def configure_bashrc(hostname):
     return True
 
 
-@messaging.request_callback("id")
+@messaging.message_callback("id")
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
     if new_id is not None:
@@ -219,10 +224,14 @@ def _response_id(*args, **kwargs):
                 configure_hostname(hostname)
                 configure_hosts(hostname)
                 configure_bashrc(hostname)
+                execute_command("hostname {}".format(hostname))
                 if client.active_client.RESTART_DHCPCD:
+                    # client.active_client.server_connection._send_response("new_id")
                     restart_service("dhcpcd")
-
-    return client.active_client.client_id
+                    time.sleep(1.)
+                    restart_service("clever")
+                    restart_service("smbd")
+                restart_service("clever-show")
 
 
 @messaging.request_callback("selfcheck")
