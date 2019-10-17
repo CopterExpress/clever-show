@@ -47,7 +47,7 @@ class Client(object):
         global active_client
         active_client = self
 
-        self._last_ping_time = 0
+        # self._last_ping_time = 0
 
     def load_config(self):
         self.config.read(self.config_path)
@@ -190,9 +190,9 @@ class Client(object):
     def _process_connections(self):
         while True:
             events = self.selector.select(timeout=1)
-            if time.time() - self._last_ping_time > 5:
-                self.server_connection.send_message("ping")
-                self._last_ping_time = time.time()
+            # if time.time() - self._last_ping_time > 5:
+            #    self.server_connection.send_message("ping")
+            #    self._last_ping_time = time.time()
             # logging.debug("tick")
             for key, mask in events:  # TODO add notifier to client!
                 connection = key.data
