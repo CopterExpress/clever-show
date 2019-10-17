@@ -228,11 +228,10 @@ def _response_id(*args, **kwargs):
                     configure_motd(hostname)
                     execute_command("hostname {}".format(hostname))
                     restart_service("dhcpcd")
-                    time.sleep(0.5)
                     restart_service("avahi-daemon")
-                    time.sleep(0.5)
-                    restart_service("clever")
                     restart_service("smbd")
+                    restart_service("roscore")
+                    restart_service("clever")
                 restart_service("clever-show")
 
 
