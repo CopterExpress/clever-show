@@ -184,7 +184,7 @@ def configure_hosts(hostname):
 
 def configure_motd(hostname):
     with open("/etc/motd", "w") as f:
-        f.write("\r\n{}\r\n".format(hostname))
+        f.write("\r\n{}\r\n\r\n".format(hostname))
 
 def configure_bashrc(hostname):
     path = "/home/pi/.bashrc"
