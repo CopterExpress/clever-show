@@ -21,8 +21,6 @@ import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 
-import threading
-
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
 #    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
@@ -103,7 +101,6 @@ def restart_service(name):
 
 def execute_command(command):
     os.system(command)
-
 
 def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
     try:
@@ -228,7 +225,9 @@ def _response_id(*args, **kwargs):
                 if client.active_client.RESTART_DHCPCD:
                     # client.active_client.server_connection._send_response("new_id")
                     restart_service("dhcpcd")
-                    time.sleep(1.)
+                    time.sleep(0.5)
+                    restart_service("avahi-daemon")
+                    time.sleep(0.5)
                     restart_service("clever")
                     restart_service("smbd")
                 restart_service("clever-show")
