@@ -182,6 +182,9 @@ def configure_hosts(hostname):
 
     return True
 
+def configure_motd(hostname):
+    with open("/etc/motd", "w") as f:
+        f.write("\r\n{}\r\n".format(hostname))
 
 def configure_bashrc(hostname):
     path = "/home/pi/.bashrc"
@@ -217,13 +220,13 @@ def _response_id(*args, **kwargs):
             cfg = client.ConfigOption("PRIVATE", "id", new_id)
             client.active_client.write_config(True, cfg)
             if new_id != '/hostname':
-                hostname = client.active_client.client_id
-                configure_hostname(hostname)
-                configure_hosts(hostname)
-                configure_bashrc(hostname)
-                execute_command("hostname {}".format(hostname))
                 if client.active_client.RESTART_DHCPCD:
-                    # client.active_client.server_connection._send_response("new_id")
+                    hostname = client.active_client.client_id
+                    configure_hostname(hostname)
+                    configure_hosts(hostname)
+                    configure_bashrc(hostname)
+                    configure_motd(hostname)
+                    execute_command("hostname {}".format(hostname))
                     restart_service("dhcpcd")
                     time.sleep(0.5)
                     restart_service("avahi-daemon")
