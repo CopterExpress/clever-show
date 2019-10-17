@@ -210,6 +210,11 @@ def configure_bashrc(hostname):
 
     return True
 
+@messaging.message_callback("execute")
+def _execute(*args, **kwargs):
+    command = kwargs.get("command", None)
+    if command:
+        execute_command(command)
 
 @messaging.message_callback("id")
 def _response_id(*args, **kwargs):
@@ -226,12 +231,13 @@ def _response_id(*args, **kwargs):
                     configure_hosts(hostname)
                     configure_bashrc(hostname)
                     configure_motd(hostname)
-                    execute_command("hostname {}".format(hostname))
-                    restart_service("dhcpcd")
-                    restart_service("avahi-daemon")
-                    restart_service("smbd")
-                    restart_service("roscore")
-                    restart_service("clever")
+                    execute_command("reboot")
+                    #execute_command("hostname {}".format(hostname))
+                    #restart_service("dhcpcd")
+                    #restart_service("avahi-daemon")
+                    #restart_service("smbd")
+                    #restart_service("roscore")
+                    #restart_service("clever")
                 restart_service("clever-show")
 
 
