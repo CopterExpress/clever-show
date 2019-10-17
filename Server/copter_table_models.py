@@ -206,9 +206,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
                 self.data_contents[row][col] = "Awaiting for response"
                 self.data_contents[row].states.copter_id = None
 
-                self.data_contents[row].client.get_response("id", self.on_id_changed,
-                                                            request_args={"new_id": value},
-                                                            callback_args=(self.data_contents[row],))
+                self.data_contents[row].client.send_message("id", {"new_id": value})
             else:
                 self.data_contents[row][col] = value
 
