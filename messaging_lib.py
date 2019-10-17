@@ -356,21 +356,20 @@ class ConnectionManager(object):
 
     def _process_response(self, message):
         request_id, requested_value = message.content["request_id"], message.content["requested_value"]
+
         with self._request_lock:
-            for key, value in self._request_queue.items():  # TODO as try []
-                if (key == request_id) and (value.requested_value == requested_value):
-                    request = self._request_queue.pop(key)
-                    value = message.content["value"]
-                    logger.debug(
-                        "Request {} successfully closed with value {}".format(request, message.content["value"])
-                    )
+            request = self._request_queue.pop(request_id, None)
 
-                    f = request.callback
-                    f(value, *request.callback_args, **request.callback_kwargs)
+        if (request is not None) and (request.requested_value == requested_value):
+            value = message.content["value"]
+            logger.debug(
+                "Request {} successfully closed with value {}".format(request, message.content["value"])
+            )
 
-                    break
-            else:
-                logger.warning("Unexpected  response!")
+            f = request.callback
+            f(value, *request.callback_args, **request.callback_kwargs)
+        else:
+            logger.warning("Unexpected  response!")
 
     def _process_filetransfer(self, message):  # TODO path?
         if message.jsonheader["content-type"] == "binary":
