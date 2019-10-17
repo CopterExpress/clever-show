@@ -154,7 +154,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         row = index.row()
         col = index.column()
         if role == Qt.DisplayRole or role == Qt.EditRole:  # Separate editRole in case of editing non-text
-            return self.data_contents[row][col] or ""
+            item = self.data_contents[row][col]
+            return str(item) if item is not None else ""
+        elif role == ModelDataRole:
+            return self.data_contents[row][col]
 
         elif role == Qt.BackgroundRole:
             try:
