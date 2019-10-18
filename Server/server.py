@@ -142,7 +142,7 @@ class Server(messaging.Singleton):
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select()
-            logging.error('tick')
+            #logging.error('tick')
             for key, mask in events:
                 # logging.error(mask)
                 # logging.error(str(key.data))

@@ -202,11 +202,12 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         if role == Qt.CheckStateRole:
             self.data_contents[row].states.checked = value
         elif role == Qt.EditRole:  # For user actions with data
-            if col == 0 and self.on_id_changed:
-                self.data_contents[row][col] = "Awaiting for response"
-                self.data_contents[row].states.copter_id = None
+            if col == 0: # and self.on_id_changed:
+                #self.data_contents[row][col] = "Awaiting for response"
+                #self.data_contents[row].states.copter_id = None
 
                 self.data_contents[row].client.send_message("id", {"new_id": value})
+                self.data_contents[row].client.remove()
             else:
                 self.data_contents[row][col] = value
 
