@@ -8,6 +8,8 @@ import logging
 import threading
 import collections
 
+from contextlib import closing
+
 try:
     import selectors
 except ImportError:
@@ -22,6 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 # logger = logging_lib.Logger(_logger, True)
+
+
+def get_ip_address():
+    try:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as ip_socket:
+            ip_socket.connect(("8.8.8.8", 80))
+            return ip_socket.getsockname()[0]
+    except OSError:
+        logging.warning("No network connection detected, using localhost")
+        return "localhost"
 
 
 class _Singleton(type):
@@ -185,9 +197,7 @@ class ConnectionManager(object):
         self.socket = None
         self.addr = None
 
-        self.selector = None
-        self.socket = None
-        self.addr = None
+        self._should_close = False
 
         self._recv_buffer = b""
         self._send_buffer = b""
@@ -198,6 +208,7 @@ class ConnectionManager(object):
 
         self._send_lock = threading.Lock()
         self._request_lock = threading.Lock()
+        self._close_lock = threading.Lock()
 
         self.BUFFER_SIZE = 1024
         self.resume_queue = False
@@ -225,8 +236,16 @@ class ConnectionManager(object):
         self._set_selector_events_mask('r')
 
     def close(self):
+        with self._close_lock:
+            self._should_close = True
+
+        self._set_selector_events_mask('w')
+        NotifierSock().notify()
+
+    def _close(self):
         logger.info("Closing connection to {}".format(self.addr))
         try:
+            logger.info("Unregistering selector of {}".format(self.addr))
             self.selector.unregister(self.socket)
         except AttributeError:
             pass
@@ -236,6 +255,7 @@ class ConnectionManager(object):
             self.selector = None
 
         try:
+            logger.info("Closing socket of of {}".format(self.addr))
             self.socket.close()
         except AttributeError:
             pass
@@ -244,7 +264,18 @@ class ConnectionManager(object):
         finally:
             self.socket = None
 
+        with self._close_lock:
+            self._should_close = False
+
+        logger.info("CLOSED connection to {}".format(self.addr))
+
     def process_events(self, mask):
+        with self._close_lock:
+            close = self._should_close
+        if close:
+            self._close()
+            return
+
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
@@ -304,7 +335,7 @@ class ConnectionManager(object):
         command = message.content["command"]
         args = message.content["args"]
         try:
-            self.messages_callbacks[command](**args)
+            self.messages_callbacks[command](self, **args)
         except KeyError:
             logger.warning("Command {} does not exist!".format(command))
         except Exception as error:
@@ -315,7 +346,7 @@ class ConnectionManager(object):
         request_id = message.content["request_id"]
         args = message.content["args"]
         try:
-            value = self.requests_callbacks[command](**args)
+            value = self.requests_callbacks[command](self, **args)
         except KeyError:
             logger.warning("Request {} does not exist!".format(command))
         except Exception as error:  # TODO send response error\cancel

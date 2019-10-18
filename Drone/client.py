@@ -47,6 +47,8 @@ class Client(object):
         global active_client
         active_client = self
 
+        # self._last_ping_time = 0
+
     def load_config(self):
         self.config.read(self.config_path)
 
@@ -58,14 +60,16 @@ class Client(object):
         self.NTP_HOST = self.config.get('NTP', 'host')
         self.NTP_PORT = self.config.getint('NTP', 'port')
 
-        self.files_directory = self.config.get('FILETRANSFER', 'files_directory')
+        self.files_directory = self.config.get('FILETRANSFER', 'files_directory') # not used?!
 
         self.client_id = self.config.get('PRIVATE', 'id')
-        if self.client_id == 'default':
+        if self.client_id == '/default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
-            self.write_config(False, 'PRIVATE', 'id', self.client_id)
+            self.write_config(False, ConfigOption('PRIVATE', 'id', self.client_id))
         elif self.client_id == '/hostname':
             self.client_id = socket.gethostname()
+        elif self.client_id == '/ip':
+            self.client_id = messaging.get_ip_address()
 
     def rewrite_config(self):
         with open(self.config_path, 'w') as file:
@@ -103,7 +107,7 @@ class Client(object):
         try:
             while True:
                 self._reconnect()
-                #self._process_connections()
+                self._process_connections()
 
         except (KeyboardInterrupt, ):
             logger.critical("Caught interrupt, exiting!")
@@ -117,6 +121,8 @@ class Client(object):
             try:
                 self.client_socket = socket.socket()
                 self.client_socket.settimeout(timeout)
+                self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                self.client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self.client_socket.connect((self.server_host, self.server_port))
             except socket.error as error:
                 if isinstance(error, OSError):
@@ -138,15 +144,12 @@ class Client(object):
                 self.broadcast_bind(timeout*2, attempt_limit)
                 attempt_count = 0
 
-
     def _connect(self):
         self.connected = True
         self.client_socket.setblocking(False)
         events = selectors.EVENT_READ # | selectors.EVENT_WRITE
         self.selector.register(self.client_socket, events, data=self.server_connection)
         self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
-        self._process_connections()
-
 
     def broadcast_bind(self, timeout=3.0, attempt_limit=5):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -187,6 +190,9 @@ class Client(object):
     def _process_connections(self):
         while True:
             events = self.selector.select(timeout=1)
+            # if time.time() - self._last_ping_time > 5:
+            #    self.server_connection.send_message("ping")
+            #    self._last_ping_time = time.time()
             # logging.debug("tick")
             for key, mask in events:  # TODO add notifier to client!
                 connection = key.data
@@ -200,7 +206,7 @@ class Client(object):
                         logger.error(
                             "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
                         )
-                        self.server_connection.close()
+                        self.server_connection._close()
                         self.connected = False
 
                         if isinstance(error, OSError):
@@ -213,19 +219,27 @@ class Client(object):
                 return
 
 
-@messaging.request_callback("id")
-def _response_id():
-    return active_client.client_id
-
-@messaging.request_callback("time")
-def _response_time():
-    return active_client.time_now()
-
 @messaging.message_callback("config_write")
 def _command_config_write(*args, **kwargs):
     options = [ConfigOption(**raw_option) for raw_option in kwargs["options"]]
     logger.info("Writing config options: {}".format(options))
     active_client.write_config(kwargs["reload"], *options)
+
+
+@messaging.request_callback("id")
+def _response_id(*args, **kwargs):
+    new_id = kwargs.get("new_id", None)
+    if new_id is not None:
+        cfg = ConfigOption("PRIVATE", "id", new_id)
+        active_client.write_config(True, cfg)
+
+    return active_client.client_id
+
+
+@messaging.request_callback("time")
+def _response_time(*args, **kwargs):
+    return active_client.time_now()
+
 
 if __name__ == "__main__":
     client = Client()

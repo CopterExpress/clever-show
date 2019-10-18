@@ -28,9 +28,7 @@ logging.basicConfig(  # TODO all prints as logs
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 
 
-class Server:
-    BUFFER_SIZE = 1024
-
+class Server(messaging.Singleton):
     def __init__(self, server_id=None, config_path="server_config.ini", on_stop=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
@@ -41,8 +39,11 @@ class Server:
         self.sel = selectors.DefaultSelector()
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self.server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
         self.host = socket.gethostname()
-        self.ip = Server.get_ip_address()
+        self.ip = messaging.get_ip_address()
 
         # Init configs
         self.config_path = config_path
@@ -65,7 +66,9 @@ class Server:
     def load_config(self):
         self.config.read(self.config_path)
         self.port = int(self.config['SERVER']['port'])  # TODO try, init def
-        Server.BUFFER_SIZE = int(self.config['SERVER']['buffer_size'])
+        self.BUFFER_SIZE = int(self.config['SERVER']['buffer_size']) # TODO connect to connection manager
+
+        self.remove_disconnected = self.config.getboolean('SERVER', 'remove_disconnected')
 
         self.use_broadcast = self.config.getboolean('BROADCAST', 'use_broadcast')
         self.broadcast_port = int(self.config['BROADCAST']['broadcast_port'])
@@ -113,16 +116,6 @@ class Server:
         sys.exit("Stopped")
 
     @staticmethod
-    def get_ip_address():
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ip_socket:
-                ip_socket.connect(("8.8.8.8", 80))
-                return ip_socket.getsockname()[0]
-        except OSError:
-            logging.warning("No network connection detected, starting on localhost")
-            return "localhost"
-
-    @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
         NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
         NTP_QUERY = b'\x1b' + bytes(47)
@@ -149,7 +142,7 @@ class Server:
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select()
-            logging.error('tick')
+            #logging.error('tick')
             for key, mask in events:
                 # logging.error(mask)
                 # logging.error(str(key.data))
@@ -161,7 +154,7 @@ class Server:
                         client.process_events(mask)
                     except Exception as error:
                         logging.error("Exception {} occurred for {}! Resetting connection!".format(error, client.addr))
-                        client.close()
+                        client.close(True)
                 else:  # Notifier
                     client.process_events(mask)
 
@@ -218,7 +211,7 @@ class Server:
 
         try:
             while self.listener_thread_running.is_set():
-                data, addr = broadcast_client.recvfrom(1024) # TODO nonblock
+                data, addr = broadcast_client.recvfrom(1024)  # TODO nonblock
                 message = messaging.MessageManager()
                 message.income_raw = data
                 message.process_message()
@@ -301,16 +294,28 @@ class Client(messaging.ConnectionManager):
     def _got_id(self, value):
         logging.info("Got copter id: {} for client {}".format(value, self.addr))
         self.copter_id = value
-        if Client.on_first_connect:
-            Client.on_first_connect(self)
+        if self.on_first_connect:
+            self.on_first_connect(self)
 
-    def close(self):
+    def close(self, inner=False):
         self.connected = False
 
-        if Client.on_disconnect:
-            Client.on_disconnect(self)
+        if self.on_disconnect:
+            self.on_disconnect(self)
 
-        super(Client, self).close()
+        if inner:
+            super(Client, self)._close()
+        else:
+            super(Client, self).close()
+
+        logging.info("Connection to {} closed!".format(self.copter_id))
+
+    def remove(self):
+        if self.connected:
+            self.close()
+        if self.clients:
+            self.clients.pop(self.addr[0])
+        logging.info("Client {} successfully removed!".format(self.copter_id))
 
     @requires_connect
     def _send(self, data):

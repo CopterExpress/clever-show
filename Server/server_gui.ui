@@ -328,7 +328,7 @@
      <x>0</x>
      <y>0</y>
      <width>1220</width>
-     <height>25</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">
@@ -375,6 +375,7 @@
     <addaction name="action_reset_z_offset"/>
     <addaction name="separator"/>
     <addaction name="menuDeveloper_mode_2"/>
+    <addaction name="action_remove_row"/>
    </widget>
    <widget class="QMenu" name="menuMusic">
     <property name="title">
@@ -491,6 +492,11 @@
    <property name="text">
     <string>Stop music</string>
    </property>
+  </action>
+  <action name="action_remove_row">
+   <property name="text">
+    <string>Remove from table</string>
+   </property> 
   </action>
   <action name="action_send_calibrations">
    <property name="text">

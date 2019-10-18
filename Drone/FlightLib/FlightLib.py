@@ -69,7 +69,7 @@ def check(check_name):
             failures = f(*args, **kwargs)
             msgs = []
             for failure in failures:
-                msg = "[{}]: Failure: {}".format(check_name, failure)
+                msg = "[{}]: Err: {}".format(check_name, failure)
                 msgs.append(msg)
                 logger.warning(msg)
 
