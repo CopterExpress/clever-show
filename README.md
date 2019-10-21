@@ -12,7 +12,9 @@ Software for making the drone show controlled by Raspberry Pi and COEX [Clever](
 * [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
 
 ## Documentation
-Start tutorial is located [here](docs/start-tutorial.md).
+> Documentation is available only in Russian for now.
+
+Start tutorial is located [here](docs/ru/start-tutorial.md).
 
 Detailed documentation is located in the [docs](https://github.com/CopterExpress/clever-show/tree/master/docs) folder.
 
