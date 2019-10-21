@@ -79,9 +79,9 @@ img-resize ${IMAGE_PATH} max '5G'
 # Checkout to tag's branch if built with travis tag
 if [[ ! -z ${TRAVIS_TAG} ]]; then
   cd ${REPO_DIR}
-  echo_stamp "Checkout to origin/pinnochio from ${TRAVIS_TAG}" "INFO"
+  echo_stamp "Checkout to origin/pinocchio from ${TRAVIS_TAG}" "INFO"
   git fetch
-  git checkout --track origin/pinnochio
+  git checkout --track origin/pinocchio
   cd /
 fi
 
