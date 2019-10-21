@@ -79,11 +79,8 @@ img-resize ${IMAGE_PATH} max '5G'
 # Checkout to tag's branch if built with travis tag
 if [[ ! -z ${TRAVIS_TAG} ]]; then
   cd ${REPO_DIR}
-  REMOTE_BRANCH="$(git branch -r --contains ${TRAVIS_TAG} | sed -n 1p | cut -d ' ' -f 5)"
-  BRANCH="$(echo ${REMOTE_BRANCH} | cut -d '/' -f 2)"
-  echo_stamp "Checkout to ${REMOTE_BRANCH} from ${TRAVIS_TAG}" "INFO"
-  git branch ${BRANCH} ${REMOTE_BRANCH}
-  git checkout ${BRANCH}
+  echo_stamp "Checkout to origin/pinnochio from ${TRAVIS_TAG}" "INFO"
+  git checkout --track origin/pinnochio
   cd /
 fi
 
