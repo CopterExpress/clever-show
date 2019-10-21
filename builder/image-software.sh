@@ -68,9 +68,14 @@ my_travis_retry pip install selectors2
 echo_stamp "Install catkin packages"
 cd /home/pi/catkin_ws/src
 git clone https://github.com/CopterExpress/clever_tools.git
-cd ..
+cd clever
+git apply aruco_detect.patch
+cd ../..
 source devel/setup.bash
 catkin_make --pkg clever_flight_routines
+catkin_make aruco_pose
 source devel/setup.bash
+
+chown -Rf pi:pi /home/pi/catkin_ws/
 
 echo_stamp "End of software installation"
