@@ -111,7 +111,7 @@ Drone/client_logs
 images/
 .vscode/
 \.idea/
-builder/clever-config
+# builder/clever-config
 Drone/_copter_client_old_\.py
 
 Drone/test_cl\.py
