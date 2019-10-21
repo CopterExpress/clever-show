@@ -49,7 +49,9 @@ class CopterClient(client.Client):
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
-        self.RATIO = self.config.getfloat('ANIMATION', 'ratio')
+        self.X_RATIO = self.config.getfloat('ANIMATION', 'x_ratio')
+        self.Y_RATIO = self.config.getfloat('ANIMATION', 'y_ratio')
+        self.Z_RATIO = self.config.getfloat('ANIMATION', 'z_ratio')
         self.X0 = self.config.getfloat('PRIVATE', 'x0')
         self.Y0 = self.config.getfloat('PRIVATE', 'y0')
         self.Z0 = self.config.getfloat('PRIVATE', 'z0')
@@ -261,7 +263,9 @@ def _response_animation_id(*args, **kwargs):
                                             x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                             y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                             z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
-                                            ratio=client.active_client.RATIO,
+                                            x_ratio=client.active_client.X_RATIO,
+                                            y_ratio=client.active_client.Y_RATIO,
+                                            z_ratio=client.active_client.Z_RATIO,
                                             )
         # Correct start and land frames in animation
         corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -324,9 +328,12 @@ def _command_test(*args, **kwargs):
 def _command_move_start_to_current_position(*args, **kwargs):
     # Load animation
     frames = animation.load_animation(os.path.abspath("animation.csv"),
-                                        x0=client.active_client.X0_COMMON,
-                                        y0=client.active_client.Y0_COMMON,
-                                        ratio=client.active_client.RATIO,
+                                        x0=client.active_client.X0 + client.active_client.X0_COMMON,
+                                        y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
+                                        z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
+                                        x_ratio=client.active_client.X_RATIO,
+                                        y_ratio=client.active_client.Y_RATIO,
+                                        z_ratio=client.active_client.Z_RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -474,7 +481,9 @@ def _play_animation(*args, **kwargs):
                                         x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                         y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                         z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
-                                        ratio=client.active_client.RATIO,
+                                        x_ratio=client.active_client.X_RATIO,
+                                        y_ratio=client.active_client.Y_RATIO,
+                                        z_ratio=client.active_client.Z_RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
