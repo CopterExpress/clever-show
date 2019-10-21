@@ -80,6 +80,7 @@ img-resize ${IMAGE_PATH} max '5G'
 if [[ ! -z ${TRAVIS_TAG} ]]; then
   cd ${REPO_DIR}
   echo_stamp "Checkout to origin/pinnochio from ${TRAVIS_TAG}" "INFO"
+  git fetch
   git checkout --track origin/pinnochio
   cd /
 fi
