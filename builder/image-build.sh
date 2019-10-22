@@ -122,6 +122,7 @@ img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/
 # Copy config files for clever
 if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
 if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clever/aruco_pose'; fi
+if [[ -d "${CONFIG_DIR}/camera_info" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/camera_info' '/home/pi/catkin_ws/src/clever/clever'; fi
 
 # Shrink image
 img-resize ${IMAGE_PATH}
