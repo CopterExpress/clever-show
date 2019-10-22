@@ -49,9 +49,6 @@ my_travis_retry() {
   return $result
 }
 
-echo_stamp "Change repo owner to pi"
-chown -Rf pi:pi /home/pi/clever-show/
-
 echo_stamp "Update apt cache"
 apt-get update -qq
 
@@ -76,6 +73,8 @@ catkin_make --pkg clever_flight_routines
 catkin_make aruco_pose
 source devel/setup.bash
 
+echo_stamp "Change clever-show and catkin_ws owner to pi"
+chown -Rf pi:pi /home/pi/clever-show/
 chown -Rf pi:pi /home/pi/catkin_ws/
 
 echo_stamp "End of software installation"
