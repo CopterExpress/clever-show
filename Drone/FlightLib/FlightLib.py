@@ -175,11 +175,11 @@ def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, auto_arm=False, **kwargs
     return True
 
 
-def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID,
+def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID, auto_arm=False,
                 freq=FREQUENCY, timeout=TIMEOUT, interrupter=INTERRUPTER, wait=False):
-    logger.info('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    rospy.loginfo('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     #print('Reaching point: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
-    navigate(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, speed=speed)
+    navigate(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, speed=speed, auto_arm=auto_arm)
 
     # waiting for completion
     telemetry = get_telemetry(frame_id=frame_id)
@@ -188,17 +188,17 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TO
 
     while (get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z) > tolerance) or wait:
         if interrupter.is_set():
-            logger.warning("Reach point function interrupted!")
+            rospy.logwarn("Reach point function interrupted!")
             #print("Reach point function interrupted!")
             interrupter.clear()
             return False
 
         telemetry = get_telemetry(frame_id=frame_id)
-        logger.info('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
+        rospy.logdebug('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
         #print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
         #    telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
-        logger.info('Current delta: | {:.3f}'.format(
+        rospy.logdebug('Current delta: | {:.3f}'.format(
             get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
         #print('Current delta: | {:.3f}'.format(
         #    get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)))
@@ -207,12 +207,12 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TO
 
         if timeout is not None:
             if time_passed >= timeout:
-                logger.warning('Reaching point timed out! | time: {:3f} seconds'.format(time_passed))
-                print('Reaching point timed out! | time: {:3f} seconds'.format(time_passed))
+                rospy.logwarn('Reaching point timed out! | time: {:3f} seconds'.format(time_passed))
+                # print('Reaching point timed out! | time: {:3f} seconds'.format(time_passed))
                 return wait
         rate.sleep()
 
-    logger.info("Point reached!")
+    rospy.loginfo("Point reached!")
     #print("Point reached!")
     return True
 
