@@ -91,6 +91,9 @@
             <property name="decimals">
              <number>1</number>
             </property>
+            <property name="maximum">
+             <double>1000.000000000000000</double>
+            </property>
            </widget>
           </item>
           <item row="4" column="1">
@@ -101,11 +104,17 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="focusPolicy">
+             <enum>Qt::NoFocus</enum>
+            </property>
+            <property name="contextMenuPolicy">
+             <enum>Qt::DefaultContextMenu</enum>
+            </property>
             <property name="layoutDirection">
              <enum>Qt::RightToLeft</enum>
             </property>
             <property name="autoFillBackground">
-             <bool>true</bool>
+             <bool>false</bool>
             </property>
             <property name="text">
              <string/>
@@ -248,14 +257,14 @@
           <property name="formAlignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
           </property>
-          <item row="3" column="1">
+          <item row="8" column="1">
            <widget class="QPushButton" name="land_button">
             <property name="text">
              <string>Land</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="7" column="1">
            <widget class="QPushButton" name="flip_button">
             <property name="text">
              <string>Flip</string>
@@ -278,6 +287,45 @@
              <string>Test leds</string>
             </property>
            </widget>
+          </item>
+          <item row="4" column="1">
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="z_checkbox">
+              <property name="cursor">
+               <cursorShape>ArrowCursor</cursorShape>
+              </property>
+              <property name="focusPolicy">
+               <enum>Qt::NoFocus</enum>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="text">
+               <string>  Z     =</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QDoubleSpinBox" name="z_spin">
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="suffix">
+               <string> m</string>
+              </property>
+              <property name="decimals">
+               <number>1</number>
+              </property>
+              <property name="value">
+               <double>1.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </item>
@@ -328,7 +376,7 @@
      <x>0</x>
      <y>0</y>
      <width>1220</width>
-     <height>26</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">
@@ -496,7 +544,7 @@
   <action name="action_remove_row">
    <property name="text">
     <string>Remove from table</string>
-   </property> 
+   </property>
   </action>
   <action name="action_send_calibrations">
    <property name="text">

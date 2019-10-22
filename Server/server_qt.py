@@ -305,7 +305,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
             if takeoff_checks(copter):
-                copter.client.send_message("takeoff")
+                if self.ui.z_checkbox.isChecked():
+                    copter.client.send_message("takeoff_z", {"z":str(self.ui.z_spin.value())})
+                else:
+                    copter.client.send_message("takeoff")
 
     @pyqtSlot()
     @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
