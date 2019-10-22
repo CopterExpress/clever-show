@@ -2,6 +2,7 @@ import os
 import time
 import math
 import rospy
+import datetime
 import logging
 
 from FlightLib import FlightLib
@@ -66,7 +67,7 @@ class CopterClient(client.Client):
 
     def start(self, task_manager_instance):
         client.logger.info("Init ROS node")
-        rospy.init_node('Swarm_client')
+        rospy.init_node('clever_show_client')
         if self.USE_LEDS:
             LedLib.init_led(self.LED_PIN)
         task_manager_instance.start()
@@ -417,12 +418,30 @@ def _copter_flip(*args, **kwargs):
 
 @messaging.message_callback("takeoff")
 def _command_takeoff(*args, **kwargs):
-    task_manager.add_task(time.time(), 0, animation.takeoff,
+    print("Takeoff at {}".format(datetime.datetime.now()))
+    task_manager.add_task(0, 0, animation.takeoff,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
                               "timeout": client.active_client.TAKEOFF_TIME,
                               "safe_takeoff": client.active_client.SAFE_TAKEOFF,
                               "use_leds": client.active_client.USE_LEDS,
+                          }
+                          )
+
+@messaging.message_callback("takeoff_z")
+def _command_takeoff_z(*args, **kwargs):
+    z_str = kwargs.get("z", None)
+    if z_str is not None:
+        telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+        print("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
+        task_manager.add_task(0, 0, FlightLib.reach_point,
+                          task_kwargs={
+                              "x": telem.x,
+                              "y": telem.y,
+                              "z": float(z_str),
+                              "frame_id": client.active_client.FRAME_ID,
+                              "timeout": client.active_client.TAKEOFF_TIME,
+                              "auto_arm": True,
                           }
                           )
 
