@@ -73,6 +73,11 @@ catkin_make --pkg clever_flight_routines
 catkin_make aruco_pose
 source devel/setup.bash
 
+echo_stamp "Checkout clever-show to master, but fetch config from pinocchio_work"
+cd /home/pi/clever-show
+git checkout master
+git checkout pinocchio_work -- Drone/client_config.ini
+
 echo_stamp "Change clever-show and catkin_ws owner to pi"
 chown -Rf pi:pi /home/pi/clever-show/
 chown -Rf pi:pi /home/pi/catkin_ws/

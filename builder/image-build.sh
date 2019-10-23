@@ -79,11 +79,9 @@ img-resize ${IMAGE_PATH} max '5G'
 # Checkout to tag's branch if built with travis tag
 if [[ ! -z ${TRAVIS_TAG} ]]; then
   cd ${REPO_DIR}
-  echo_stamp "Checkout to master from ${TRAVIS_TAG}" "INFO"
+  echo_stamp "Checkout to origin/pinocchio_work from ${TRAVIS_TAG}" "INFO"
   git fetch
   git checkout --track origin/pinocchio_work
-  git checkout master
-  git checkout pinocchio_work -- Drone/client_config.ini
   cd /
 fi
 
