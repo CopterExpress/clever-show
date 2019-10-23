@@ -384,6 +384,11 @@ def _command_update_repo(*args, **kwargs):
     os.system("mv /home/pi/clever-show/Drone/client_config_tmp.ini /home/pi/clever-show/Drone/client_config.ini")
     os.system("chown -R pi:pi /home/pi/clever-show")
 
+@messaging.message_callback("reboot_all")
+def _command_reboot_all(*args, **kwargs):
+    reboot_fcu()
+    execute_command("reboot")
+
 @messaging.message_callback("reboot_fcu")
 def _command_reboot(*args, **kwargs):
     reboot_fcu()
