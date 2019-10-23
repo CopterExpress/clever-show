@@ -152,6 +152,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_restart_clever.triggered.connect(self.restart_clever)
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
+        self.ui.action_reboot_all.triggered.connect(self.reboot_all_on_selected)
         self.ui.action_set_start_to_current_position.triggered.connect(self.update_start_to_current_position)
         self.ui.action_reset_start.triggered.connect(self.reset_start)
         self.ui.action_set_z_offset_to_ground.triggered.connect(self.set_z_offset_to_ground)
@@ -439,7 +440,12 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def update_client_repo(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("update_repo")  
+            copter.client.send_message("update_repo") 
+
+    @pyqtSlot()
+    def reboot_all_on_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("reboot_all") 
 
     @pyqtSlot()
     def update_start_to_current_position(self):

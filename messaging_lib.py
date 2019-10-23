@@ -1,4 +1,5 @@
 import io
+import os
 import sys
 import json
 import socket
@@ -382,6 +383,7 @@ class ConnectionManager(object):
                 logger.error("File {} can not be written due error: {}".format(filepath, error))
             else:
                 logger.info("File {} successfully received ".format(filepath))
+                os.system("chown -R pi:pi /home/pi/clever-show")
 
     def write(self):
         with self._send_lock:
