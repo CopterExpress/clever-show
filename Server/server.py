@@ -314,7 +314,10 @@ class Client(messaging.ConnectionManager):
         if self.connected:
             self.close()
         if self.clients:
-            self.clients.pop(self.addr[0])
+            try:
+                self.clients.pop(self.addr[0])
+            except Exception as e:
+                logging.error(e)
         logging.info("Client {} successfully removed!".format(self.copter_id))
 
     @requires_connect
