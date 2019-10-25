@@ -41,7 +41,7 @@ def get_id(filepath="animation.csv"):
                 print("No animation id in file")
     return anim_id
 
-def get_start_xy(filepath="animation.csv"):
+def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1):
     try:
         animation_file = open(filepath)
     except IOError:
@@ -71,7 +71,7 @@ def get_start_xy(filepath="animation.csv"):
                     frame_number, x, y, z, yaw, red, green, blue = row_0
                 except:
                     return float('nan'), float('nan')
-    return float(x), float(y)
+    return float(x)*x_ratio, float(y)*y_ratio
 
 
 def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):

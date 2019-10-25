@@ -21,7 +21,6 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion, qua
 import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
-
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
 #    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
@@ -95,7 +94,7 @@ class CopterClient(client.Client):
                 trans.child_frame_id = self.FRAME_ID
                 static_bloadcaster.sendTransform(trans)
         start_subscriber()
-        # print(check_state_topic())
+
         super(CopterClient, self).start()
 
 
@@ -331,19 +330,10 @@ def _command_test(*args, **kwargs):
 
 @messaging.message_callback("move_start")
 def _command_move_start_to_current_position(*args, **kwargs):
-    # Load animation
-    frames = animation.load_animation(os.path.abspath("animation.csv"),
+    x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
                                         x_ratio=client.active_client.X_RATIO,
                                         y_ratio=client.active_client.Y_RATIO,
-                                        z_ratio=client.active_client.Z_RATIO,
                                         )
-    # Correct start and land frames in animation
-    # corrected_frames, start_action, start_delay = animation.correct_animation(frames,
-    #                                    check_takeoff=client.active_client.TAKEOFF_CHECK,
-    #                                    check_land=client.active_client.LAND_CHECK,
-    #                                    )
-    x_start = frames[0]['x']
-    y_start = frames[0]['y']
     print("x_start = {}, y_start = {}".format(x_start, y_start))
     telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
     print("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
@@ -596,8 +586,6 @@ def _play_animation(*args, **kwargs):
                     },
                     )
     #print(task_manager.task_queue)
-        
-
 
 if __name__ == "__main__":
     copter_client = CopterClient()
