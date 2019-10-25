@@ -301,7 +301,11 @@ def _response_sys_status(*args, **kwargs):
 
 @messaging.request_callback("cal_status")
 def _response_cal_status(*args, **kwargs):
-    return get_calibration_status()
+    if check_state_topic(wait_new_status=True):
+        return get_calibration_status()
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
 
 @messaging.request_callback("position")
 def _response_position(*args, **kwargs):

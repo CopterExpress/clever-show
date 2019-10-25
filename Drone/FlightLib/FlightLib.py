@@ -91,7 +91,7 @@ def _check_nans(*values):
 
 @check("Ros services")
 def check_ros_services():
-    timeout = 5.0
+    timeout = 0.1
     for service in services_list:
         try:
             service.wait_for_service(timeout=timeout)
