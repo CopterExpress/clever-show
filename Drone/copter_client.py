@@ -329,21 +329,20 @@ def _command_test(*args, **kwargs):
 def _command_move_start_to_current_position(*args, **kwargs):
     # Load animation
     frames = animation.load_animation(os.path.abspath("animation.csv"),
-                                        x0=client.active_client.X0 + client.active_client.X0_COMMON,
-                                        y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
-                                        z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
                                         x_ratio=client.active_client.X_RATIO,
                                         y_ratio=client.active_client.Y_RATIO,
                                         z_ratio=client.active_client.Z_RATIO,
                                         )
     # Correct start and land frames in animation
-    corrected_frames, start_action, start_delay = animation.correct_animation(frames,
-                                        check_takeoff=client.active_client.TAKEOFF_CHECK,
-                                        check_land=client.active_client.LAND_CHECK,
-                                        )
-    x_start = corrected_frames[0]['x']
-    y_start = corrected_frames[0]['y']
+    # corrected_frames, start_action, start_delay = animation.correct_animation(frames,
+    #                                    check_takeoff=client.active_client.TAKEOFF_CHECK,
+    #                                    check_land=client.active_client.LAND_CHECK,
+    #                                    )
+    x_start = frames[0]['x']
+    y_start = frames[0]['y']
+    print("x_start = {}, y_start = {}".format(x_start, y_start))
     telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    print("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
     client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
     client.active_client.config.set('PRIVATE', 'y0', telem.y - y_start)
     client.active_client.rewrite_config()
