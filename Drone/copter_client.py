@@ -24,8 +24,8 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion, qua
 import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
-Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode current_position start_position")
-telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
+Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position")
+telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
 
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
@@ -612,6 +612,7 @@ def telemetry_loop():
         telemetry = telemetry._replace(calibration_status = 'NO_FCU')
         telemetry = telemetry._replace(system_status = 'NO_FCU')
         telemetry = telemetry._replace(mode = 'NO_FCU')
+        telemetry = telemetry._replace(selfcheck = 'NO_FCU')
         telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
         telemetry = telemetry._replace(start_position = 'NO_POS')
         try:
@@ -633,6 +634,10 @@ def telemetry_loop():
                 telemetry = telemetry._replace(calibration_status = get_calibration_status())
                 telemetry = telemetry._replace(system_status = get_sys_status())
                 telemetry = telemetry._replace(mode = ros_telemetry.mode)
+                check = FlightLib.selfcheck()
+                if not check:
+                    check = "OK"
+                telemetry = telemetry._replace(selfcheck = str(check))    
                 if not math.isnan(ros_telemetry.x):
                     telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
                                                                                     math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
@@ -653,7 +658,7 @@ def telemetry_loop():
         rate.sleep()
 
 def create_telemetry_message(telemetry):
-    msg = ""
+    msg = client.active_client.client_id + ';'
     for key in telemetry.__dict__:
         msg += telemetry.__dict__[key] + ';'
     msg += repr(time.time())
