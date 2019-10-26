@@ -47,6 +47,8 @@ class Client(object):
         global active_client
         active_client = self
 
+        # self._last_ping_time = 0
+
     def load_config(self):
         self.config.read(self.config_path)
 
@@ -119,6 +121,8 @@ class Client(object):
             try:
                 self.client_socket = socket.socket()
                 self.client_socket.settimeout(timeout)
+                self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                self.client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self.client_socket.connect((self.server_host, self.server_port))
             except socket.error as error:
                 if isinstance(error, OSError):
@@ -186,6 +190,9 @@ class Client(object):
     def _process_connections(self):
         while True:
             events = self.selector.select(timeout=1)
+            # if time.time() - self._last_ping_time > 5:
+            #    self.server_connection.send_message("ping")
+            #    self._last_ping_time = time.time()
             # logging.debug("tick")
             for key, mask in events:  # TODO add notifier to client!
                 connection = key.data

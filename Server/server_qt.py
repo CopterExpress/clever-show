@@ -74,7 +74,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show()
         
     def init_model(self):
-        self.model.on_id_changed = self.set_copter_id
+        # self.model.on_id_changed = self.set_copter_id
 
         self.proxy_model.setDynamicSortFilter(True)
         self.proxy_model.setSourceModel(self.model)
@@ -210,16 +210,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
 
-    def set_copter_id(self, value, copter_data_row):
-        col = 0
-        row = self.model.get_row_index(copter_data_row)
-        if row is None:
-            logging.error("No such client!")
-            return
 
-        copter_data_row.client.copter_id = value
-        self.signals.update_data_signal.emit(row, col, value, ModelDataRole)
-        self.signals.update_data_signal.emit(row, col, True, ModelStateRole)
+    #def set_copter_id(self, value, copter_data_row):
+    #    col = 0
+    #    row = self.model.get_row_index(copter_data_row)
+    #    if row is None:
+    #        logging.error("No such client!")
+    #        return
+    #    logging.info("SET COPTER ID TO {}".format(value))
+    #
+    #    copter_data_row.client.copter_id = value
+    #    self.signals.update_data_signal.emit(row, col, value, ModelDataRole)
+    #    self.signals.update_data_signal.emit(row, col, True, ModelStateRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
