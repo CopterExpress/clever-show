@@ -19,7 +19,7 @@ except ImportError:
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
-                                                           "resend"
+                                                           "request_args", "resend",
                                                            ])
 logger = logging.getLogger(__name__)
 
@@ -442,6 +442,7 @@ class ConnectionManager(object):
                 callback=callback,
                 callback_args=callback_args,
                 callback_kwargs=callback_kwargs,
+                request_args=request_args,
                 resend=True,
             )
         self._send(MessageManager.create_request(requested_value, request_id, request_args))
@@ -451,7 +452,7 @@ class ConnectionManager(object):
             for request_id, request in self._request_queue.items():
                 if request.resend:
                     self._send(MessageManager.create_request(
-                        request.requested_value, request_id, request.request_args)
+                        request.requested_value, request_id, request.request_args.update(resend=request.resend))
                     )
                     request.resend = False
 
