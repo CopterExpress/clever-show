@@ -419,12 +419,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_launch(self):
-        path = QFileDialog.getOpenFileName(self, "Select launch file for clever", filter="Launch files (*.launch)")[0]
+        path = str(QFileDialog.getExistingDirectory(self, "Select directory with launch files"))
         if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
+            print("Selected directory:", path)
+            files = [file for file in glob.glob(path + '/*.launch')]
             for copter in self.model.user_selected():
-                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
+                for file in files:
+                    filename = os.path.basename(file)
+                    copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
                 # copter.client.send_message("service_restart", {"name": "clever"})
     
     @pyqtSlot()
