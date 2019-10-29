@@ -305,10 +305,10 @@ def check_selfcheck(item):
 
 
 @col_check(7)
-def check_cal_status(item):
+def check_pos_status(item):
     if not item:
         return None
-    return True
+    return str(item).split(' ')[0] != 'nan'
 
 
 @col_check(8)
