@@ -247,10 +247,16 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def remove_selected(self):
         for copter in self.model.user_selected():
-            row_num = self.model.data_contents.index(copter)
-            copter.client.remove()
-            self.signals.remove_client_signal.emit(row_num)
-            logging.info("Client removed from table!")
+            row_num = self.model.get_row_index(copter)
+            if row_num is not None:
+                copter.client.remove()
+
+                if not Server.remove_disconnected:
+                    self.signals.remove_client_signal.emit(row_num)
+                
+                logging.info("Client removed from table!")
+            else:
+                logging.error("Client is not in table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
