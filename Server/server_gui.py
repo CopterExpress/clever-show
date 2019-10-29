@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1220, 750)
+        MainWindow.resize(1220, 761)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setEnabled(True)
         self.centralwidget.setObjectName("centralwidget")
@@ -316,7 +316,7 @@ class Ui_MainWindow(object):
         self.action_send_Aruco_map.setText(_translate("MainWindow", "Send aruco map"))
         self.action_update_client_repo.setText(_translate("MainWindow", "Update clever-show git"))
         self.actionSend_launch_file_for_clever.setText(_translate("MainWindow", "Send launch file for clever"))
-        self.action_send_launch_file.setText(_translate("MainWindow", "Send launch file to clever"))
+        self.action_send_launch_file.setText(_translate("MainWindow", "Send launch files"))
         self.action_restart_clever.setText(_translate("MainWindow", "Restart clever service"))
         self.action_restart_clever_show.setText(_translate("MainWindow", "Restart clever-show service"))
         self.action_select_all_rows.setText(_translate("MainWindow", "Select all drones"))
