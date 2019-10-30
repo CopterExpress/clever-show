@@ -187,7 +187,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.flip_button.setEnabled(False)
 
     @pyqtSlot()
-    def selfcheck_selected(self):
+    def selfcheck_selected_old(self):
         for copter_data_row in self.model.user_selected():
             client = copter_data_row.client
 
@@ -199,6 +199,7 @@ class MainWindow(QtWidgets.QMainWindow):
             client.get_response("selfcheck", self.set_copter_data, callback_args=(6, copter_data_row))
             client.get_response("position", self.set_copter_data, callback_args=(7, copter_data_row))
             client.get_response("time", self.set_copter_data, callback_args=(8, copter_data_row))
+
 
     def set_copter_data(self, value, col, copter_data_row):
         row = self.model.get_row_index(copter_data_row)
@@ -231,10 +232,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
 
+    @pyqtSlot()
+    def selfcheck_selected(self):
+        for copter_data_row in self.model.user_selected():
+            client = copter_data_row.client
+            client.get_response("telemetry", self.update_table_data)
+
     @pyqtSlot(str)
     def update_table_data(self, message):
-        fields = message.split(';')
-        logging.info(fields)
+        fields = message.split('`')
+        logging.info(fields[8])
         # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
         copter_id = fields[0]
         git_version = fields[1]
