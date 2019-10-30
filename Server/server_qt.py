@@ -16,6 +16,7 @@ from quamash import QEventLoop, QThreadExecutor
 from server_gui import Ui_MainWindow
 
 from server import *
+import messaging_lib as messaging
 from copter_table_models import *
 from emergency import *
 
@@ -54,6 +55,24 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
 
     return inner
 
+class Signal(object):
+    class Emitter(QObject):
+        send = pyqtSignal(str)
+        def __init__(self):
+            super(Signal.Emitter, self).__init__()
+
+    def __init__(self):
+        self.emitter = Signal.Emitter()
+
+    def send_message(self, message):
+        self.emitter.send.emit(message)
+
+    def connect(self, signal, slot):
+        signal.emitter.send.connect(slot)
+
+class Sender(object):
+    def __init__(self):
+        self.signal = Signal()
 
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
@@ -70,6 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player = QtMultimedia.QMediaPlayer()
 
         self.init_model()
+        self.signal = Signal()
         
         self.show()
         
@@ -211,6 +231,33 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
 
+    @pyqtSlot(str)
+    def update_table_data(self, message):
+        fields = message.split(';')
+        logging.info(fields)
+        # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
+        copter_id = fields[0]
+        git_version = fields[1]
+        animation_id = fields[2]
+        battery_v = fields[3]
+        battery_p = fields[4]
+        sys_status = fields[5]
+        cal_status = fields[6]
+        mode = fields[7]
+        selfcheck = fields[8]
+        current_pos = fields[9]
+        start_pos = fields[10]
+        copter_time = fields[11]
+        row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
+        logging.info("Row = {}".format(row))
+        self.signals.update_data_signal.emit(row, 1, animation_id, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 2, battery_v, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 3, battery_p, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 6, selfcheck, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 7, current_pos, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 8, "{}".format(round(float(copter_time) - time.time(), 3)), ModelDataRole)
 
     #def set_copter_id(self, value, copter_data_row):
     #    col = 0
@@ -565,6 +612,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.model.data_contents[row_num].client \
                     .send_message("disarm")
 
+@messaging.message_callback("telem")
+def get_telem_data(*args, **kwargs):
+    message = kwargs.get("message", None)
+    sender.signal.send_message(message)
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -573,7 +625,9 @@ if __name__ == "__main__":
 
     #app.exec_()
     with loop:
+        sender = Sender()
         window = MainWindow()
+        sender.signal.connect(sender.signal, window.update_table_data)
 
         Client.on_first_connect = window.new_client_connected
         Client.on_connect = window.client_connection_changed
