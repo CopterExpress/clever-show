@@ -260,6 +260,10 @@ def _response_selfcheck(*args, **kwargs):
         stop_subscriber()
         return "NOT_CONNECTED_TO_FCU"
 
+@messaging.request_callback("telemetry")
+def _response_telemetry(*args, **kwargs):
+    return create_telemetry_message(telemetry)
+
 
 @messaging.request_callback("anim_id")
 def _response_animation_id(*args, **kwargs):
@@ -607,20 +611,20 @@ def telemetry_loop():
     while not rospy.is_shutdown():
         telemetry = telemetry._replace(animation_id = animation.get_id())
         telemetry = telemetry._replace(git_version = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True))
-        telemetry = telemetry._replace(battery_v = 'nan')
-        telemetry = telemetry._replace(battery_p = 'nan')
-        telemetry = telemetry._replace(calibration_status = 'NO_FCU')
-        telemetry = telemetry._replace(system_status = 'NO_FCU')
-        telemetry = telemetry._replace(mode = 'NO_FCU')
-        telemetry = telemetry._replace(selfcheck = 'NO_FCU')
-        telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
-        telemetry = telemetry._replace(start_position = 'NO_POS')
         try:
             ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
         except:
             pass
         else:
             if ros_telemetry.connected == False:
+                telemetry = telemetry._replace(battery_v = 'nan')
+                telemetry = telemetry._replace(battery_p = 'nan')
+                telemetry = telemetry._replace(calibration_status = 'NO_FCU')
+                telemetry = telemetry._replace(system_status = 'NO_FCU')
+                telemetry = telemetry._replace(mode = 'NO_FCU')
+                telemetry = telemetry._replace(selfcheck = 'NO_FCU')
+                telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
+                telemetry = telemetry._replace(start_position = 'NO_POS')
                 stop_subscriber()
                 start_subscriber()
             else:
@@ -631,6 +635,8 @@ def telemetry_loop():
                     batt_empty = batt_empty_param.value.real
                     batt_charged = batt_charged_param.value.real
                     telemetry = telemetry._replace(battery_p = '{:.2f}'.format((ros_telemetry.cell_voltage - batt_empty)/(batt_charged - batt_empty)*100.))
+                else:
+                    telemetry = telemetry._replace(battery_p = 'nan')
                 telemetry = telemetry._replace(calibration_status = get_calibration_status())
                 telemetry = telemetry._replace(system_status = get_sys_status())
                 telemetry = telemetry._replace(mode = ros_telemetry.mode)
@@ -641,6 +647,8 @@ def telemetry_loop():
                 if not math.isnan(ros_telemetry.x):
                     telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
                                                                                     math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
+                else: 
+                    telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
                 x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
                                                             x_ratio=client.active_client.X_RATIO,
                                                             y_ratio=client.active_client.Y_RATIO,
@@ -650,6 +658,8 @@ def telemetry_loop():
                 z_delta = client.active_client.Z0 + client.active_client.Z0_COMMON
                 if not math.isnan(x_start):
                     telemetry = telemetry._replace(start_position = '{:.2f} {:.2f} {:.2f}'.format(x_start+x_delta, y_start+y_delta, z_delta))
+                else:
+                    telemetry = telemetry._replace(start_position = 'NO_POS')
         if client.active_client.TELEM_TRANSMIT:
             try:
                 client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
@@ -658,9 +668,9 @@ def telemetry_loop():
         rate.sleep()
 
 def create_telemetry_message(telemetry):
-    msg = client.active_client.client_id + ';'
+    msg = client.active_client.client_id + '`'
     for key in telemetry.__dict__:
-        msg += telemetry.__dict__[key] + ';'
+        msg += telemetry.__dict__[key] + '`'
     msg += repr(time.time())
     return msg 
 
