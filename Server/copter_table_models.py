@@ -202,12 +202,16 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         if role == Qt.CheckStateRole:
             self.data_contents[row].states.checked = value
         elif role == Qt.EditRole:  # For user actions with data
-            if col == 0: # and self.on_id_changed:
-                #self.data_contents[row][col] = "Awaiting for response"
-                #self.data_contents[row].states.copter_id = None
-
-                self.data_contents[row].client.send_message("id", {"new_id": value})
-                self.data_contents[row].client.remove()
+            if col == 0: 
+                # check user hostname spelling http://man7.org/linux/man-pages/man7/hostname.7.html
+                if value[0] != '-' and len(value) <= 63 and re.match("^[A-Za-z0-9-]*$", value):
+                    self.data_contents[row].client.send_message("id", {"new_id": value})
+                    self.data_contents[row].client.remove()
+                else: 
+                    msg = QtWidgets.QMessageBox()
+                    msg.setIcon(QtWidgets.QMessageBox.Critical)
+                    msg.setText("Wrong input for the copter name!\nPlease use only A-Z, a-z, 0-9, and '-' chars.\nDon't use '-' as first char.")
+                    msg.exec_()
             else:
                 self.data_contents[row][col] = value
 
@@ -301,10 +305,11 @@ def check_selfcheck(item):
 
 
 @col_check(7)
-def check_cal_status(item):
+def check_pos_status(item):
     if not item:
         return None
-    return True
+    return str(item).split(' ')[0] != 'nan'
+
 
 
 @col_check(8)

@@ -7,7 +7,7 @@ After=network.target
 [Service]
 WorkingDirectory=/home/pi/clever-show/Drone
 ExecStart=/bin/bash -c ". /home/pi/catkin_ws/devel/setup.sh; \
-                      /usr/bin/python /home/pi/clever-show/Drone/copter_client.py"
+                      ROS_HOSTNAME=`hostname`.local /usr/bin/python /home/pi/clever-show/Drone/copter_client.py"
 KillSignal=SIGKILL
 Restart=on-failure
 RestartSec=3

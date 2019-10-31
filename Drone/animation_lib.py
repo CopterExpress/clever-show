@@ -37,10 +37,44 @@ def get_id(filepath="animation.csv"):
                 anim_id = row_0[0]
                 print("Got animation_id: {}".format(anim_id))
             else:
+                anim_id = "Empty id"
                 print("No animation id in file")
     return anim_id
 
-def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, ratio=1):
+def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1):
+    try:
+        animation_file = open(filepath)
+    except IOError:
+        logging.error("File {} can't be opened".format(filepath))
+        anim_id = "No animation"
+        return float('nan'), float('nan')
+    else:
+        with animation_file:
+            csv_reader = csv.reader(
+                animation_file, delimiter=',', quotechar='|'
+            )
+            try:
+                row_0 = csv_reader.next()
+            except:
+                return float('nan'), float('nan')
+            if len(row_0) == 1:
+                anim_id = row_0[0]
+                print("Got animation_id: {}".format(anim_id))
+                try:
+                    frame_number, x, y, z, yaw, red, green, blue = csv_reader.next()
+                except:
+                    return float('nan'), float('nan')
+            else:
+                anim_id = "Empty id"
+                print("No animation id in file")
+                try:
+                    frame_number, x, y, z, yaw, red, green, blue = row_0
+                except:
+                    return float('nan'), float('nan')
+    return float(x)*x_ratio, float(y)*y_ratio
+
+
+def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):
     imported_frames = []
     global anim_id
     try:
@@ -62,9 +96,9 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, ratio=1):
                 frame_number, x, y, z, yaw, red, green, blue = row_0
                 imported_frames.append({
                     'number': int(frame_number),
-                    'x': ratio*float(x) + x0,
-                    'y': ratio*float(y) + y0,
-                    'z': ratio*float(z) + z0,
+                    'x': x_ratio*float(x) + x0,
+                    'y': y_ratio*float(y) + y0,
+                    'z': z_ratio*float(z) + z0,
                     'yaw': float(yaw),
                     'red': int(red),
                     'green': int(green),
@@ -74,9 +108,9 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, ratio=1):
                 frame_number, x, y, z, yaw, red, green, blue = row
                 imported_frames.append({
                     'number': int(frame_number),
-                    'x': ratio*float(x) + x0,
-                    'y': ratio*float(y) + y0,
-                    'z': ratio*float(z) + z0,
+                    'x': x_ratio*float(x) + x0,
+                    'y': y_ratio*float(y) + y0,
+                    'z': z_ratio*float(z) + z0,
                     'yaw': float(yaw),
                     'red': int(red),
                     'green': int(green),

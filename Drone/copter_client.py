@@ -2,7 +2,11 @@ import os
 import time
 import math
 import rospy
+import datetime
 import logging
+import threading
+import subprocess
+from collections import namedtuple
 
 from FlightLib import FlightLib
 from FlightLib import LedLib
@@ -20,6 +24,8 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion, qua
 import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
+Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position")
+telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
 
 # logging.basicConfig(  # TODO all prints as logs
 #    level=logging.DEBUG, # INFO
@@ -36,6 +42,8 @@ logger = logging.getLogger(__name__)
 class CopterClient(client.Client):
     def load_config(self):
         super(CopterClient, self).load_config()
+        self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
+        self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
         self.FRAME_FLIPPED_HEIGHT = 0.
         self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
@@ -49,7 +57,9 @@ class CopterClient(client.Client):
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
-        self.RATIO = self.config.getfloat('ANIMATION', 'ratio')
+        self.X_RATIO = self.config.getfloat('ANIMATION', 'x_ratio')
+        self.Y_RATIO = self.config.getfloat('ANIMATION', 'y_ratio')
+        self.Z_RATIO = self.config.getfloat('ANIMATION', 'z_ratio')
         self.X0 = self.config.getfloat('PRIVATE', 'x0')
         self.Y0 = self.config.getfloat('PRIVATE', 'y0')
         self.Z0 = self.config.getfloat('PRIVATE', 'z0')
@@ -64,7 +74,7 @@ class CopterClient(client.Client):
 
     def start(self, task_manager_instance):
         client.logger.info("Init ROS node")
-        rospy.init_node('Swarm_client')
+        rospy.init_node('clever_show_client')
         if self.USE_LEDS:
             LedLib.init_led(self.LED_PIN)
         task_manager_instance.start()
@@ -92,7 +102,7 @@ class CopterClient(client.Client):
                 trans.child_frame_id = self.FRAME_ID
                 static_bloadcaster.sendTransform(trans)
         start_subscriber()
-        # print(check_state_topic())
+        telemetry_thread.start()
         super(CopterClient, self).start()
 
 
@@ -250,6 +260,10 @@ def _response_selfcheck(*args, **kwargs):
         stop_subscriber()
         return "NOT_CONNECTED_TO_FCU"
 
+@messaging.request_callback("telemetry")
+def _response_telemetry(*args, **kwargs):
+    return create_telemetry_message(telemetry)
+
 
 @messaging.request_callback("anim_id")
 def _response_animation_id(*args, **kwargs):
@@ -261,7 +275,9 @@ def _response_animation_id(*args, **kwargs):
                                             x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                             y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                             z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
-                                            ratio=client.active_client.RATIO,
+                                            x_ratio=client.active_client.X_RATIO,
+                                            y_ratio=client.active_client.Y_RATIO,
+                                            z_ratio=client.active_client.Z_RATIO,
                                             )
         # Correct start and land frames in animation
         corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -296,7 +312,11 @@ def _response_sys_status(*args, **kwargs):
 
 @messaging.request_callback("cal_status")
 def _response_cal_status(*args, **kwargs):
-    return get_calibration_status()
+    if check_state_topic(wait_new_status=True):
+        return get_calibration_status()
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
 
 @messaging.request_callback("position")
 def _response_position(*args, **kwargs):
@@ -322,25 +342,24 @@ def _command_test(*args, **kwargs):
 
 @messaging.message_callback("move_start")
 def _command_move_start_to_current_position(*args, **kwargs):
-    # Load animation
-    frames = animation.load_animation(os.path.abspath("animation.csv"),
-                                        x0=client.active_client.X0_COMMON,
-                                        y0=client.active_client.Y0_COMMON,
-                                        ratio=client.active_client.RATIO,
+    x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
+                                        x_ratio=client.active_client.X_RATIO,
+                                        y_ratio=client.active_client.Y_RATIO,
                                         )
-    # Correct start and land frames in animation
-    corrected_frames, start_action, start_delay = animation.correct_animation(frames,
-                                        check_takeoff=client.active_client.TAKEOFF_CHECK,
-                                        check_land=client.active_client.LAND_CHECK,
-                                        )
-    x_start = corrected_frames[0]['x']
-    y_start = corrected_frames[0]['y']
-    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
-    client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
-    client.active_client.config.set('PRIVATE', 'y0', telem.y - y_start)
-    client.active_client.rewrite_config()
-    client.active_client.load_config()
-    print ("Start delta: {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+    print("x_start = {}, y_start = {}".format(x_start, y_start))
+    if not math.isnan(x_start):
+        telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+        print("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
+        if not math.isnan(x_telem):
+            client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
+            client.active_client.config.set('PRIVATE', 'y0', telem.y - y_start)
+            client.active_client.rewrite_config()
+            client.active_client.load_config()
+            print ("Start delta: {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+        else:
+            print ("Wrong telemetry")
+    else:
+        print("Wrong animation file")
 
 @messaging.message_callback("reset_start")
 def _command_reset_start(*args, **kwargs):
@@ -368,10 +387,18 @@ def _command_reset_z(*args, **kwargs):
 
 @messaging.message_callback("update_repo")
 def _command_update_repo(*args, **kwargs):
-    os.system("git reset --hard origin/master")
+    os.system("mv /home/pi/clever-show/Drone/client_config.ini /home/pi/clever-show/Drone/client_config_tmp.ini")
+    os.system("git reset --hard HEAD")
+    os.system("git checkout master")
     os.system("git fetch")
-    os.system("git pull")
-    os.system("chown -R pi:pi ~/CleverSwarm")
+    os.system("git pull --rebase")
+    os.system("mv /home/pi/clever-show/Drone/client_config_tmp.ini /home/pi/clever-show/Drone/client_config.ini")
+    os.system("chown -R pi:pi /home/pi/clever-show")
+
+@messaging.message_callback("reboot_all")
+def _command_reboot_all(*args, **kwargs):
+    reboot_fcu()
+    execute_command("reboot")
 
 @messaging.message_callback("reboot_fcu")
 def _command_reboot(*args, **kwargs):
@@ -410,12 +437,30 @@ def _copter_flip(*args, **kwargs):
 
 @messaging.message_callback("takeoff")
 def _command_takeoff(*args, **kwargs):
-    task_manager.add_task(time.time(), 0, animation.takeoff,
+    print("Takeoff at {}".format(datetime.datetime.now()))
+    task_manager.add_task(0, 0, animation.takeoff,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
                               "timeout": client.active_client.TAKEOFF_TIME,
                               "safe_takeoff": client.active_client.SAFE_TAKEOFF,
                               "use_leds": client.active_client.USE_LEDS,
+                          }
+                          )
+
+@messaging.message_callback("takeoff_z")
+def _command_takeoff_z(*args, **kwargs):
+    z_str = kwargs.get("z", None)
+    if z_str is not None:
+        telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+        print("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
+        task_manager.add_task(0, 0, FlightLib.reach_point,
+                          task_kwargs={
+                              "x": telem.x,
+                              "y": telem.y,
+                              "z": float(z_str),
+                              "frame_id": client.active_client.FRAME_ID,
+                              "timeout": client.active_client.TAKEOFF_TIME,
+                              "auto_arm": True,
                           }
                           )
 
@@ -474,7 +519,9 @@ def _play_animation(*args, **kwargs):
                                         x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                         y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
                                         z0=client.active_client.Z0 + client.active_client.Z0_COMMON,
-                                        ratio=client.active_client.RATIO,
+                                        x_ratio=client.active_client.X_RATIO,
+                                        y_ratio=client.active_client.Y_RATIO,
+                                        z_ratio=client.active_client.Z_RATIO,
                                         )
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -557,8 +604,77 @@ def _play_animation(*args, **kwargs):
                     },
                     )
     #print(task_manager.task_queue)
-        
 
+def telemetry_loop():
+    global telemetry
+    rate = rospy.Rate(client.active_client.TELEM_FREQ)
+    while not rospy.is_shutdown():
+        telemetry = telemetry._replace(animation_id = animation.get_id())
+        telemetry = telemetry._replace(git_version = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True))
+        try:
+            ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+        except:
+            pass
+        else:
+            if ros_telemetry.connected == False:
+                telemetry = telemetry._replace(battery_v = 'nan')
+                telemetry = telemetry._replace(battery_p = 'nan')
+                telemetry = telemetry._replace(calibration_status = 'NO_FCU')
+                telemetry = telemetry._replace(system_status = 'NO_FCU')
+                telemetry = telemetry._replace(mode = 'NO_FCU')
+                telemetry = telemetry._replace(selfcheck = 'NO_FCU')
+                telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
+                telemetry = telemetry._replace(start_position = 'NO_POS')
+                stop_subscriber()
+                start_subscriber()
+            else:
+                telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
+                batt_empty_param = get_param('BAT_V_EMPTY')
+                batt_charged_param = get_param('BAT_V_CHARGED')
+                if batt_empty_param.success and batt_charged_param.success:
+                    batt_empty = batt_empty_param.value.real
+                    batt_charged = batt_charged_param.value.real
+                    telemetry = telemetry._replace(battery_p = '{:.2f}'.format((ros_telemetry.cell_voltage - batt_empty)/(batt_charged - batt_empty)*100.))
+                else:
+                    telemetry = telemetry._replace(battery_p = 'nan')
+                telemetry = telemetry._replace(calibration_status = get_calibration_status())
+                telemetry = telemetry._replace(system_status = get_sys_status())
+                telemetry = telemetry._replace(mode = ros_telemetry.mode)
+                check = FlightLib.selfcheck()
+                if not check:
+                    check = "OK"
+                telemetry = telemetry._replace(selfcheck = str(check))    
+                if not math.isnan(ros_telemetry.x):
+                    telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
+                                                                                    math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
+                else: 
+                    telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
+                x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
+                                                            x_ratio=client.active_client.X_RATIO,
+                                                            y_ratio=client.active_client.Y_RATIO,
+                                                            )
+                x_delta = client.active_client.X0 + client.active_client.X0_COMMON
+                y_delta = client.active_client.Y0 + client.active_client.Y0_COMMON
+                z_delta = client.active_client.Z0 + client.active_client.Z0_COMMON
+                if not math.isnan(x_start):
+                    telemetry = telemetry._replace(start_position = '{:.2f} {:.2f} {:.2f}'.format(x_start+x_delta, y_start+y_delta, z_delta))
+                else:
+                    telemetry = telemetry._replace(start_position = 'NO_POS')
+        if client.active_client.TELEM_TRANSMIT:
+            try:
+                client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
+            except Exception as e:
+                print e
+        rate.sleep()
+
+def create_telemetry_message(telemetry):
+    msg = client.active_client.client_id + '`'
+    for key in telemetry.__dict__:
+        msg += telemetry.__dict__[key] + '`'
+    msg += repr(time.time())
+    return msg 
+
+telemetry_thread = threading.Thread(target=telemetry_loop, name="Telemetry getting thread")
 
 if __name__ == "__main__":
     copter_client = CopterClient()

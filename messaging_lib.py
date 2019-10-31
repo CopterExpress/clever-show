@@ -1,4 +1,5 @@
 import io
+import os
 import sys
 import json
 import socket
@@ -243,7 +244,7 @@ class ConnectionManager(object):
         with self._close_lock:
             self._should_close = True
 
-        self._set_selector_events_mask('rw')
+        self._set_selector_events_mask('w')
         NotifierSock().notify()
 
     def _close(self):
@@ -389,6 +390,7 @@ class ConnectionManager(object):
                 logger.error("File {} can not be written due error: {}".format(filepath, error))
             else:
                 logger.info("File {} successfully received ".format(filepath))
+                os.system("chown pi:pi {}".format(filepath))
 
     def write(self):
         with self._send_lock:

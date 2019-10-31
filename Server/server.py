@@ -311,14 +311,14 @@ class Client(messaging.ConnectionManager):
         logging.info("Connection to {} closed!".format(self.copter_id))
 
     def remove(self):
-        print("closing ")
         if self.connected:
             self.close()
-        print("closed")
         if self.clients:
-            self.clients.pop(self.addr[0])
+            try:
+                self.clients.pop(self.addr[0])
+            except Exception as e:
+                logging.error(e)
         logging.info("Client {} successfully removed!".format(self.copter_id))
-        print("REMOVED")
 
     @requires_connect
     def _send(self, data):

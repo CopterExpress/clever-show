@@ -1,3 +1,4 @@
+import os
 import time
 import errno
 import random
@@ -74,6 +75,7 @@ class Client(object):
     def rewrite_config(self):
         with open(self.config_path, 'w') as file:
             self.config.write(file)
+        os.system("chown -R pi:pi /home/pi/clever-show")
 
     def write_config(self, reload_config=True, *config_options):
         for config_option in config_options:

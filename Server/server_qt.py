@@ -16,6 +16,7 @@ from quamash import QEventLoop, QThreadExecutor
 from server_gui import Ui_MainWindow
 
 from server import *
+import messaging_lib as messaging
 from copter_table_models import *
 from emergency import *
 
@@ -54,6 +55,24 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
 
     return inner
 
+class Signal(object):
+    class Emitter(QObject):
+        send = pyqtSignal(str)
+        def __init__(self):
+            super(Signal.Emitter, self).__init__()
+
+    def __init__(self):
+        self.emitter = Signal.Emitter()
+
+    def send_message(self, message):
+        self.emitter.send.emit(message)
+
+    def connect(self, signal, slot):
+        signal.emitter.send.connect(slot)
+
+class Sender(object):
+    def __init__(self):
+        self.signal = Signal()
 
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
@@ -70,6 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player = QtMultimedia.QMediaPlayer()
 
         self.init_model()
+        self.signal = Signal()
         
         self.show()
         
@@ -155,6 +175,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_restart_clever.triggered.connect(self.restart_clever)
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
+        self.ui.action_reboot_all.triggered.connect(self.reboot_all_on_selected)
         self.ui.action_set_start_to_current_position.triggered.connect(self.update_start_to_current_position)
         self.ui.action_reset_start.triggered.connect(self.reset_start)
         self.ui.action_set_z_offset_to_ground.triggered.connect(self.set_z_offset_to_ground)
@@ -169,7 +190,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.flip_button.setEnabled(False)
 
     @pyqtSlot()
-    def selfcheck_selected(self):
+    def selfcheck_selected_old(self):
         for copter_data_row in self.model.user_selected():
             client = copter_data_row.client
 
@@ -213,6 +234,39 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
 
+    @pyqtSlot()
+    def selfcheck_selected(self):
+        for copter_data_row in self.model.user_selected():
+            client = copter_data_row.client
+            client.get_response("telemetry", self.update_table_data)
+
+    @pyqtSlot(str)
+    def update_table_data(self, message):
+        fields = message.split('`')
+        logging.info(fields[8])
+        # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
+        copter_id = fields[0]
+        git_version = fields[1]
+        animation_id = fields[2]
+        battery_v = fields[3]
+        battery_p = fields[4]
+        sys_status = fields[5]
+        cal_status = fields[6]
+        mode = fields[7]
+        selfcheck = fields[8]
+        current_pos = fields[9]
+        start_pos = fields[10]
+        copter_time = fields[11]
+        row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
+        logging.info("Row = {}".format(row))
+        self.signals.update_data_signal.emit(row, 1, animation_id, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 2, battery_v, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 3, battery_p, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 6, selfcheck, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 7, current_pos, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 8, "{}".format(round(float(copter_time) - time.time(), 3)), ModelDataRole)
 
     #def set_copter_id(self, value, copter_data_row):
     #    col = 0
@@ -276,7 +330,7 @@ class MainWindow(QtWidgets.QMainWindow):
             music_dt = self.ui.music_delay_spin.value()
             asyncio.ensure_future(self.play_music_at_time(music_dt+time_now), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
-        self.selfcheck_selected()
+        # self.selfcheck_selected()
         for copter in self.model.user_selected():
             if all_checks(copter):
                 server.send_starttime(copter.client, dt+time_now)
@@ -319,7 +373,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
             if takeoff_checks(copter):
-                copter.client.send_message("takeoff")
+                if self.ui.z_checkbox.isChecked():
+                    copter.client.send_message("takeoff_z", {"z":str(self.ui.z_spin.value())})
+                else:
+                    copter.client.send_message("takeoff")
 
     @pyqtSlot()
     @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
@@ -429,12 +486,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_launch(self):
-        path = QFileDialog.getOpenFileName(self, "Select launch file for clever", filter="Launch files (*.launch)")[0]
+        path = str(QFileDialog.getExistingDirectory(self, "Select directory with launch files"))
         if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
+            print("Selected directory:", path)
+            files = [file for file in glob.glob(path + '/*.launch')]
             for copter in self.model.user_selected():
-                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
+                for file in files:
+                    filename = os.path.basename(file)
+                    copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
                 # copter.client.send_message("service_restart", {"name": "clever"})
     
     @pyqtSlot()
@@ -450,7 +509,12 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def update_client_repo(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("update_repo")  
+            copter.client.send_message("update_repo") 
+
+    @pyqtSlot()
+    def reboot_all_on_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("reboot_all") 
 
     @pyqtSlot()
     def update_start_to_current_position(self):
@@ -568,6 +632,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.model.data_contents[row_num].client \
                     .send_message("disarm")
 
+@messaging.message_callback("telem")
+def get_telem_data(*args, **kwargs):
+    message = kwargs.get("message", None)
+    sender.signal.send_message(message)
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -576,7 +645,9 @@ if __name__ == "__main__":
 
     #app.exec_()
     with loop:
+        sender = Sender()
         window = MainWindow()
+        sender.signal.connect(sender.signal, window.update_table_data)
 
         Client.on_first_connect = window.new_client_connected
         Client.on_connect = window.client_connection_changed
