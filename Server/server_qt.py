@@ -285,18 +285,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def remove_selected(self):
         for copter in self.model.user_selected():
             row_num = self.model.get_row_index(copter)
-            print("got row")
             if row_num is not None:
                 copter.client.remove()
-                #print(server.remove_disconnected)
-                print("removed tbable tlefr")
 
-                if not server.remove_disconnected:
-                    print("112541")
+                if not Server().remove_disconnected:
                     self.signals.remove_client_signal.emit(row_num)
                 
                 logging.info("Client removed from table!")
-                print("emited")
             else:
                 logging.error("Client is not in table!")
 
