@@ -458,7 +458,7 @@ class ConnectionManager(object):
                     )
                     #request.resend = False
 
-            self._request_queue.clear()
+            # self._request_queue.clear()
 
     def send_message(self, command, args=None):
         self._send(MessageManager.create_simple_message(command, args))
