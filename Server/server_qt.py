@@ -55,25 +55,6 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
 
     return inner
 
-class Signal(object):
-    class Emitter(QObject):
-        send = pyqtSignal(str)
-        def __init__(self):
-            super(Signal.Emitter, self).__init__()
-
-    def __init__(self):
-        self.emitter = Signal.Emitter()
-
-    def send_message(self, message):
-        self.emitter.send.emit(message)
-
-    def connect(self, signal, slot):
-        signal.emitter.send.connect(slot)
-
-class Sender(object):
-    def __init__(self):
-        self.signal = Signal()
-
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -89,7 +70,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player = QtMultimedia.QMediaPlayer()
 
         self.init_model()
-        self.signal = Signal()
         
         self.show()
         
@@ -635,7 +615,7 @@ class MainWindow(QtWidgets.QMainWindow):
 @messaging.message_callback("telem")
 def get_telem_data(*args, **kwargs):
     message = kwargs.get("message", None)
-    sender.signal.send_message(message)
+    window.update_table_data(message)
 
 
 if __name__ == "__main__":
@@ -645,9 +625,7 @@ if __name__ == "__main__":
 
     #app.exec_()
     with loop:
-        sender = Sender()
         window = MainWindow()
-        sender.signal.connect(sender.signal, window.update_table_data)
 
         Client.on_first_connect = window.new_client_connected
         Client.on_connect = window.client_connection_changed
