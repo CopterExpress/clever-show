@@ -611,55 +611,57 @@ def telemetry_loop():
     while not rospy.is_shutdown():
         telemetry = telemetry._replace(animation_id = animation.get_id())
         telemetry = telemetry._replace(git_version = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True))
-        try:
-            ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
-        except:
-            pass
+        x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
+                                                    x_ratio=client.active_client.X_RATIO,
+                                                    y_ratio=client.active_client.Y_RATIO,
+                                                    )
+        x_delta = client.active_client.X0 + client.active_client.X0_COMMON
+        y_delta = client.active_client.Y0 + client.active_client.Y0_COMMON
+        z_delta = client.active_client.Z0 + client.active_client.Z0_COMMON
+        if not math.isnan(x_start):
+            telemetry = telemetry._replace(start_position = '{:.2f} {:.2f} {:.2f}'.format(x_start+x_delta, y_start+y_delta, z_delta))
         else:
-            if ros_telemetry.connected == False:
-                telemetry = telemetry._replace(battery_v = 'nan')
-                telemetry = telemetry._replace(battery_p = 'nan')
-                telemetry = telemetry._replace(calibration_status = 'NO_FCU')
-                telemetry = telemetry._replace(system_status = 'NO_FCU')
-                telemetry = telemetry._replace(mode = 'NO_FCU')
-                telemetry = telemetry._replace(selfcheck = 'NO_FCU')
-                telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
-                telemetry = telemetry._replace(start_position = 'NO_POS')
-                stop_subscriber()
-                start_subscriber()
-            else:
-                telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
-                batt_empty_param = get_param('BAT_V_EMPTY')
-                batt_charged_param = get_param('BAT_V_CHARGED')
-                if batt_empty_param.success and batt_charged_param.success:
-                    batt_empty = batt_empty_param.value.real
-                    batt_charged = batt_charged_param.value.real
-                    telemetry = telemetry._replace(battery_p = '{:.2f}'.format((ros_telemetry.cell_voltage - batt_empty)/(batt_charged - batt_empty)*100.))
+            telemetry = telemetry._replace(start_position = 'NO_POS')
+        services_unavailable = FlightLib.check_ros_services_unavailable()
+        if not services_unavailable:
+            try:
+                ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+                if ros_telemetry.connected:
+                    telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
+                    batt_empty_param = get_param('BAT_V_EMPTY')
+                    batt_charged_param = get_param('BAT_V_CHARGED')
+                    batt_cells_param = get_param('BAT_N_CELLS')
+                    if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
+                        batt_empty = batt_empty_param.value.real
+                        batt_charged = batt_charged_param.value.real
+                        batt_cells = batt_cells_param.value.integer
+                        telemetry = telemetry._replace(battery_p = '{:.2f}'.format(min((ros_telemetry.voltage/batt_cells - batt_empty)/(batt_charged - batt_empty)*100., 100)))
+                    else:
+                        telemetry = telemetry._replace(battery_p = 'nan')
+                    telemetry = telemetry._replace(calibration_status = get_calibration_status())
+                    telemetry = telemetry._replace(system_status = get_sys_status())
+                    telemetry = telemetry._replace(mode = ros_telemetry.mode)
+                    check = FlightLib.selfcheck()
+                    if not check:
+                        check = "OK"
+                    telemetry = telemetry._replace(selfcheck = str(check))    
+                    if not math.isnan(ros_telemetry.x):
+                        telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
+                                                                                        math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
+                    else: 
+                        telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
                 else:
+                    telemetry = telemetry._replace(battery_v = 'nan')
                     telemetry = telemetry._replace(battery_p = 'nan')
-                telemetry = telemetry._replace(calibration_status = get_calibration_status())
-                telemetry = telemetry._replace(system_status = get_sys_status())
-                telemetry = telemetry._replace(mode = ros_telemetry.mode)
-                check = FlightLib.selfcheck()
-                if not check:
-                    check = "OK"
-                telemetry = telemetry._replace(selfcheck = str(check))    
-                if not math.isnan(ros_telemetry.x):
-                    telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
-                                                                                    math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
-                else: 
-                    telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
-                x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
-                                                            x_ratio=client.active_client.X_RATIO,
-                                                            y_ratio=client.active_client.Y_RATIO,
-                                                            )
-                x_delta = client.active_client.X0 + client.active_client.X0_COMMON
-                y_delta = client.active_client.Y0 + client.active_client.Y0_COMMON
-                z_delta = client.active_client.Z0 + client.active_client.Z0_COMMON
-                if not math.isnan(x_start):
-                    telemetry = telemetry._replace(start_position = '{:.2f} {:.2f} {:.2f}'.format(x_start+x_delta, y_start+y_delta, z_delta))
-                else:
-                    telemetry = telemetry._replace(start_position = 'NO_POS')
+                    telemetry = telemetry._replace(calibration_status = 'NO_FCU')
+                    telemetry = telemetry._replace(system_status = 'NO_FCU')
+                    telemetry = telemetry._replace(mode = 'NO_FCU')
+                    telemetry = telemetry._replace(selfcheck = 'NO_FCU')
+                    telemetry = telemetry._replace(current_position = 'NO_POS')
+            except rospy.ServiceException:
+                print "Some service is unavailable"
+        else:
+            telemetry = telemetry._replace(selfcheck = 'WAIT_ROS')
         if client.active_client.TELEM_TRANSMIT:
             try:
                 client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
