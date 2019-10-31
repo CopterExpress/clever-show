@@ -454,7 +454,7 @@ class ConnectionManager(object):
                     self._send(MessageManager.create_request(
                         request.requested_value, request_id, request.request_args.update(resend=request.resend))
                     )
-                    request.resend = False
+                    #request.resend = False
 
             self._request_queue.clear()
 
