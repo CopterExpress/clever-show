@@ -6,6 +6,7 @@ import datetime
 import logging
 import threading
 import subprocess
+import ConfigParser
 from collections import namedtuple
 
 from FlightLib import FlightLib
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 class CopterClient(client.Client):
     def load_config(self):
+        self.FLOOR_FRAME_EXISTS = False
         super(CopterClient, self).load_config()
         self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
@@ -65,7 +67,18 @@ class CopterClient(client.Client):
         self.Z0 = self.config.getfloat('PRIVATE', 'z0')
         self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
         self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
-
+        try:
+            self.FLOOR_DX = self.config.getfloat('FLOOR FRAME', 'x')
+            self.FLOOR_DY = self.config.getfloat('FLOOR FRAME', 'y')
+            self.FLOOR_DZ = self.config.getfloat('FLOOR FRAME', 'z')
+            self.FLOOR_ROLL = self.config.getfloat('FLOOR FRAME', 'roll')
+            self.FLOOR_PITCH = self.config.getfloat('FLOOR FRAME', 'pitch')
+            self.FLOOR_YAW = self.config.getfloat('FLOOR FRAME', 'yaw')
+            self.FLOOR_PARENT = self.config.get('FLOOR FRAME', 'parent')
+            self.FLOOR_FRAME_EXISTS = True           
+        except ConfigParser.Error:
+            logger.error("No floor frame!")
+            self.FLOOR_FRAME_EXISTS = False
         self.RESTART_DHCPCD = self.config.getboolean('PRIVATE', 'restart_dhcpcd')
 
     def on_broadcast_bind(self):
@@ -79,32 +92,25 @@ class CopterClient(client.Client):
             LedLib.init_led(self.LED_PIN)
         task_manager_instance.start()
         if self.FRAME_ID == "floor":
-            try:
-                self.FLOOR_DX = self.config.getfloat('FLOOR FRAME', 'x')
-                self.FLOOR_DY = self.config.getfloat('FLOOR FRAME', 'y')
-                self.FLOOR_DZ = self.config.getfloat('FLOOR FRAME', 'z')
-                self.FLOOR_ROLL = self.config.getfloat('FLOOR FRAME', 'roll')
-                self.FLOOR_PITCH = self.config.getfloat('FLOOR FRAME', 'pitch')
-                self.FLOOR_YAW = self.config.getfloat('FLOOR FRAME', 'yaw')
-                self.FLOOR_PARENT = self.config.get('FLOOR FRAME', 'parent')
-            except Exception as e:
-                raise Exception("Can't make floor frame!")
-                quit()
+            if self.FLOOR_FRAME_EXISTS: 
+                self.start_floor_frame_broadcast()
             else:
-                trans = TransformStamped()
-                trans.transform.translation.x = self.FLOOR_DX
-                trans.transform.translation.y = self.FLOOR_DY
-                trans.transform.translation.z = self.FLOOR_DZ
-                trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.FLOOR_ROLL),
-                                                                            math.radians(self.FLOOR_PITCH),
-                                                                            math.radians(self.FLOOR_YAW)))
-                trans.header.frame_id = self.FLOOR_PARENT
-                trans.child_frame_id = self.FRAME_ID
-                static_bloadcaster.sendTransform(trans)
+                logger.error("Can't make floor frame!")
         start_subscriber()
         telemetry_thread.start()
         super(CopterClient, self).start()
 
+    def start_floor_frame_broadcast(self):
+        trans = TransformStamped()
+        trans.transform.translation.x = self.FLOOR_DX
+        trans.transform.translation.y = self.FLOOR_DY
+        trans.transform.translation.z = self.FLOOR_DZ
+        trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.FLOOR_ROLL),
+                                                                    math.radians(self.FLOOR_PITCH),
+                                                                    math.radians(self.FLOOR_YAW)))
+        trans.header.frame_id = self.FLOOR_PARENT
+        trans.child_frame_id = self.FRAME_ID
+        static_bloadcaster.sendTransform(trans)
 
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
@@ -407,7 +413,9 @@ def _command_reboot(*args, **kwargs):
 
 @messaging.message_callback("service_restart")
 def _command_service_restart(*args, **kwargs):
-    restart_service(kwargs["name"])
+    service = kwargs["name"]
+    restart_service(service)
+
 
 @messaging.message_callback("repair_chrony")
 def _command_chrony_repair(*args, **kwargs):
