@@ -13,11 +13,10 @@ ModelStateRole = 999
 
 
 class CopterData:
-    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('anim_id', None),
-                                                    ('batt_v', None), ('batt_p', None),
-                                                    ('sys_status', None), ('cal_status', None), ('selfcheck', None),
-                                                    ('position', None), ("time_delta", None),
-                                                    ("client", None), ])
+    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('anim_id', None),
+                                                    ('battery', None), ('sys_status', None), ('cal_status', None),
+                                                    ('mode', None), ('selfcheck', None), ('position', None), 
+                                                    ('start_pos', None), ('time_delta', None), ('client', None)])
 
     def __init__(self, **kwargs):
         self.attrs_dict = self.class_basic_attrs.copy()
@@ -63,7 +62,7 @@ class StatedCopterData(CopterData):
 
 class Checks:
     all_checks = {}
-    takeoff_checklist = (2, 3, 4, 5, 6)
+    takeoff_checklist = (3, 4, 6, 7, 8)
 
 
 class CopterDataModel(QtCore.QAbstractTableModel):
@@ -75,8 +74,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', '  animation ID  ', 'batt V', 'batt %', '  system  ',
-                        'calibration', 'selfcheck', 'current x y z yaw frame_id', 'time delta')
+        self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'calibration', 
+                        '  mode  ', 'selfcheck', 'current x y z yaw frame_id', ' start x y z ', 'dt')
         self.data_contents = []
 
         self.on_id_changed = None
@@ -86,7 +85,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
         rows = len(contents)
         position = len(self.data_contents) if position == 'last' else position
-
         self.beginInsertRows(parent, position, position + rows - 1)
         self.data_contents[position:position] = contents
 
@@ -263,25 +261,22 @@ def col_check(col):
 
 
 @col_check(1)
+def check_ver(item):
+    if not item:
+        return None
+    return True
+
+@col_check(2)
 def check_anim(item):
     if not item:
         return None
     return str(item) != 'No animation'
 
-
-@col_check(2)
-def check_bat_v(item):
-    if not item:
-        return None
-    return float(item) > 3.2
-
-
 @col_check(3)
-def check_bat_p(item):
+def check_bat(item):
     if not item:
         return None
-    return float(item) > 30
-
+    return int(item.split(' ')[1][:-1]) > 30
 
 @col_check(4)
 def check_sys_status(item):
@@ -289,29 +284,40 @@ def check_sys_status(item):
         return None
     return item == "STANDBY"
 
-
 @col_check(5)
 def check_cal_status(item):
     if not item:
         return None
     return item == "OK"
 
-
 @col_check(6)
+def check_mode(item):
+    if not item:
+        return None
+    return True
+
+
+@col_check(7)
 def check_selfcheck(item):
     if not item:
         return None
     return item == "OK"
 
 
-@col_check(7)
+@col_check(8)
 def check_pos_status(item):
     if not item:
         return None
-    return str(item).split(' ')[0] != 'nan'
+    return item.split(' ')[0] != 'nan' or item.split(' ')[0] != 'NO_POS'
+
+@col_check(9)
+def check_start_pos_status(item):
+    if not item:
+        return None
+    return str(item).split(' ')[0] != 'NO_POS'
 
 
-@col_check(8)
+@col_check(10)
 def check_time_delta(item):
     if not item:
         return None
@@ -334,7 +340,7 @@ def takeoff_checks(copter_item):
 
 def flip_checks(copter_item):
     for col in Checks.takeoff_checklist:
-        if col != 4:
+        if col != 4 or col != 7:
             if not Checks.all_checks[col](copter_item[col]):
                 return False
         else:
