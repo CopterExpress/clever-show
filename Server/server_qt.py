@@ -167,52 +167,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.flip_button.setEnabled(False)
 
     @pyqtSlot()
-    def selfcheck_selected_old(self):
-        for copter_data_row in self.model.user_selected():
-            client = copter_data_row.client
-
-            client.get_response("anim_id", self.set_copter_data, callback_args=(1, copter_data_row))
-            client.get_response("batt_voltage", self.set_copter_data, callback_args=(2, copter_data_row))
-            client.get_response("cell_voltage", self.set_copter_data, callback_args=(3, copter_data_row))
-            client.get_response("sys_status", self.set_copter_data, callback_args=(4, copter_data_row))
-            client.get_response("cal_status", self.set_copter_data, callback_args=(5, copter_data_row))
-            client.get_response("selfcheck", self.set_copter_data, callback_args=(6, copter_data_row))
-            client.get_response("position", self.set_copter_data, callback_args=(7, copter_data_row))
-            client.get_response("time", self.set_copter_data, callback_args=(8, copter_data_row))
-
-
-    def set_copter_data(self, value, col, copter_data_row):
-        row = self.model.get_row_index(copter_data_row)
-        if row is None:
-            logging.error("No such client!")
-            return
-
-        if col == 1:
-            data = value
-        elif col == 2:
-            data = "{}".format(round(float(value), 3))
-        elif col == 3:
-            batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100  # TODO config
-            data = "{}".format(round(batt_percent, 3))
-        elif col == 4:
-            data = str(value)
-        elif col == 5:
-            data = str(value)
-        elif col == 6:
-            data = value
-        elif col == 7:
-            data = str(value)
-        elif col == 8:
-            data = "{}".format(round(float(value) - time.time(), 3))
-            if abs(float(data)) > 1:
-                copter_data_row.client.send_message("repair_chrony")
-        else:
-            logging.error("No column matched for response")
-            return
-
-        self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
-
-    @pyqtSlot()
     def selfcheck_selected(self):
         for copter_data_row in self.model.user_selected():
             client = copter_data_row.client
@@ -221,7 +175,6 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot(str)
     def update_table_data(self, message):
         fields = message.split('`')
-        logging.info(fields[8])
         # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
         copter_id = fields[0]
         git_version = fields[1]
@@ -236,27 +189,16 @@ class MainWindow(QtWidgets.QMainWindow):
         start_pos = fields[10]
         copter_time = fields[11]
         row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
-        logging.info("Row = {}".format(row))
-        self.signals.update_data_signal.emit(row, 1, animation_id, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 2, battery_v, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 3, battery_p, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 1, git_version, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 2, animation_id, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 3, "{}V {}%".format(battery_v, battery_p), ModelDataRole)
         self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
         self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 6, selfcheck, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 7, current_pos, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 8, "{}".format(round(float(copter_time) - time.time(), 3)), ModelDataRole)
-
-    #def set_copter_id(self, value, copter_data_row):
-    #    col = 0
-    #    row = self.model.get_row_index(copter_data_row)
-    #    if row is None:
-    #        logging.error("No such client!")
-    #        return
-    #    logging.info("SET COPTER ID TO {}".format(value))
-    #
-    #    copter_data_row.client.copter_id = value
-    #    self.signals.update_data_signal.emit(row, col, value, ModelDataRole)
-    #    self.signals.update_data_signal.emit(row, col, True, ModelStateRole)
+        self.signals.update_data_signal.emit(row, 6, mode, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 7, selfcheck, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 8, current_pos, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 9, start_pos, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 10, "{}".format(round(float(copter_time) - time.time(), 3)), ModelDataRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
@@ -400,13 +342,12 @@ class MainWindow(QtWidgets.QMainWindow):
             print("Selected directory:", path)
             files = [file for file in glob.glob(path + '/*.csv')]
             names = [os.path.basename(file).split(".")[0] for file in files]
-            # print(files)
             for file, name in zip(files, names):
                 for copter in self.model.user_selected():
                     if name == copter.copter_id:
                         copter.client.send_file(file, "animation.csv")  # TODO config
                 else:
-                    print("Filename has no matches with any drone selected")
+                    logging.info("Filename has no matches with any drone selected")
 
     @pyqtSlot()
     def send_calibrations(self):
@@ -422,7 +363,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if name == copter.copter_id:
                         copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
                 else:
-                    print("Filename has no matches with any drone selected")
+                    logging.info("Filename has no matches with any drone selected")
 
     @pyqtSlot()
     def send_configurations(self):
@@ -435,7 +376,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for section in sendable_config.sections():
                 for option in dict(sendable_config.items(section)):
                     value = sendable_config[section][option]
-                    logging.debug("Got item from config:".format(section, option, value))
+                    logging.debug("Got item from config: {} {} {}".format(section, option, value))
                     options.append(ConfigOption(section, option, value))
 
             for copter in self.model.user_selected():
