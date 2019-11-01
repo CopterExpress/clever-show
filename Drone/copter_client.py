@@ -635,7 +635,7 @@ def telemetry_loop():
                         batt_empty = batt_empty_param.value.real
                         batt_charged = batt_charged_param.value.real
                         batt_cells = batt_cells_param.value.integer
-                        telemetry = telemetry._replace(battery_p = '{:.2f}'.format(min((ros_telemetry.voltage/batt_cells - batt_empty)/(batt_charged - batt_empty)*100., 100)))
+                        telemetry = telemetry._replace(battery_p = '{}'.format(int(min((ros_telemetry.voltage/batt_cells - batt_empty)/(batt_charged - batt_empty)*100., 100))))
                     else:
                         telemetry = telemetry._replace(battery_p = 'nan')
                     telemetry = telemetry._replace(calibration_status = get_calibration_status())
