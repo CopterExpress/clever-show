@@ -1,6 +1,8 @@
 [Unit]
 Description=Clever Show Client Service
-After=clever.service
+Requires=clever.service
+Requires=network.target
+After=network.target
 
 [Service]
 WorkingDirectory=/home/pi/clever-show/Drone

@@ -428,6 +428,7 @@
     <addaction name="action_remove_row"/>
     <addaction name="separator"/>
     <addaction name="menuDeveloper_mode_2"/>
+    <addaction name="action_remove_row"/>
    </widget>
    <widget class="QMenu" name="menuMusic">
     <property name="title">

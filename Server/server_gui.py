@@ -270,6 +270,7 @@ class Ui_MainWindow(object):
         self.menuDrone.addAction(self.action_remove_row)
         self.menuDrone.addSeparator()
         self.menuDrone.addAction(self.menuDeveloper_mode_2.menuAction())
+        self.menuDrone.addAction(self.action_remove_row)
         self.menuMusic.addAction(self.action_select_music_file)
         self.menuMusic.addAction(self.action_play_music)
         self.menuMusic.addAction(self.action_stop_music)
