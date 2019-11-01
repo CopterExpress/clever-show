@@ -311,7 +311,7 @@ def check_selfcheck(item):
 def check_pos_status(item):
     if not item:
         return None
-    return item.split(' ')[0] != 'nan' or item.split(' ')[0] != 'NO_POS'
+    return item.split(' ')[0] != 'nan' and item.split(' ')[0] != 'NO_POS'
 
 @col_check(9)
 def check_start_pos_status(item):
