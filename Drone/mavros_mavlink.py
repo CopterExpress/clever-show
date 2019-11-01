@@ -85,7 +85,10 @@ def get_calibration_status():
     if acc_status.value.integer == 0 and acc_status.success:
         status_text += "acc: uncalibrated; "    
     if status_text == "":
-        status_text = "OK"
+        if not gyro_status.success or not mag_status.success or not acc_status.success:
+            status_text = "NO_INFO"
+        else:
+            status_text = "OK"
     else:
         status_text = status_text[:-2]
     return status_text
