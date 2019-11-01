@@ -276,7 +276,10 @@ def check_anim(item):
 def check_bat(item):
     if not item:
         return None
-    return int(item.split(' ')[1][:-1]) > 30
+    if item == "NO_INFO":
+        return False
+    else:
+        return float(item.split(' ')[1][:-1]) > 30
 
 @col_check(4)
 def check_sys_status(item):
@@ -294,7 +297,7 @@ def check_cal_status(item):
 def check_mode(item):
     if not item:
         return None
-    return True
+    return (item != "NO_FCU") and not ("CMODE" in item)
 
 
 @col_check(7)

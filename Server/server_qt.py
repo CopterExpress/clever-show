@@ -181,6 +181,10 @@ class MainWindow(QtWidgets.QMainWindow):
         animation_id = fields[2]
         battery_v = fields[3]
         battery_p = fields[4]
+        if battery_v == 'nan' or battery_p == 'nan':
+            battery_info = "NO_INFO"
+        else:
+            battery_info = "{}V {}%".format(battery_v, battery_p)
         sys_status = fields[5]
         cal_status = fields[6]
         mode = fields[7]
@@ -188,17 +192,18 @@ class MainWindow(QtWidgets.QMainWindow):
         current_pos = fields[9]
         start_pos = fields[10]
         copter_time = fields[11]
+        time_delta = "{}".format(round(float(copter_time) - time.time(), 3))
         row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
         self.signals.update_data_signal.emit(row, 1, git_version, ModelDataRole)
         self.signals.update_data_signal.emit(row, 2, animation_id, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 3, "{}V {}%".format(battery_v, battery_p), ModelDataRole)
+        self.signals.update_data_signal.emit(row, 3, battery_info, ModelDataRole)
         self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
         self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
         self.signals.update_data_signal.emit(row, 6, mode, ModelDataRole)
         self.signals.update_data_signal.emit(row, 7, selfcheck, ModelDataRole)
         self.signals.update_data_signal.emit(row, 8, current_pos, ModelDataRole)
         self.signals.update_data_signal.emit(row, 9, start_pos, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 10, "{}".format(round(float(copter_time) - time.time(), 3)), ModelDataRole)
+        self.signals.update_data_signal.emit(row, 10, time_delta, ModelDataRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
