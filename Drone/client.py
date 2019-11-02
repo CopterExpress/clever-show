@@ -105,6 +105,8 @@ class Client(object):
 
     def start(self):
         logger.info("Starting client")
+        messaging.NotifierSock().init(self.selector)
+
         try:
             while True:
                 self._reconnect()
@@ -195,6 +197,7 @@ class Client(object):
             #    self.server_connection.send_message("ping")
             #    self._last_ping_time = time.time()
             # logging.debug("tick")
+
             for key, mask in events:  # TODO add notifier to client!
                 connection = key.data
                 if connection is None:

@@ -494,40 +494,42 @@ class ConnectionManager(object):
             ))
 
 
-class NotifierSock(Singleton):  # TODO remake as connecting ONLY to self socket and selector
+class NotifierSock(Singleton):
     def __init__(self):
-        self.receive_socket = None
-        self.addr = None
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self._server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-        self._notify_socket = None
-        self._notify_lock = threading.Lock()
+        self._sending_sock = socket.socket()
+        self._send_lock = threading.Lock()
 
-    def bind(self, server_addr):
-        self._notify_socket = socket.socket()
-        self._notify_socket.connect(server_addr)
-        logger.info("Notify socket: bind")
+        self._receiving_sock = None
 
-    def connect(self, _, client_socket, client_addr):
-        self.receive_socket = client_socket
-        self.addr = client_addr
+    def init(self, selector, port=26000):
+        port += random.randint(0, 100)  # local testing fix
 
+        self._server_socket.bind(('', port))
+        self._server_socket.listen(1)
+        self._sending_sock.connect(('127.0.0.1', port))
+        self._receiving_sock, _ = self._server_socket.accept()
         logger.info("Notify socket: connected")
 
+        selector.register(self._receiving_sock, selectors.EVENT_READ, data=self)
+        logger.info("Notify socket: selector registered")
+
     def notify(self):
-        with self._notify_lock:
-            if self.addr is not None:
-                self._notify_socket.sendall(bytes(1))
+        with self._send_lock:
+            if self._receiving_sock is not None:
+                self._sending_sock.sendall(bytes(1))
                 logger.debug("Notify socket: notified")
 
     def process_events(self, mask):
-        if mask & selectors.EVENT_READ:
+        if mask & selectors.EVENT_READ and self._receiving_sock is not None:
             try:
-                data = self.receive_socket.recv(1024)
-            except Exception:  # TODO remove
+                self._receiving_sock.recv(1024)
+                logger.debug("Notify socket: received")
+            except io.BlockingIOError:
                 pass
-            else:
-                if data:
-                    logger.debug("Notifier received {} from {}".format(data, self.addr))
-                else:
-                    self.addr = None
-                    logger.warning("Notifier: connection to {} lost!".format(self.addr))
+            except Exception as e:
+                print(e)

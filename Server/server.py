@@ -134,11 +134,12 @@ class Server(messaging.Singleton):
     # noinspection PyArgumentList
     def _client_processor(self):
         logging.info("Client processor (selector) thread started!")
+
+        messaging.NotifierSock().init(self.sel)
+
         self.server_socket.listen()
         self.server_socket.setblocking(False)
         self.sel.register(self.server_socket, selectors.EVENT_READ, data=None) #| selectors.EVENT_WRITE
-
-        messaging.NotifierSock().bind((self.ip, self.port))
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select()
@@ -165,11 +166,7 @@ class Server(messaging.Singleton):
         logging.info("Got connection from: {}".format(str(addr)))
         conn.setblocking(False)
 
-        if addr[0] == self.ip and messaging.NotifierSock().addr is None:
-            client = messaging.NotifierSock()
-            logging.info("Notifier sock client")
-
-        elif not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
+        if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
             logging.info("New client")
         else:
