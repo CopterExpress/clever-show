@@ -356,7 +356,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
     if not math.isnan(x_start):
         telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
         print("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
-        if not math.isnan(x_telem):
+        if not math.isnan(telem.x):
             client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
             client.active_client.config.set('PRIVATE', 'y0', telem.y - y_start)
             client.active_client.rewrite_config()
