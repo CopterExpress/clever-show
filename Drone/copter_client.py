@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import math
 import rospy
@@ -28,17 +29,42 @@ static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position")
 telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
 
-# logging.basicConfig(  # TODO all prints as logs
-#    level=logging.DEBUG, # INFO
-#    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
-#    handlers=[
-#        logging.StreamHandler(),
-#    ])
+logging.basicConfig(  # TODO all prints as logs
+   level=logging.DEBUG, # INFO
+   stream=sys.stdout,
+   format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
+   handlers=[
+       logging.StreamHandler(sys.stdout),
+   ])
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+handler.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
+animation_logger = logging.getLogger('animation_lib')
+animation_logger.setLevel(logging.INFO)
+animation_logger.addHandler(handler)
 
-# import ros_logging
+client_logger = logging.getLogger('client')
+client_logger.setLevel(logging.DEBUG)
+client_logger.addHandler(handler)
+
+messaging_logger = logging.getLogger('messaging_lib')
+messaging_logger.setLevel(logging.INFO)
+messaging_logger.addHandler(handler)
+
+tasking_logger = logging.getLogger('tasking_lib')
+tasking_logger.setLevel(logging.INFO)
+tasking_logger.addHandler(handler)
+
+flightlib_logger = logging.getLogger('FlightLib')
+flightlib_logger.setLevel(logging.INFO)
+flightlib_logger.addHandler(handler)
 
 class CopterClient(client.Client):
     def load_config(self):
@@ -77,7 +103,7 @@ class CopterClient(client.Client):
             self.FLOOR_PARENT = self.config.get('FLOOR FRAME', 'parent')
             self.FLOOR_FRAME_EXISTS = True           
         except ConfigParser.Error:
-            logger.error("No floor frame!")
+            rospy.logerror("No floor frame!")
             self.FLOOR_FRAME_EXISTS = False
         self.RESTART_DHCPCD = self.config.getboolean('PRIVATE', 'restart_dhcpcd')
 
@@ -86,7 +112,7 @@ class CopterClient(client.Client):
         restart_service("chrony")
 
     def start(self, task_manager_instance):
-        client.logger.info("Init ROS node")
+        rospy.loginfo("Init ROS node")
         rospy.init_node('clever_show_client')
         if self.USE_LEDS:
             LedLib.init_led(self.LED_PIN)
@@ -95,7 +121,7 @@ class CopterClient(client.Client):
             if self.FLOOR_FRAME_EXISTS: 
                 self.start_floor_frame_broadcast()
             else:
-                logger.error("Can't make floor frame!")
+                rospy.logerror("Can't make floor frame!")
         start_subscriber()
         telemetry_thread.start()
         super(CopterClient, self).start()
@@ -123,7 +149,7 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
         with open(path, 'r') as f:
             raw_content = f.read()
     except IOError as e:
-        print("Reading error {}".format(e))
+        logger.error("Reading error {}".format(e))
         return False
 
     content = raw_content.split(" ")
@@ -131,11 +157,11 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
     try:
         current_ip = content[ip_index]
     except IndexError:
-        print("Something wrong with config")
+        logger.error("Something wrong with config")
         return False
 
     if "." not in current_ip:
-        print("That's not ip!")
+        logger.debug("That's not ip!")
         return False
 
     if current_ip != ip:
@@ -145,7 +171,7 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
             with open(path, 'w') as f:
                 f.write(" ".join(content))
         except IOError:
-            print("Error writing")
+            logger.error("Error writing")
             return False
 
     return True
@@ -157,7 +183,7 @@ def configure_hostname(hostname):
         with open(path, 'r') as f:
             raw_content = f.read()
     except IOError as e:
-        print("Reading error {}".format(e))
+        logger.error("Reading error {}".format(e))
         return False
 
     current_hostname = str(raw_content)
@@ -168,7 +194,7 @@ def configure_hostname(hostname):
             with open(path, 'w') as f:
                 f.write(content)
         except IOError:
-            print("Error writing")
+            logger.error("Error writing")
             return False
 
     return True
@@ -180,7 +206,7 @@ def configure_hosts(hostname):
         with open(path, 'r') as f:
             raw_content = f.read()
     except IOError as e:
-        print("Reading error {}".format(e))
+        logger.error("Reading error {}".format(e))
         return False
 
     index_start = raw_content.find("127.0.1.1", )
@@ -193,7 +219,7 @@ def configure_hosts(hostname):
             with open(path, 'w') as f:
                 f.write(content)
         except IOError:
-            print("Error writing")
+            logger.error("Error writing")
             return False
 
     return True
@@ -208,7 +234,7 @@ def configure_bashrc(hostname):
         with open(path, 'r') as f:
             raw_content = f.read()
     except IOError as e:
-        print("Reading error {}".format(e))
+        logger.error("Reading error {}".format(e))
         return False
 
     index_start = raw_content.find("ROS_HOSTNAME='", ) + 14
@@ -221,7 +247,7 @@ def configure_bashrc(hostname):
             with open(path, 'w') as f:
                 f.write(content)
         except IOError:
-            print("Error writing")
+            logger.error("Error writing")
             return False
 
     return True
@@ -276,7 +302,7 @@ def _response_animation_id(*args, **kwargs):
     # Load animation
     result = animation.get_id()
     if result != 'No animation':
-        print ("Saving corrected animation")
+        logger.debug ("Saving corrected animation")
         frames = animation.load_animation(os.path.abspath("animation.csv"),
                                             x0=client.active_client.X0 + client.active_client.X0_COMMON,
                                             y0=client.active_client.Y0 + client.active_client.Y0_COMMON,
@@ -290,7 +316,7 @@ def _response_animation_id(*args, **kwargs):
                                             check_takeoff=client.active_client.TAKEOFF_CHECK,
                                             check_land=client.active_client.LAND_CHECK,
                                             )
-        print("Start action: {}".format(start_action))
+        logger.debug("Start action: {}".format(start_action))
         # Save corrected animation
         animation.save_corrected_animation(corrected_frames)
     return result
@@ -344,6 +370,7 @@ def _calibrate_level(*args, **kwargs):
 @messaging.message_callback("test")
 def _command_test(*args, **kwargs):
     logger.info("logging info test")
+    rospy.logdebug("ros logdebug test")
     print("stdout test")
 
 @messaging.message_callback("move_start")
@@ -352,20 +379,20 @@ def _command_move_start_to_current_position(*args, **kwargs):
                                         x_ratio=client.active_client.X_RATIO,
                                         y_ratio=client.active_client.Y_RATIO,
                                         )
-    print("x_start = {}, y_start = {}".format(x_start, y_start))
+    logger.debug("x_start = {}, y_start = {}".format(x_start, y_start))
     if not math.isnan(x_start):
         telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
-        print("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
+        logger.debug("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
         if not math.isnan(telem.x):
             client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
             client.active_client.config.set('PRIVATE', 'y0', telem.y - y_start)
             client.active_client.rewrite_config()
             client.active_client.load_config()
-            print ("Start delta: {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+            logger.info ("Set start delta: {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
         else:
-            print ("Wrong telemetry")
+            logger.debug ("Wrong telemetry")
     else:
-        print("Wrong animation file")
+        logger.debug("Wrong animation file")
 
 @messaging.message_callback("reset_start")
 def _command_reset_start(*args, **kwargs):
@@ -373,7 +400,7 @@ def _command_reset_start(*args, **kwargs):
     client.active_client.config.set('PRIVATE', 'y0', 0)
     client.active_client.rewrite_config()
     client.active_client.load_config()
-    print ("Reset start to {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
+    logger.info ("Reset start to {:.2f} {:.2f}".format(client.active_client.X0, client.active_client.Y0))
 
 @messaging.message_callback("set_z_to_ground")
 def _command_set_z(*args, **kwargs):
@@ -381,14 +408,14 @@ def _command_set_z(*args, **kwargs):
     client.active_client.config.set('PRIVATE', 'z0', telem.z)
     client.active_client.rewrite_config()
     client.active_client.load_config()
-    print ("Set z offset to {:.2f}".format(client.active_client.Z0))
+    logger.info ("Set z offset to {:.2f}".format(client.active_client.Z0))
 
 @messaging.message_callback("reset_z_offset")
 def _command_reset_z(*args, **kwargs):
     client.active_client.config.set('PRIVATE', 'z0', 0)
     client.active_client.rewrite_config()
     client.active_client.load_config()
-    print ("Reset z offset to {:.2f}".format(client.active_client.Z0))
+    logger.info ("Reset z offset to {:.2f}".format(client.active_client.Z0))
 
 
 @messaging.message_callback("update_repo")
@@ -445,7 +472,7 @@ def _copter_flip(*args, **kwargs):
 
 @messaging.message_callback("takeoff")
 def _command_takeoff(*args, **kwargs):
-    print("Takeoff at {}".format(datetime.datetime.now()))
+    logger.info("Takeoff at {}".format(datetime.datetime.now()))
     task_manager.add_task(0, 0, animation.takeoff,
                           task_kwargs={
                               "z": client.active_client.TAKEOFF_HEIGHT,
@@ -460,7 +487,7 @@ def _command_takeoff_z(*args, **kwargs):
     z_str = kwargs.get("z", None)
     if z_str is not None:
         telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
-        print("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
+        logger.info("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
         task_manager.add_task(0, 0, FlightLib.reach_point,
                           task_kwargs={
                               "x": telem.x,
@@ -516,12 +543,12 @@ def _play_animation(*args, **kwargs):
     start_time = float(kwargs["time"])
     # Check if animation file is available
     if animation.get_id() == 'No animation':
-        print("Can't start animation without animation file!")
+        logger.error("Can't start animation without animation file!")
         return
 
     task_manager.reset(interrupt_next_task=False)
     
-    print("Start time = {}, wait for {} seconds".format(start_time, start_time-time.time()))
+    logger.info("Start time = {}, wait for {} seconds".format(start_time, start_time-time.time()))
     # Load animation
     frames = animation.load_animation(os.path.abspath("animation.csv"),
                                         x0=client.active_client.X0 + client.active_client.X0_COMMON,
@@ -564,7 +591,6 @@ def _play_animation(*args, **kwargs):
         frame_time = rfp_time + client.active_client.RFP_TIME
 
     elif start_action == 'arm':
-        print ("Start_time")
         # Calculate start time
         start_time += start_delay
         # Arm
@@ -587,6 +613,7 @@ def _play_animation(*args, **kwargs):
                         )
         # Calculate first frame start time
         frame_time += client.active_client.FRAME_DELAY # TODO Think about arming time   
+    logger.debug(task_manager.task_queue)
     # Play animation file
     for frame in corrected_frames:
         point, color, yaw = animation.convert_frame(frame)
@@ -611,7 +638,6 @@ def _play_animation(*args, **kwargs):
                         "use_leds": client.active_client.USE_LEDS,
                     },
                     )
-    #print(task_manager.task_queue)
 
 def telemetry_loop():
     global telemetry
@@ -667,14 +693,19 @@ def telemetry_loop():
                     telemetry = telemetry._replace(selfcheck = 'NO_FCU')
                     telemetry = telemetry._replace(current_position = 'NO_POS')
             except rospy.ServiceException:
-                print "Some service is unavailable"
+                rospy.logdebug("Some service is unavailable")
+            except AttributeError as e:
+                rospy.logdebug(e)
+            except rospy.TransportException as e:
+                rospy.logdebug(e)
         else:
             telemetry = telemetry._replace(selfcheck = 'WAIT_ROS')
         if client.active_client.TELEM_TRANSMIT:
             try:
                 client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
-            except Exception as e:
-                print e
+            except AttributeError as e:
+                rospy.logdebug(e)
+
         rate.sleep()
 
 def create_telemetry_message(telemetry):
@@ -687,11 +718,7 @@ def create_telemetry_message(telemetry):
 telemetry_thread = threading.Thread(target=telemetry_loop, name="Telemetry getting thread")
 
 if __name__ == "__main__":
+    
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
     copter_client.start(task_manager)
-
-    # ros_logging.route_logger_to_ros()
-    # ros_logging.route_logger_to_ros("__main__")
-    # ros_logging.route_logger_to_ros("client")
-    # ros_logging.route_logger_to_ros("messaging")
