@@ -77,7 +77,7 @@ def check(check_name):
             if msgs:
                 return msgs
             else:
-                logger.info("[{}]: OK".format(check_name))
+                logger.debug("[{}]: OK".format(check_name))
                 return None
 
         checklist.append(wrapper)
