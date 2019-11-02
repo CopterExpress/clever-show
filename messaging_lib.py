@@ -5,6 +5,7 @@ import json
 import socket
 import struct
 import random
+import inspect
 import logging
 import threading
 import collections
@@ -34,7 +35,7 @@ def get_ip_address():
             ip_socket.connect(("8.8.8.8", 80))
             return ip_socket.getsockname()[0]
     except OSError:
-        logging.warning("No network connection detected, using localhost")
+        logger.warning("No network connection detected, using localhost")
         return "localhost"
 
 
@@ -194,7 +195,7 @@ class ConnectionManager(object):
     messages_callbacks = {}
     requests_callbacks = {}
 
-    def __init__(self):
+    def __init__(self, whoami = "computer"):
         self.selector = None
         self.socket = None
         self.addr = None
@@ -203,6 +204,8 @@ class ConnectionManager(object):
 
         self._recv_buffer = b""
         self._send_buffer = b""
+
+        self.whoami = whoami
 
         self._send_queue = collections.deque()
         self._received_queue = collections.deque()
@@ -228,7 +231,7 @@ class ConnectionManager(object):
             raise ValueError("Invalid events mask mode {}.".format(mode))
 
         key = self.selector.modify(self.socket, events, data=self)
-        logging.debug("Switched selector of {} to mode {}".format(self.addr, key.events))
+        logger.debug("Switched selector of {} to mode {}".format(self.addr, key.events))
         return key
 
     def connect(self, client_selector, client_socket, client_addr):
@@ -390,7 +393,9 @@ class ConnectionManager(object):
                 logger.error("File {} can not be written due error: {}".format(filepath, error))
             else:
                 logger.info("File {} successfully received ".format(filepath))
-                os.system("chown pi:pi {}".format(filepath))
+                if self.whoami == "pi":
+                    logger.info("Return rights to pi:pi after file transfer")
+                    os.system("chown pi:pi {}".format(filepath))
 
     def write(self):
         with self._send_lock:

@@ -17,7 +17,6 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir) 
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 import messaging_lib as messaging
@@ -31,7 +30,7 @@ class Client(object):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
 
-        self.server_connection = messaging.ConnectionManager()
+        self.server_connection = messaging.ConnectionManager("pi")
 
         self.server_host = None
         self.server_port = None

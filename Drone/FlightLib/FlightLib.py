@@ -22,7 +22,8 @@ get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 landing = rospy.ServiceProxy('/land', Trigger)
 
-services_list = [navigate, set_position, set_rates, set_mode, get_telemetry, arming,landing]
+services_list = ['/navigate', '/set_position', '/set_rates', '/mavros/set_mode', 
+                '/get_telemetry', '/mavros/cmd/arming', '/land', '/mavros/param/get']
 
 logger.info("Proxy services inited")
 
@@ -76,7 +77,7 @@ def check(check_name):
             if msgs:
                 return msgs
             else:
-                logger.info("[{}]: OK".format(check_name))
+                logger.debug("[{}]: OK".format(check_name))
                 return None
 
         checklist.append(wrapper)
@@ -88,15 +89,22 @@ def check(check_name):
 def _check_nans(*values):
     return any(math.isnan(x) for x in values)
 
+def check_ros_services_unavailable():
+    unavailable_services = []
+    for service in services_list:
+        try:
+            rospy.wait_for_service(service, timeout=0.1)
+        except (rospy.ServiceException, rospy.ROSException):
+            unavailable_services.append(service)
+    return unavailable_services
 
 @check("Ros services")
 def check_ros_services():
-    timeout = 0.1
     for service in services_list:
         try:
-            service.wait_for_service(timeout=timeout)
-        except (rospy.ServiceException, rospy.ROSException) as e:
-            yield ("ROS service {} is not available!".format(service.name))
+            rospy.wait_for_service(service, timeout=0.1)
+        except (rospy.ServiceException, rospy.ROSException):
+            yield ("ROS service {} is not available!".format(service))
 
 
 @check("FCU connection")
