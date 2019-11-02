@@ -17,12 +17,24 @@ try:
 except ImportError:
     import selectors2 as selectors
 
+
 # import logging_lib
 
-PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
-                                                           "callback", "callback_args", "callback_kwargs",
-                                                           "request_args", "resend",
-                                                           ])
+
+class Namespace:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+
+class PendingRequest(Namespace): pass
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -461,9 +473,7 @@ class ConnectionManager(object):
                     self._send(MessageManager.create_request(
                         request.requested_value, request_id, request.request_args.update(resend=request.resend))
                     )
-                    #request.resend = False
-
-            # self._request_queue.clear()
+                    request.resend = False
 
     def send_message(self, command, args=None):
         self._send(MessageManager.create_simple_message(command, args))
@@ -484,7 +494,7 @@ class ConnectionManager(object):
             ))
 
 
-class NotifierSock(Singleton):  #TODO remake as connecting ONLY to self socket and selector
+class NotifierSock(Singleton):  # TODO remake as connecting ONLY to self socket and selector
     def __init__(self):
         self.receive_socket = None
         self.addr = None
@@ -521,4 +531,3 @@ class NotifierSock(Singleton):  #TODO remake as connecting ONLY to self socket a
                 else:
                     self.addr = None
                     logger.warning("Notifier: connection to {} lost!".format(self.addr))
-
