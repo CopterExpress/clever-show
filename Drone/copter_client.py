@@ -26,8 +26,6 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion, qua
 import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
-Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position")
-telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
 
 logging.basicConfig(  # TODO all prints as logs
    level=logging.DEBUG, # INFO
@@ -123,7 +121,8 @@ class CopterClient(client.Client):
             else:
                 rospy.logerror("Can't make floor frame!")
         start_subscriber()
-        telemetry_thread.start()
+
+        telemetry.start_loop()
         super(CopterClient, self).start()
 
     def start_floor_frame_broadcast(self):
@@ -292,9 +291,10 @@ def _response_selfcheck(*args, **kwargs):
         stop_subscriber()
         return "NOT_CONNECTED_TO_FCU"
 
+
 @messaging.request_callback("telemetry")
 def _response_telemetry(*args, **kwargs):
-    return create_telemetry_message(telemetry)
+    return telemetry.create_msg_contents()
 
 
 @messaging.request_callback("anim_id")
@@ -639,86 +639,145 @@ def _play_animation(*args, **kwargs):
                     },
                     )
 
-def telemetry_loop():
-    global telemetry
-    rate = rospy.Rate(client.active_client.TELEM_FREQ)
-    while not rospy.is_shutdown():
-        telemetry = telemetry._replace(animation_id = animation.get_id())
-        telemetry = telemetry._replace(git_version = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True))
+
+class Telemetry:
+    def __init__(self):
+        self.git_version = None
+        self.animation_id = None
+        self.battery_v = None
+        self.battery_p = None
+        self.system_status = None
+        self.calibration_status = None
+        self.mode = None
+        self.selfcheck = None
+        self.current_position = None
+        self.start_position = None
+
+    @classmethod
+    def get_git_version(cls):
+        return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True)
+
+    @classmethod
+    def get_start_position(cls):
         x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
-                                                    x_ratio=client.active_client.X_RATIO,
-                                                    y_ratio=client.active_client.Y_RATIO,
-                                                    )
+                                                  x_ratio=client.active_client.X_RATIO,
+                                                  y_ratio=client.active_client.Y_RATIO,
+                                                  )
         x_delta = client.active_client.X0 + client.active_client.X0_COMMON
         y_delta = client.active_client.Y0 + client.active_client.Y0_COMMON
         z_delta = client.active_client.Z0 + client.active_client.Z0_COMMON
-        if not math.isnan(x_start):
-            telemetry = telemetry._replace(start_position = '{:.2f} {:.2f} {:.2f}'.format(x_start+x_delta, y_start+y_delta, z_delta))
+
+        return x_start+x_delta, y_start+y_delta, z_delta
+
+    @classmethod
+    def _get_battery(cls, ros_telemetry):
+        battery_v = ros_telemetry.voltage
+
+        batt_empty_param = get_param('BAT_V_EMPTY')
+        batt_charged_param = get_param('BAT_V_CHARGED')
+        batt_cells_param = get_param('BAT_N_CELLS')
+
+        if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
+            batt_empty = batt_empty_param.value.real
+            batt_charged = batt_charged_param.value.real
+            batt_cells = batt_cells_param.value.integer
+
+            battery_p = (ros_telemetry.voltage / batt_cells - batt_empty) / (batt_charged - batt_empty) * 1.
+            battery_p = max(min(battery_p, 1), 0)
         else:
-            telemetry = telemetry._replace(start_position = 'NO_POS')
+            battery_p = float('nan')
+
+        return battery_v, battery_p
+
+    @classmethod
+    def get_battery(cls):
+        ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+
+        if ros_telemetry.connected:
+            return cls._get_battery(ros_telemetry)
+
+        return float('nan'), float('nan')
+
+    @classmethod
+    def get_selfcheck(cls):
+        check = FlightLib.selfcheck()
+        if not check:
+            check = ["OK"]
+        return check
+
+    @classmethod
+    def _get_position(cls, ros_telemetry):
+        x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
+        if not FlightLib._check_nans(x, y, z):
+            return x, y, z, math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID
+        return 'NO_POS'
+
+    def update_telemetry(self):
+        self._reset_telemetry_values()
+
+        self.animation_id = animation.get_id()
+        self.git_version = self.get_git_version()
+        self.start_position = self.get_start_position()
+
         services_unavailable = FlightLib.check_ros_services_unavailable()
         if not services_unavailable:
-            try:
-                ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
-                if ros_telemetry.connected:
-                    telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
-                    batt_empty_param = get_param('BAT_V_EMPTY')
-                    batt_charged_param = get_param('BAT_V_CHARGED')
-                    batt_cells_param = get_param('BAT_N_CELLS')
-                    if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
-                        batt_empty = batt_empty_param.value.real
-                        batt_charged = batt_charged_param.value.real
-                        batt_cells = batt_cells_param.value.integer
-                        telemetry = telemetry._replace(battery_p = '{}'.format(int(min((ros_telemetry.voltage/batt_cells - batt_empty)/(batt_charged - batt_empty)*100., 100))))
-                    else:
-                        telemetry = telemetry._replace(battery_p = 'nan')
-                    telemetry = telemetry._replace(calibration_status = get_calibration_status())
-                    telemetry = telemetry._replace(system_status = get_sys_status())
-                    telemetry = telemetry._replace(mode = ros_telemetry.mode)
-                    check = FlightLib.selfcheck()
-                    if not check:
-                        check = "OK"
-                    telemetry = telemetry._replace(selfcheck = str(check))    
-                    if not math.isnan(ros_telemetry.x):
-                        telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
-                                                                                        math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
-                    else: 
-                        telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
-                else:
-                    telemetry = telemetry._replace(battery_v = 'nan')
-                    telemetry = telemetry._replace(battery_p = 'nan')
-                    telemetry = telemetry._replace(calibration_status = 'NO_FCU')
-                    telemetry = telemetry._replace(system_status = 'NO_FCU')
-                    telemetry = telemetry._replace(mode = 'NO_FCU')
-                    telemetry = telemetry._replace(selfcheck = 'NO_FCU')
-                    telemetry = telemetry._replace(current_position = 'NO_POS')
-            except rospy.ServiceException:
-                rospy.logdebug("Some service is unavailable")
-            except AttributeError as e:
-                rospy.logdebug(e)
-            except rospy.TransportException as e:
-                rospy.logdebug(e)
+            self._update_ros_telemetry()
         else:
-            telemetry = telemetry._replace(selfcheck = 'WAIT_ROS')
-        if client.active_client.TELEM_TRANSMIT:
-            try:
-                client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
-            except AttributeError as e:
-                rospy.logdebug(e)
+            self.selfcheck = ['WAIT_ROS']
 
-        rate.sleep()
+    def _update_ros_telemetry(self):
+        try:
+            ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+            if ros_telemetry.connected:
+                self.battery_v, self.battery_p = self._get_battery(ros_telemetry)
 
-def create_telemetry_message(telemetry):
-    msg = client.active_client.client_id + '`'
-    for key in telemetry.__dict__:
-        msg += telemetry.__dict__[key] + '`'
-    msg += repr(time.time())
-    return msg 
+                self.calibration_status = get_calibration_status()
+                self.system_status = get_sys_status()
+                self.mode = ros_telemetry.mode
+                self.selfcheck = self.get_selfcheck()
 
-telemetry_thread = threading.Thread(target=telemetry_loop, name="Telemetry getting thread")
+                self.current_position = self._get_position(ros_telemetry)
+        except rospy.ServiceException:
+            rospy.logdebug("Some service is unavailable")
+        except AttributeError as e:
+            rospy.logdebug(e)
+        except rospy.TransportException as e:
+            rospy.logdebug(e)
+
+    def _reset_telemetry_values(self):
+        self.battery_v = float('nan')
+        self.battery_p = float('nan')
+        self.calibration_status = 'NO_FCU'
+        self.system_status = 'NO_FCU'
+        self.mode = 'NO_FCU'
+        self.selfcheck = 'NO_FCU'
+        self.current_position = 'NO_POS'
+
+    def _update_loop(self, freq):  # TODO extract?
+        rate = rospy.Rate(freq)
+        while not rospy.is_shutdown():
+            self.update_telemetry()
+
+            if client.active_client.TELEM_TRANSMIT:
+                client.active_client.server_connection.\
+                    send_message('telemetry', args={'value': self.create_msg_contents()})
+
+            rate.sleep()
+
+    def start_loop(self):
+        telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
+                                            args=client.active_client.TELEM_FREQ)  # TODO MOVE? Daemon?
+        telemetry_thread.start()
+
+    def create_msg_contents(self, keys=None):  # keys: set or list
+        if keys is None:
+            return self.__dict__
+        # else return only existing keys from 'keys'
+        return {k: self.__dict__[k] for k in keys if k in self.__dict__}
+
 
 if __name__ == "__main__":
-    
+    telemetry = Telemetry()
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
     copter_client.start(task_manager)
