@@ -556,7 +556,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 @messaging.message_callback("telem")
 def get_telem_data(*args, **kwargs):
-    message = kwargs.get("message", None)
+    message = kwargs.get("value")
     window.update_table_data(message)
 
 

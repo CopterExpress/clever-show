@@ -111,15 +111,15 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def flip_ready(self, contents=()):
         contents = contents or self.data_contents
-        return filter(lambda x: flip_checks(x), contents)  # possibly change as takeoff checks
+        return filter(flip_checks, contents)  # possibly change as takeoff checks
 
     def calibrating(self, contents=()):
         contents = contents or self.data_contents
-        return filter(lambda x: calibrating_check(x), contents)
+        return filter(calibrating_check, contents)
 
     def calibration_ready(self, contents=()):
         contents = contents or self.data_contents
-        return filter(lambda x: calibration_ready_check(x), contents)
+        return filter(calibration_ready_check, contents)
 
     def get_row_index(self, row_data):
         try:
