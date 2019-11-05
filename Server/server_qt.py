@@ -113,17 +113,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
-        print("removeee")
+        logging.debug("Start remove {}".format(client.copter_id))
         row_data = self.model.get_row_by_attr("client", client)
         row_num = self.model.get_row_index(row_data)
-        print("removing")
+        logging.debug("Removing {}".format(client.copter_id))
         if row_num is not None:
             if Server().remove_disconnected and (not client.connected):
                 client.remove()
                 self.signals.remove_client_signal.emit(row_num)
             else:
                 self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
-        print("removed")
+        logging.debug("{} removed".format(client.copter_id))
 
     def init_ui(self):
         # Connecting
