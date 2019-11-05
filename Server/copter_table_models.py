@@ -202,7 +202,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         elif role == Qt.EditRole:  # For user actions with data
             if col == 0: 
                 # check user hostname spelling http://man7.org/linux/man-pages/man7/hostname.7.html
-                if value[0] != '-' and len(value) <= 63 and re.match("^[A-Za-z0-9-]*$", value):
+                # '-' (hyphen) not first; latin letters/numbers/hyphens; length form 1 to 63
+                if re.match("^(?!-)[A-Za-z0-9-]{1,63}$", value):
                     self.data_contents[row].client.send_message("id", {"new_id": value})
                     self.data_contents[row].client.remove()
                 else: 
