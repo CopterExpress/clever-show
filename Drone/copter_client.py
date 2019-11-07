@@ -30,7 +30,7 @@ static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position")
 telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
 
-get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
+# get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 
 logging.basicConfig(  # TODO all prints as logs
    level=logging.DEBUG, # INFO
@@ -327,7 +327,7 @@ def _response_animation_id(*args, **kwargs):
 @messaging.request_callback("batt_voltage")
 def _response_batt(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
-        return get_telemetry('body').voltage
+        return FlightLib.get_telemetry_locked('body').voltage
     else:
         stop_subscriber()
         return float('nan')
@@ -336,7 +336,7 @@ def _response_batt(*args, **kwargs):
 @messaging.request_callback("cell_voltage")
 def _response_cell(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
-        return get_telemetry('body').cell_voltage
+        return FlightLib.get_telemetry_locked('body').cell_voltage
     else:
         stop_subscriber()
         return float('nan')
@@ -355,7 +355,7 @@ def _response_cal_status(*args, **kwargs):
 
 @messaging.request_callback("position")
 def _response_position(*args, **kwargs):
-    telem = get_telemetry(client.active_client.FRAME_ID)
+    telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
     return "{:.2f} {:.2f} {:.2f} {:.1f} {}".format(
         telem.x, telem.y, telem.z, math.degrees(telem.yaw), client.active_client.FRAME_ID)
 
@@ -384,7 +384,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
                                         )
     logger.debug("x_start = {}, y_start = {}".format(x_start, y_start))
     if not math.isnan(x_start):
-        telem = get_telemetry(client.active_client.FRAME_ID)
+        telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
         logger.debug("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
         if not math.isnan(telem.x):
             client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
@@ -407,7 +407,7 @@ def _command_reset_start(*args, **kwargs):
 
 @messaging.message_callback("set_z_to_ground")
 def _command_set_z(*args, **kwargs):
-    telem = get_telemetry(client.active_client.FRAME_ID)
+    telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
     client.active_client.config.set('PRIVATE', 'z0', telem.z)
     client.active_client.rewrite_config()
     client.active_client.load_config()
@@ -489,7 +489,7 @@ def _command_takeoff(*args, **kwargs):
 def _command_takeoff_z(*args, **kwargs):
     z_str = kwargs.get("z", None)
     if z_str is not None:
-        telem = get_telemetry(client.active_client.FRAME_ID)
+        telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
         logger.info("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
         task_manager.add_task(0, 0, FlightLib.reach_point,
                           task_kwargs={
@@ -662,7 +662,7 @@ def telemetry_loop():
         services_unavailable = FlightLib.check_ros_services_unavailable()
         if not services_unavailable:
             try:
-                ros_telemetry = get_telemetry(client.active_client.FRAME_ID)
+                ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
                 if ros_telemetry.connected:
                     telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
                     batt_empty_param = get_param('BAT_V_EMPTY')
