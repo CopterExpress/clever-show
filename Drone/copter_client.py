@@ -766,7 +766,7 @@ class Telemetry:
 
     def start_loop(self):
         telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
-                                            args=client.active_client.TELEM_FREQ)  # TODO MOVE? Daemon?
+                                            args=(client.active_client.TELEM_FREQ,))  # TODO MOVE? Daemon?
         telemetry_thread.start()
 
     def create_msg_contents(self, keys=None):  # keys: set or list
