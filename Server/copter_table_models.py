@@ -1,5 +1,6 @@
 import sys
 import re
+import math
 import collections
 import indexed
 from server import ConfigOption
@@ -63,7 +64,17 @@ class StatedCopterData(CopterData):
 class Checks:
     all_checks = {}
     takeoff_checklist = (3, 4, 6, 7, 8)
+    current_position = 'NO_POS'
+    start_position = 'NO_POS'
 
+    @classmethod
+    def get_pos_delta(self):
+        if self.current_position != 'NO_POS' and self.start_position != 'NO_POS':
+            delta_squared = 0
+            for i in range(3):
+                delta_squared += (self.current_position[i]-self.start_position[i])**2
+            return math.sqrt(delta_squared)
+        return 'NO_POS'
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)
@@ -311,13 +322,30 @@ def check_selfcheck(item):
 def check_pos_status(item):
     if not item:
         return None
-    return item.split(' ')[0] != 'nan' and item.split(' ')[0] != 'NO_POS'
+    str_pos = item.split(' ')
+    if str_pos[0] != 'nan' and str_pos[0] != 'NO_POS':
+        Checks.current_position = []
+        for i in range(3):
+            Checks.current_position.append(float(str_pos[i]))
+        return True
+    Checks.current_position = 'NO_POS'
+    return False
 
 @col_check(9)
 def check_start_pos_status(item):
     if not item:
         return None
-    return str(item).split(' ')[0] != 'NO_POS'
+    str_start_pos = item.split(' ')
+    if str_start_pos[0] != 'nan' and str_start_pos[0] != 'NO_POS':
+        Checks.start_position = []
+        for i in range(3):
+            Checks.start_position.append(float(str_start_pos[i]))
+        delta = Checks.get_pos_delta()
+        if delta == 'NO_POS':
+            return False
+        else:
+            return delta < 1.    
+    return False
 
 
 @col_check(10)
