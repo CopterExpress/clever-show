@@ -165,7 +165,7 @@ class ModelFormatter:
 
     @classmethod
     def format_place(self, col, value):
-        if col in self.view_formatters:
+        if col in self.place_formatters:
             return self.place_formatters[col](value)
         return value
 
@@ -210,9 +210,15 @@ def place_battery(value):
     battery_v, battery_p = value
     if math.isnan(battery_v) or math.isnan(battery_p):
         return "NO_INFO"
+    return value
 
-    return "{}V {.1f}%".format(battery_v, battery_p*100)
 
+@ModelFormatter.col_format(3, ModelFormatter.VIEW_FORMATTER)
+def view_battery(value):
+    if isinstance(value, tuple):
+        battery_v, battery_p = value
+        return "{}V {.1f}%".format(battery_v, battery_p*100)
+    return value
 
 @ModelFormatter.col_format(10, ModelFormatter.PLACE_FORMATTER)
 def place_time_delta(value):

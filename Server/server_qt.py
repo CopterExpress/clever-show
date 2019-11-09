@@ -199,7 +199,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row_data = self.model.get_row_by_attr("client", client)
             row_num = self.model.get_row_index(row_data)
             if row_num is not None:
-                self.signals.update_data_signal.emit(row_num, col, value, ModelDataRole)
+                self.signals.update_data_signal.emit(row_num, col, value, Qt.EditRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
