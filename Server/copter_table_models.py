@@ -1,6 +1,7 @@
 import re
 import sys
 import math
+import time
 
 import indexed
 
@@ -153,20 +154,16 @@ class ModelFormatter:
     VIEW_FORMATTER = False
     PLACE_FORMATTER = True
 
-    #def __init__(self, parent):
-    #    #self._parent_model = parent
-    #   pass
-
     @classmethod
-    def format_view(self, col, value):
-        if col in self.view_formatters:
-            return self.view_formatters[col](value)
+    def format_view(cls, col, value):
+        if col in cls.view_formatters:
+            return cls.view_formatters[col](value)
         return value
 
     @classmethod
-    def format_place(self, col, value):
-        if col in self.place_formatters:
-            return self.place_formatters[col](value)
+    def format_place(cls, col, value):
+        if col in cls.place_formatters:
+            return cls.place_formatters[col](value)
         return value
 
     @classmethod
@@ -217,12 +214,18 @@ def place_battery(value):
 def view_battery(value):
     if isinstance(value, tuple):
         battery_v, battery_p = value
-        return "{}V {.1f}%".format(battery_v, battery_p*100)
+        return "{}V {:1f}%".format(battery_v, battery_p*100)
     return value
+
 
 @ModelFormatter.col_format(10, ModelFormatter.PLACE_FORMATTER)
 def place_time_delta(value):
-    return "{.3f}".format(value - time.time())
+    return abs(value - time.time())
+
+
+@ModelFormatter.col_format(10, ModelFormatter.VIEW_FORMATTER)
+def view_time_delta(value):
+    return "{:3f}".format(value)
 
 
 class CopterDataModel(QtCore.QAbstractTableModel):

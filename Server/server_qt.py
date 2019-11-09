@@ -110,20 +110,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
 
     def new_client_connected(self, client: Client):
+        logging.debug("Added client {}".format(client))
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
-        print("removeee")
+        logging.debug("Connection {} changed {}".format(client, client.connected), )
         row_data = self.model.get_row_by_attr("client", client)
         row_num = self.model.get_row_index(row_data)
-        print("removing")
         if row_num is not None:
             if Server().remove_disconnected and (not client.connected):
                 client.remove()
                 self.signals.remove_client_signal.emit(row_num)
+                logging.debug("Removing from table")
             else:
                 self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
-        print("removed")
+                logging.debug("DATA: connected")
 
     def init_ui(self):
         # Connecting
@@ -204,7 +205,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
         col = index.column()
-        if col == 6:
+        if col == 7:
             data = self.proxy_model.data(index, role=ModelDataRole)
             if data and data != "OK":
                 dialog = QMessageBox()
