@@ -554,12 +554,16 @@ def get_telem_data(self, **kwargs):
     window.update_table_data(self, message)
 
 
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
+
+
 if __name__ == "__main__":
+    sys.excepthook = except_hook  # for debugging (exceptions traceback)
+
     app = QtWidgets.QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
-
-    #print(messaging.)
 
     #app.exec_()
     with loop:
