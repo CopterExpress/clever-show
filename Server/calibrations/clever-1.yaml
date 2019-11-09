@@ -1,0 +1,33 @@
+%YAML:1.0
+---
+image_width: 640
+image_height: 480
+distortion_model: plumb_bob
+camera_name: raspicam
+avg_reprojection_error: 2.6426792723447246e-01
+camera_matrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 3.1558305971400335e+02, 0., 3.1099570675931471e+02, 0.,
+       3.1506383662871286e+02, 2.3544741713231790e+02, 0., 0., 1. ]
+distortion_coefficients: !!opencv-matrix
+   rows: 1
+   cols: 8
+   dt: d
+   data: [ 1.7636553174359417e+00, 1.6591284213136743e+00,
+       -2.9994139160871325e-04, 2.9852358351054709e-04,
+       1.2957100499484178e-01, 2.1197991682914044e+00,
+       2.2351573118535031e+00, 5.5636137509183137e-01 ]
+rectification_matrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1., 0., 0., 0., 1., 0., 0., 0., 1. ]
+projection_matrix: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [ 3.1558305971400335e+02, 0., 3.1099570675931471e+02, 0., 0.,
+       3.1506383662871286e+02, 2.3544741713231790e+02, 0., 0., 0., 1.,
+       0. ]
