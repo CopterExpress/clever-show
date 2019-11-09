@@ -402,9 +402,15 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def add_client(self, client):
         self.insertRows([client])
 
-    @QtCore.pyqtSlot(int)
-    def remove_client(self, row):
+    @QtCore.pyqtSlot(int)  # Probably deprecated now
+    def remove_row(self, row):
         self.removeRows(row)
+
+    @QtCore.pyqtSlot(object)
+    def remove_row_data(self, data):
+        row = self.get_row_index(data)
+        if row is not None:
+            self.removeRows(row)
 
 
 def flip_checks(copter_item):
@@ -449,7 +455,9 @@ class CopterProxyModel(QtCore.QSortFilterProxyModel):
 class SignalManager(QtCore.QObject):
     update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant, QtCore.QVariant)
     add_client_signal = QtCore.pyqtSignal(object)
-    remove_client_signal = QtCore.pyqtSignal(int)
+    remove_row_signal = QtCore.pyqtSignal(int)
+    remove_client_signal = QtCore.pyqtSignal(object)
+
 
 
 if __name__ == '__main__':

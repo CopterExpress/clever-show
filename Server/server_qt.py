@@ -88,7 +88,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
         self.signals.add_client_signal.connect(self.model.add_client)
-        self.signals.remove_client_signal.connect(self.model.remove_client)
+        self.signals.remove_row_signal.connect(self.model.remove_row)
+        self.signals.remove_client_signal.connect(self.model.remove_row_data)
+
 
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
@@ -116,13 +118,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def client_connection_changed(self, client: Client):
         logging.debug("Connection {} changed {}".format(client, client.connected), )
         row_data = self.model.get_row_by_attr("client", client)
-        row_num = self.model.get_row_index(row_data)
-        if row_num is not None:
-            if Server().remove_disconnected and (not client.connected):
-                client.remove()
-                self.signals.remove_client_signal.emit(row_num)
-                logging.debug("Removing from table")
-            else:
+
+        if row_data is None:
+            logging.error("No row for client presented")
+            return
+
+        if Server().remove_disconnected and (not client.connected):
+            client.remove()
+            self.signals.remove_client_signal.emit(row_data)
+            logging.debug("Removing from table")
+        else:
+            row_num = self.model.get_row_index(row_data)
+            if row_num is not None:
                 self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
                 logging.debug("DATA: connected")
 
@@ -226,16 +233,11 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def remove_selected(self):
         for copter in self.model.user_selected():
-            row_num = self.model.get_row_index(copter)
-            if row_num is not None:
-                if not Server().remove_disconnected:
-                    self.signals.remove_client_signal.emit(row_num)
+            copter.client.remove()
 
-                copter.client.remove()
-                
-                logging.info("Client removed from table!")
-            else:
-                logging.error("Client is not in table!")
+            if not Server().remove_disconnected:
+                self.signals.remove_client_signal.emit(copter)
+            logging.info("Client removed from table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
