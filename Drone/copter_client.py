@@ -644,14 +644,14 @@ class Telemetry:
     def __init__(self):
         self.git_version = None
         self.animation_id = None
-        self.battery_v = None
-        self.battery_p = None
+        self.battery = None
         self.system_status = None
         self.calibration_status = None
         self.mode = None
         self.selfcheck = None
         self.current_position = None
         self.start_position = None
+        self.telemetry_time = None
 
     @classmethod
     def get_git_version(cls):
@@ -702,7 +702,7 @@ class Telemetry:
     def get_selfcheck(cls):
         check = FlightLib.selfcheck()
         if not check:
-            check = ["OK"]
+            check = "OK"
         return check
 
     @classmethod
@@ -718,6 +718,7 @@ class Telemetry:
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
         self.start_position = self.get_start_position()
+        self.telemetry_time = time.time()  # TODO NTP?
 
         services_unavailable = FlightLib.check_ros_services_unavailable()
         if not services_unavailable:
@@ -729,7 +730,7 @@ class Telemetry:
         try:
             ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
             if ros_telemetry.connected:
-                self.battery_v, self.battery_p = self._get_battery(ros_telemetry)
+                self.battery = self._get_battery(ros_telemetry)
 
                 self.calibration_status = get_calibration_status()
                 self.system_status = get_sys_status()
@@ -745,8 +746,7 @@ class Telemetry:
             rospy.logdebug(e)
 
     def _reset_telemetry_values(self):
-        self.battery_v = float('nan')
-        self.battery_p = float('nan')
+        self.battery_v = float('nan'), float('nan')
         self.calibration_status = 'NO_FCU'
         self.system_status = 'NO_FCU'
         self.mode = 'NO_FCU'
