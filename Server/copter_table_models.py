@@ -1,8 +1,8 @@
-import sys
 import re
-import collections
+import sys
+import math
+
 import indexed
-from server import ConfigOption
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
@@ -12,10 +12,96 @@ ModelDataRole = 998
 ModelStateRole = 999
 
 
+class ModelChecks:
+    checks_dict = {}
+    takeoff_checklist = (3, 4, 6, 7, 8)
+
+    @classmethod
+    def col_check(cls, col):
+        def inner(f):
+            def wrapper(item):
+                if item is not None:
+                    return f(item)
+                return None
+
+            cls.checks_dict[col] = wrapper
+            return wrapper
+
+        return inner
+
+    @classmethod
+    def all_checks(cls, copter_item):
+        for col, check in cls.checks_dict.items():
+            if not check(copter_item[col]):
+                return False
+        return True
+
+    @classmethod
+    def takeoff_checks(cls, copter_item):
+        for col in cls.takeoff_checklist:
+            if not cls.checks_dict[col](copter_item[col]):
+                return False
+        return True
+
+
+@ModelChecks.col_check(1)
+def check_ver(item):
+    return True  # TODO git version!
+
+
+@ModelChecks.col_check(2)
+def check_anim(item):
+    return str(item) != 'No animation'
+
+
+@ModelChecks.col_check(3)
+def check_bat(item):
+    if item == "NO_INFO":
+        return False
+    return item[1] > 0.3
+
+
+@ModelChecks.col_check(4)
+def check_sys_status(item):
+    return item == "STANDBY"
+
+
+@ModelChecks.col_check(5)
+def check_cal_status(item):
+    return item == "OK"
+
+
+@ModelChecks.col_check(6)
+def check_mode(item):
+    return (item != "NO_FCU") and not ("CMODE" in item)
+
+
+@ModelChecks.col_check(7)
+def check_selfcheck(item):
+    return item == "OK"
+
+
+@ModelChecks.col_check(8)
+def check_pos_status(item):
+    if item == 'NO_POS':
+        return False
+    return any(math.isnan(x) for x in item)
+
+
+@ModelChecks.col_check(9)
+def check_start_pos_status(item):
+    return item != 'NO_POS'
+
+
+@ModelChecks.col_check(10)
+def check_time_delta(item):
+    return abs(item) < 1.
+
+
 class CopterData:
     class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('anim_id', None),
                                                     ('battery', None), ('sys_status', None), ('cal_status', None),
-                                                    ('mode', None), ('selfcheck', None), ('position', None), 
+                                                    ('mode', None), ('selfcheck', None), ('position', None),
                                                     ('start_pos', None), ('time_delta', None), ('client', None)])
 
     def __init__(self, **kwargs):
@@ -36,8 +122,9 @@ class StatedCopterData(CopterData):
     class_basic_states = indexed.IndexedOrderedDict([("checked", 0), ("selfchecked", None), ("takeoff_ready", None),
                                                     ("copter_id", True), ])
 
-    def __init__(self, **kwargs):
+    def __init__(self, checks_class=ModelChecks, **kwargs):
         self.states = CopterData(**self.class_basic_states)
+        self.checks = ModelChecks
 
         super(StatedCopterData, self).__init__(**kwargs)
 
@@ -47,38 +134,106 @@ class StatedCopterData(CopterData):
         if key in self.class_basic_attrs.keys():
             try:
                 self.states.__dict__[key] = \
-                    Checks.all_checks[self.attrs_dict.keys().index(key)](value)
+                    ModelChecks.checks_dict[self.attrs_dict.keys().index(key)](value)
             except KeyError:  # No check present for that col
                 pass
             else:  # update selfchecked and takeoff_ready
                 self.states.__dict__["selfchecked"] = all(
-                    [self.states[i] for i in Checks.all_checks.keys()]
+                    [self.states[i] for i in ModelChecks.checks_dict.keys()]
                 )
 
                 self.states.__dict__["takeoff_ready"] = all(
-                    [self.states[i] for i in Checks.takeoff_checklist]
+                    [self.states[i] for i in ModelChecks.takeoff_checklist]
                 )
 
 
-class Checks:
-    all_checks = {}
-    takeoff_checklist = (3, 4, 6, 7, 8)
+class ModelFormatter:
+    view_formatters = {}
+    place_formatters = {}
+    VIEW_FORMATTER = False
+    PLACE_FORMATTER = True
+
+    #def __init__(self, parent):
+    #    #self._parent_model = parent
+    #   pass
+
+    @classmethod
+    def format_view(self, col, value):
+        if col in self.view_formatters:
+            return self.view_formatters[col](value)
+        return value
+
+    @classmethod
+    def format_place(self, col, value):
+        if col in self.view_formatters:
+            return self.place_formatters[col](value)
+        return value
+
+    @classmethod
+    def col_format(cls, col, format_type):
+        def inner(f):
+            if format_type:
+                cls.place_formatters[col] = f
+            else:
+                cls.view_formatters[col] = f
+
+            def wrapper(*args, **kwargs):
+                return f(*args, **kwargs)
+
+            return wrapper
+
+        return inner
+
+
+@ModelFormatter.col_format(0, ModelFormatter.PLACE_FORMATTER)
+def place_id(value):
+    value = value.stip()
+    # check user hostname spelling http://man7.org/linux/man-pages/man7/hostname.7.html
+    # '-' (hyphen) not first; latin letters/numbers/hyphens; length form 1 to 63
+    # or matches command pattern
+    if re.match("^(?!-)[A-Za-z0-9-]{1,63}$", value) or re.match("^/[A-Za-z0-9]*$", value):
+        return value
+    else:
+        msgbox = QtWidgets.QMessageBox()
+        msgbox.setWindowTitle("Wrong input for the copter name!")
+        msgbox.setIcon(QtWidgets.QMessageBox.Critical)
+        msgbox.setText(
+            "Wrong input for the copter name!\n"
+            "Please use only A-Z, a-z, 0-9, and '-' chars.\n"
+            "Don't use '-' as first char.")
+        msgbox.exec_()
+        return None
+
+
+@ModelFormatter.col_format(3, ModelFormatter.PLACE_FORMATTER)
+def place_battery(value):
+    battery_v, battery_p = value
+    if math.isnan(battery_v) or math.isnan(battery_p):
+        return "NO_INFO"
+
+    return "{}V {.1f}%".format(battery_v, battery_p*100)
+
+
+@ModelFormatter.col_format(10, ModelFormatter.PLACE_FORMATTER)
+def place_time_delta(value):
+    return "{.3f}".format(value - time.time())
 
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)
     selected_takeoff_ready_signal = QtCore.pyqtSignal(bool)
-    selected_flip_ready_signal = QtCore.pyqtSignal(bool)
+    selected_flip_ready_signal = QtCore.pyqtSignal(bool)  # TODO fix this signals
     selected_calibrating_signal = QtCore.pyqtSignal(bool)
     selected_calibration_ready_signal = QtCore.pyqtSignal(bool)
 
-    def __init__(self, parent=None):
+    def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
         self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'calibration', 
                         '  mode  ', 'selfcheck', 'current x y z yaw frame_id', ' start x y z ', 'dt')
         self.data_contents = []
 
-        self.on_id_changed = None
+        self.checks = checks
+        self.formatter = formatter
 
         self.first_col_is_checked = False
 
@@ -153,7 +308,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         col = index.column()
         if role == Qt.DisplayRole or role == Qt.EditRole:  # Separate editRole in case of editing non-text
             item = self.data_contents[row][col]
-            return str(item) if item is not None else ""
+            return str(self.formatter.format_view(col, item)) if item is not None else ""
         elif role == ModelDataRole:
             return self.data_contents[row][col]
 
@@ -175,7 +330,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             return self.data_contents[row].states.checked
 
         if role == QtCore.Qt.TextAlignmentRole and col != 0:
-                return QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
+            return QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
 
     def update_model(self, index=QtCore.QModelIndex(), role=QtCore.Qt.EditRole):
         selected = set(self.user_selected())
@@ -199,20 +354,14 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         if role == Qt.CheckStateRole:
             self.data_contents[row].states.checked = value
-        elif role == Qt.EditRole:  # For user actions with data
-            if col == 0: 
-                # check user hostname spelling http://man7.org/linux/man-pages/man7/hostname.7.html
-                # '-' (hyphen) not first; latin letters/numbers/hyphens; length form 1 to 63
-                if re.match("^(?!-)[A-Za-z0-9-]{1,63}$", value):
-                    self.data_contents[row].client.send_message("id", {"new_id": value})
+        elif role == Qt.EditRole:  # For user/outer actions with data, place modifiers applied
+            formatted_value = self.formatter.format_place(col, value)
+            if formatted_value is not None:  # todo use new := syntax
+                self.data_contents[row][col] = formatted_value
+
+                if col == 0:
+                    self.data_contents[row].client.send_message("id", {"new_id": formatted_value})
                     self.data_contents[row].client.remove()
-                else: 
-                    msg = QtWidgets.QMessageBox()
-                    msg.setIcon(QtWidgets.QMessageBox.Critical)
-                    msg.setText("Wrong input for the copter name!\nPlease use only A-Z, a-z, 0-9, and '-' chars.\nDon't use '-' as first char.")
-                    msg.exec_()
-            else:
-                self.data_contents[row][col] = value
 
         elif role == ModelDataRole:  # For inner setting\editing of data
             self.data_contents[row][col] = value
@@ -224,7 +373,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.update_model(index, role)
         return True
 
-    def select_all(self):
+    def select_all(self):  # probably NOT thread-safe!
         self.first_col_is_checked = not self.first_col_is_checked
         for row_num, copter in enumerate(self.data_contents):
             copter.states.checked = int(self.first_col_is_checked)*2
@@ -249,107 +398,13 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.removeRows(row)
 
 
-def col_check(col):
-    def inner(f):
-        Checks.all_checks[col] = f
-
-        def wrapper(*args, **kwargs):
-            return f(*args, **kwargs)
-
-        return wrapper
-
-    return inner
-
-
-@col_check(1)
-def check_ver(item):
-    if not item:
-        return None
-    return True
-
-@col_check(2)
-def check_anim(item):
-    if not item:
-        return None
-    return str(item) != 'No animation'
-
-@col_check(3)
-def check_bat(item):
-    if not item:
-        return None
-    if item == "NO_INFO":
-        return False
-    else:
-        return float(item.split(' ')[1][:-1]) > 30
-
-@col_check(4)
-def check_sys_status(item):
-    if not item:
-        return None
-    return item == "STANDBY"
-
-@col_check(5)
-def check_cal_status(item):
-    if not item:
-        return None
-    return item == "OK"
-
-@col_check(6)
-def check_mode(item):
-    if not item:
-        return None
-    return (item != "NO_FCU") and not ("CMODE" in item)
-
-
-@col_check(7)
-def check_selfcheck(item):
-    if not item:
-        return None
-    return item == "OK"
-
-
-@col_check(8)
-def check_pos_status(item):
-    if not item:
-        return None
-    return item.split(' ')[0] != 'nan' and item.split(' ')[0] != 'NO_POS'
-
-@col_check(9)
-def check_start_pos_status(item):
-    if not item:
-        return None
-    return str(item).split(' ')[0] != 'NO_POS'
-
-
-@col_check(10)
-def check_time_delta(item):
-    if not item:
-        return None
-    return abs(float(item)) < 1
-
-
-def all_checks(copter_item):
-    for col, check in Checks.all_checks.items():
-        if not check(copter_item[col]):
-            return False
-    return True
-
-
-def takeoff_checks(copter_item):
-    for col in Checks.takeoff_checklist:
-        if not Checks.all_checks[col](copter_item[col]):
-            return False
-    return True
-
-
 def flip_checks(copter_item):
-    for col in Checks.takeoff_checklist:
+    for col in ModelChecks.takeoff_checklist:
         if col != 4 or col != 7:
-            if not Checks.all_checks[col](copter_item[col]):
+            if not ModelChecks.checks_dict[col](copter_item[col]):
                 return False
-        else:
-            if copter_item[4] != "ACTIVE":
-                return False
+        elif copter_item[4] != "ACTIVE":
+            return False
     return True
 
 
@@ -358,7 +413,7 @@ def calibrating_check(copter_item):
 
 
 def calibration_ready_check(copter_item):
-    if not Checks.all_checks[4](copter_item[4]):
+    if not ModelChecks.checks_dict[4](copter_item[4]):
         return False
     return not calibrating_check(copter_item)
 

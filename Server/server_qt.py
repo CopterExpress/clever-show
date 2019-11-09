@@ -175,38 +175,27 @@ class MainWindow(QtWidgets.QMainWindow):
             client = copter_data_row.client
             client.get_response("telemetry", self.update_table_data)
 
-    @pyqtSlot(str)
-    def update_table_data(self, message):
-        fields = message.split('`')
-        # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
-        copter_id = fields[0]
-        git_version = fields[1]
-        animation_id = fields[2]
-        battery_v = fields[3]
-        battery_p = fields[4]
-        if battery_v == 'nan' or battery_p == 'nan':
-            battery_info = "NO_INFO"
-        else:
-            battery_info = "{}V {}%".format(battery_v, battery_p)
-        sys_status = fields[5]
-        cal_status = fields[6]
-        mode = fields[7]
-        selfcheck = fields[8]
-        current_pos = fields[9]
-        start_pos = fields[10]
-        copter_time = fields[11]
-        time_delta = "{}".format(round(float(copter_time) - time.time(), 3))
-        row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
-        self.signals.update_data_signal.emit(row, 1, git_version, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 2, animation_id, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 3, battery_info, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 6, mode, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 7, selfcheck, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 8, current_pos, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 9, start_pos, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 10, time_delta, ModelDataRole)
+    @pyqtSlot(object, dict)
+    def update_table_data(self, client: Client, telems: dict):
+        cols_dict = {
+            "git_version": 1,
+            "animation_id": 2,
+            "battery": 3,
+            "system_status": 4,
+            "calibration_status": 5,
+            "mode": 6,
+            "selfcheck": 7,
+            "current_position": 8,
+            "start_position": 9,
+            "telemetry_time": 10,
+        }
+
+        for key, value in telems.items():
+            col = cols_dict[key]
+            row_data = self.model.get_row_by_attr("client", client)
+            row_num = self.model.get_row_index(row_data)
+            if row_num is not None:
+                self.signals.update_data_signal.emit(row_num, col, value, ModelDataRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
@@ -222,7 +211,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 dialog.setDetailedText("\n".join(data))
                 dialog.exec()
 
-    def _selfcheck_shortener(self, data):
+    def _selfcheck_shortener(self, data):  # TODO!!!
         shortened = []
         for line in data:
             if len(line) > 89:
@@ -234,10 +223,10 @@ class MainWindow(QtWidgets.QMainWindow):
         for copter in self.model.user_selected():
             row_num = self.model.get_row_index(copter)
             if row_num is not None:
-                copter.client.remove()
-
                 if not Server().remove_disconnected:
                     self.signals.remove_client_signal.emit(row_num)
+
+                copter.client.remove()
                 
                 logging.info("Client removed from table!")
             else:
@@ -295,9 +284,9 @@ class MainWindow(QtWidgets.QMainWindow):
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
     def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
-            if takeoff_checks(copter):
+            if self.model.checks.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
-                    copter.client.send_message("takeoff_z", {"z":str(self.ui.z_spin.value())})
+                    copter.client.send_message("takeoff_z", {"z":str(self.ui.z_spin.value())})  # todo int
                 else:
                     copter.client.send_message("takeoff")
 
@@ -554,10 +543,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.model.data_contents[row_num].client \
                     .send_message("disarm")
 
+
 @messaging.message_callback("telem")
-def get_telem_data(*args, **kwargs):
+def get_telem_data(self, **kwargs):
     message = kwargs.get("value")
-    window.update_table_data(message)
+    window.update_table_data(self, message)
 
 
 if __name__ == "__main__":
