@@ -746,7 +746,7 @@ class Telemetry:
             rospy.logdebug(e)
 
     def _reset_telemetry_values(self):
-        self.battery_v = float('nan'), float('nan')
+        self.battery = float('nan'), float('nan')
         self.calibration_status = 'NO_FCU'
         self.system_status = 'NO_FCU'
         self.mode = 'NO_FCU'

@@ -191,7 +191,11 @@ class MainWindow(QtWidgets.QMainWindow):
         }
 
         for key, value in telems.items():
-            col = cols_dict[key]
+            col = cols_dict.get(key, None)
+            if col is None:
+                logging.error("No column {} present!".format(key))
+                continue
+
             row_data = self.model.get_row_by_attr("client", client)
             row_num = self.model.get_row_index(row_data)
             if row_num is not None:
@@ -544,7 +548,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     .send_message("disarm")
 
 
-@messaging.message_callback("telem")
+@messaging.message_callback("telemetry")
 def get_telem_data(self, **kwargs):
     message = kwargs.get("value")
     window.update_table_data(self, message)
@@ -554,6 +558,8 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
+
+    #print(messaging.)
 
     #app.exec_()
     with loop:
