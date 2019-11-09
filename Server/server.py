@@ -269,7 +269,7 @@ class Client(messaging.ConnectionManager):
 
     @staticmethod
     def get_by_id(copter_id):
-        for client in Client.clients.values():
+        for client in Client.clients.values():  # TODO filter
             if client.copter_id == copter_id:
                 return client
 
@@ -290,8 +290,10 @@ class Client(messaging.ConnectionManager):
 
     def _got_id(self, value):
         logging.info("Got copter id: {} for client {}".format(value, self.addr))
+        old_id = self.copter_id
         self.copter_id = value
-        if self.on_first_connect:
+
+        if old_id is None and self.on_first_connect:
             self.on_first_connect(self)
 
     def close(self, inner=False):

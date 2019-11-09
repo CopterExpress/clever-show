@@ -251,9 +251,18 @@ class ConnectionManager(object):
         self.socket = client_socket
         self.addr = client_addr
 
+        self._clear()
+
         self._set_selector_events_mask('r')
         if self.resend_requests:
             self._resend_requests()
+
+    def _clear(self):
+        if not self.resume_queue:  # maybe needs locks
+            self._recv_buffer = b''
+            self._send_buffer = b''
+            self._received_queue.clear()
+            self._send_queue.clear()
 
     def close(self):
         with self._close_lock:
@@ -264,11 +273,6 @@ class ConnectionManager(object):
 
     def _close(self):
         logger.info("Closing connection to {}".format(self.addr))
-
-        if not self.resume_queue:
-            self._recv_buffer = b''
-            self._send_buffer = b''
-            self._received_queue.clear()  #
 
         try:
             logger.info("Unregistering selector of {}".format(self.addr))
@@ -293,6 +297,7 @@ class ConnectionManager(object):
         with self._close_lock:
             self._should_close = False
 
+        self._clear()
         logger.info("CLOSED connection to {}".format(self.addr))
 
     def process_events(self, mask):
@@ -429,9 +434,6 @@ class ConnectionManager(object):
             logger.warning(
                 "Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
 
-            if not self.resume_queue:
-                self._send_buffer = b''
-
             raise error
         else:
             logger.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
@@ -468,7 +470,7 @@ class ConnectionManager(object):
 
     def _resend_requests(self):
         with self._request_lock:
-            for request_id, request in self._request_queue.items():
+            for request_id, request in self._request_queue.items():  #TODO filter
                 if request.resend:
                     self._send(MessageManager.create_request(
                         request.requested_value, request_id, request.request_args.update(resend=request.resend))
