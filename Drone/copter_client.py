@@ -422,7 +422,7 @@ def _command_reset_z(*args, **kwargs):
 def _command_update_repo(*args, **kwargs):
     os.system("mv /home/pi/clever-show/Drone/client_config.ini /home/pi/clever-show/Drone/client_config_tmp.ini")
     os.system("git reset --hard HEAD")
-    os.system("git checkout feature-branch")  #TODO TEMP
+    os.system("git checkout master")
     os.system("git fetch")
     os.system("git pull --rebase")
     os.system("mv /home/pi/clever-show/Drone/client_config_tmp.ini /home/pi/clever-show/Drone/client_config.ini")
