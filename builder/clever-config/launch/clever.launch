@@ -50,6 +50,7 @@
         <param name="reference_frames/base_link" value="map"/>
         <param name="reference_frames/navigate_target" value="map"/>
         <param name="nav_from_sp" value="false"/>
+        <param name="transform_timeout" value="1"/>
     </node>
 
     <!-- main camera -->
