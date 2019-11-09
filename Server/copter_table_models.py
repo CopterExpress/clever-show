@@ -1,6 +1,7 @@
 import sys
 import re
 import math
+import configparser
 import collections
 import indexed
 from server import ConfigOption
@@ -11,6 +12,9 @@ from PyQt5.QtCore import Qt as Qt
 
 ModelDataRole = 998
 ModelStateRole = 999
+
+config = configparser.ConfigParser()
+config.read("server_config.ini")
 
 
 class CopterData:
@@ -66,6 +70,9 @@ class Checks:
     takeoff_checklist = (3, 4, 6, 7, 8)
     current_position = 'NO_POS'
     start_position = 'NO_POS'
+    battery_min = config.getfloat('CHECKS', 'battery_percentage_min') 
+    start_pos_delta_max = config.getfloat('CHECKS', 'start_pos_delta_max')
+    time_delta_max = config.getfloat('CHECKS', 'time_delta_max')    
 
     @classmethod
     def get_pos_delta(self):
@@ -290,7 +297,7 @@ def check_bat(item):
     if item == "NO_INFO":
         return False
     else:
-        return float(item.split(' ')[1][:-1]) > 50
+        return float(item.split(' ')[1][:-1]) > Checks.battery_min
 
 @col_check(4)
 def check_sys_status(item):
@@ -344,7 +351,7 @@ def check_start_pos_status(item):
         if delta == 'NO_POS':
             return False
         else:
-            return delta < 1.    
+            return delta < Checks.start_pos_delta_max    
     return False
 
 
@@ -352,7 +359,7 @@ def check_start_pos_status(item):
 def check_time_delta(item):
     if not item:
         return None
-    return abs(float(item)) < 1
+    return abs(float(item)) < Checks.time_delta_max
 
 
 def all_checks(copter_item):
