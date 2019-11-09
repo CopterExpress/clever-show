@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1220</width>
-    <height>750</height>
+    <width>1360</width>
+    <height>761</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -50,13 +50,16 @@
          <bool>false</bool>
         </attribute>
         <attribute name="horizontalHeaderDefaultSectionSize">
-         <number>125</number>
+         <number>50</number>
         </attribute>
         <attribute name="horizontalHeaderMinimumSectionSize">
          <number>50</number>
         </attribute>
         <attribute name="horizontalHeaderStretchLastSection">
          <bool>true</bool>
+        </attribute>
+        <attribute name="verticalHeaderVisible">
+         <bool>false</bool>
         </attribute>
        </widget>
       </item>
@@ -375,7 +378,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1220</width>
+     <width>1360</width>
      <height>25</height>
     </rect>
    </property>
@@ -425,6 +428,7 @@
     <addaction name="action_remove_row"/>
     <addaction name="separator"/>
     <addaction name="menuDeveloper_mode_2"/>
+    <addaction name="action_remove_row"/>
    </widget>
    <widget class="QMenu" name="menuMusic">
     <property name="title">
@@ -466,7 +470,7 @@
   </action>
   <action name="action_send_launch_file">
    <property name="text">
-    <string>Send launch file to clever</string>
+    <string>Send launch files</string>
    </property>
   </action>
   <action name="action_restart_clever">

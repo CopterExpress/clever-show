@@ -22,7 +22,8 @@ get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 landing = rospy.ServiceProxy('/land', Trigger)
 
-services_list = [navigate, set_position, set_rates, set_mode, get_telemetry, arming,landing]
+services_list = ['/navigate', '/set_position', '/set_rates', '/mavros/set_mode', 
+                '/get_telemetry', '/mavros/cmd/arming', '/land', '/mavros/param/get']
 
 logger.info("Proxy services inited")
 
@@ -42,7 +43,11 @@ INTERRUPTER = threading.Event()
 FLIP_MIN_Z = 2.0
 
 checklist = []
+get_telemetry_lock = threading.Lock()
 
+def get_telemetry_locked(*args, **kwargs):
+    with get_telemetry_lock:
+        return get_telemetry(*args, **kwargs)
 
 def arming_wrapper(state=False, *args, **kwargs):
     arming(state)
@@ -76,7 +81,7 @@ def check(check_name):
             if msgs:
                 return msgs
             else:
-                logger.info("[{}]: OK".format(check_name))
+                logger.debug("[{}]: OK".format(check_name))
                 return None
 
         checklist.append(wrapper)
@@ -88,27 +93,34 @@ def check(check_name):
 def _check_nans(*values):
     return any(math.isnan(x) for x in values)
 
+def check_ros_services_unavailable():
+    unavailable_services = []
+    for service in services_list:
+        try:
+            rospy.wait_for_service(service, timeout=0.1)
+        except (rospy.ServiceException, rospy.ROSException):
+            unavailable_services.append(service)
+    return unavailable_services
 
 @check("Ros services")
 def check_ros_services():
-    timeout = 5.0
     for service in services_list:
         try:
-            service.wait_for_service(timeout=timeout)
-        except (rospy.ServiceException, rospy.ROSException) as e:
-            yield ("ROS service {} is not available!".format(service.name))
+            rospy.wait_for_service(service, timeout=0.1)
+        except (rospy.ServiceException, rospy.ROSException):
+            yield ("ROS service {} is not available!".format(service))
 
 
 @check("FCU connection")
 def check_connection():
-    telemetry = get_telemetry()
+    telemetry = get_telemetry_locked()
     if not telemetry.connected:
         yield ("Flight controller is not connected!")
 
 
 @check("Linear velocity estimation")
 def check_linear_speeds(speed_limit=0.15):
-    telemetry = get_telemetry(frame_id='body')
+    telemetry = get_telemetry_locked(frame_id='body')
 
     if _check_nans(telemetry.vx, telemetry.vy, telemetry.vz):
         yield ("Velocity estimation is not available")
@@ -123,7 +135,7 @@ def check_linear_speeds(speed_limit=0.15):
 
 @check("Angular velocity estimation")
 def check_angular_speeds(rate_limit=0.05):
-    telemetry = get_telemetry(frame_id='body')
+    telemetry = get_telemetry_locked(frame_id='body')
 
     if _check_nans(telemetry.pitch_rate, telemetry.roll_rate, telemetry.yaw_rate):
         yield ("Angular velocities estimation is not available")
@@ -138,7 +150,7 @@ def check_angular_speeds(rate_limit=0.05):
 
 @check("Angles estimation")
 def check_angles(angle_limit=math.radians(5)):
-    telemetry = get_telemetry(frame_id='body')
+    telemetry = get_telemetry_locked(frame_id='body')
 
     if _check_nans(telemetry.pitch, telemetry.roll, telemetry.yaw):
         yield ("Angular velocities estimation is not available")
@@ -165,7 +177,7 @@ def selfcheck():
 
 def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, auto_arm=False, **kwargs):
     set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, auto_arm=auto_arm)
-    #telemetry = get_telemetry(frame_id=frame_id)
+    #telemetry = get_telemetry_locked(frame_id=frame_id)
 
     logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     #print('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
@@ -182,7 +194,7 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TO
     navigate(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, speed=speed, auto_arm=auto_arm)
 
     # waiting for completion
-    telemetry = get_telemetry(frame_id=frame_id)
+    telemetry = get_telemetry_locked(frame_id=frame_id)
     rate = rospy.Rate(freq)
     time_start = time.time()
 
@@ -193,7 +205,7 @@ def reach_point(x=0.0, y=0.0, z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TO
             interrupter.clear()
             return False
 
-        telemetry = get_telemetry(frame_id=frame_id)
+        telemetry = get_telemetry_locked(frame_id=frame_id)
         rospy.logdebug('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
         #print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
@@ -221,10 +233,10 @@ def reach_altitude(z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, fr
                    freq=FREQUENCY, timeout=TIMEOUT, interrupter=INTERRUPTER, wait=False):
     logger.info('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
     #print('Reaching attitude: | z: {:.3f} yaw: {:.3f}'.format(z, yaw))
-    current_telem = get_telemetry(frame_id=frame_id)
+    current_telem = get_telemetry_locked(frame_id=frame_id)
     navigate(frame_id=frame_id, x=current_telem.x, y=current_telem.y, z=z, yaw=yaw, speed=speed)
 
-    telemetry = get_telemetry(frame_id=frame_id)
+    telemetry = get_telemetry_locked(frame_id=frame_id)
     rate = rospy.Rate(freq)
     time_start = time.time()
 
@@ -235,7 +247,7 @@ def reach_altitude(z=0.0, yaw=float('nan'), speed=SPEED, tolerance=TOLERANCE, fr
             interrupter.clear()
             return
 
-        telemetry = get_telemetry(frame_id=frame_id)
+        telemetry = get_telemetry_locked(frame_id=frame_id)
         logger.info('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
             telemetry.x, telemetry.y, telemetry.z, telemetry.yaw))
         #print('Telemetry: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(
@@ -268,7 +280,7 @@ def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRA
     landing()
     #print("Land is started")
 
-    telemetry = get_telemetry(frame_id=frame_id_land)
+    telemetry = get_telemetry_locked(frame_id=frame_id_land)
     rate = rospy.Rate(freq)
     time_start = time.time()
 
@@ -279,7 +291,7 @@ def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRA
             interrupter.clear()
             return False
 
-        telemetry = get_telemetry(frame_id=frame_id_land)
+        telemetry = get_telemetry_locked(frame_id=frame_id_land)
         logger.info("Landing... | z: {}".format(telemetry.z))
         #print("Landing... | z: {}".format(telemetry.z))
         time_passed = time.time() - time_start
@@ -300,7 +312,7 @@ def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRA
 def takeoff(height=TAKEOFF_HEIGHT, speed=TAKEOFF_SPEED, tolerance=TOLERANCE, frame_id=FRAME_ID, timeout_takeoff=TIMEOUT, interrupter=INTERRUPTER, emergency_land=False):
     rospy.loginfo("Takeoff started...")
     rate = rospy.Rate(FREQUENCY)
-    start = get_telemetry(frame_id=frame_id)
+    start = get_telemetry_locked(frame_id=frame_id)
     climb = 0.
     time_start = time.time()
     result = navigate(z=height, speed=speed, yaw=float('nan'), frame_id="body", auto_arm=True)
@@ -314,7 +326,7 @@ def takeoff(height=TAKEOFF_HEIGHT, speed=TAKEOFF_SPEED, tolerance=TOLERANCE, fra
             interrupter.clear()
             return 'interrupted'
 
-        climb = abs(get_telemetry(frame_id=frame_id).z - start.z)
+        climb = abs(get_telemetry_locked(frame_id=frame_id).z - start.z)
         rospy.logdebug("Takeoff to {:.2f} of {:.2f} meters".format(climb, height))
 
         time_passed = time.time() - time_start
@@ -333,7 +345,7 @@ def takeoff(height=TAKEOFF_HEIGHT, speed=TAKEOFF_SPEED, tolerance=TOLERANCE, fra
 def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different directions
     logger.info("Flip started!")
 
-    start_telemetry = get_telemetry(frame_id=frame_id)  # memorize starting position
+    start_telemetry = get_telemetry_locked(frame_id=frame_id)  # memorize starting position
     
     if start_telemetry.z < min_z - TOLERANCE:
         logger.warning("Can't do flip! Flip failed!")
@@ -347,7 +359,7 @@ def flip(min_z = FLIP_MIN_Z, frame_id = FRAME_ID): #TODO Flip in different direc
         set_rates(roll_rate=30, thrust=0.2)  # maximum roll rate
 
         while True:
-            telem = get_telemetry()
+            telem = get_telemetry_locked()
 
             if abs(telem.roll) > math.pi/2:
                 break

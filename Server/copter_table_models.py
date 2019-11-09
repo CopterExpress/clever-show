@@ -1,5 +1,6 @@
 import sys
 import re
+import math
 import collections
 import indexed
 from server import ConfigOption
@@ -13,11 +14,10 @@ ModelStateRole = 999
 
 
 class CopterData:
-    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('anim_id', None),
-                                                    ('batt_v', None), ('batt_p', None),
-                                                    ('sys_status', None), ('cal_status', None), ('selfcheck', None),
-                                                    ('position', None), ("time_delta", None),
-                                                    ("client", None), ])
+    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('anim_id', None),
+                                                    ('battery', None), ('sys_status', None), ('cal_status', None),
+                                                    ('mode', None), ('selfcheck', None), ('position', None), 
+                                                    ('start_pos', None), ('time_delta', None), ('client', None)])
 
     def __init__(self, **kwargs):
         self.attrs_dict = self.class_basic_attrs.copy()
@@ -63,8 +63,18 @@ class StatedCopterData(CopterData):
 
 class Checks:
     all_checks = {}
-    takeoff_checklist = (2, 3, 4, 5, 6)
+    takeoff_checklist = (3, 4, 6, 7, 8)
+    current_position = 'NO_POS'
+    start_position = 'NO_POS'
 
+    @classmethod
+    def get_pos_delta(self):
+        if self.current_position != 'NO_POS' and self.start_position != 'NO_POS':
+            delta_squared = 0
+            for i in range(3):
+                delta_squared += (self.current_position[i]-self.start_position[i])**2
+            return math.sqrt(delta_squared)
+        return 'NO_POS'
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)
@@ -75,8 +85,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', '  animation ID  ', 'batt V', 'batt %', '  system  ',
-                        'calibration', 'selfcheck', 'current x y z yaw frame_id', 'time delta')
+        self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'sensors', 
+                        '  mode  ', 'checks', 'current x y z yaw frame_id', '    start x y z    ', 'dt')
         self.data_contents = []
 
         self.on_id_changed = None
@@ -86,7 +96,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
         rows = len(contents)
         position = len(self.data_contents) if position == 'last' else position
-
         self.beginInsertRows(parent, position, position + rows - 1)
         self.data_contents[position:position] = contents
 
@@ -263,25 +272,25 @@ def col_check(col):
 
 
 @col_check(1)
+def check_ver(item):
+    if not item:
+        return None
+    return True
+
+@col_check(2)
 def check_anim(item):
     if not item:
         return None
     return str(item) != 'No animation'
 
-
-@col_check(2)
-def check_bat_v(item):
-    if not item:
-        return None
-    return float(item) > 3.2
-
-
 @col_check(3)
-def check_bat_p(item):
+def check_bat(item):
     if not item:
         return None
-    return float(item) > 30
-
+    if item == "NO_INFO":
+        return False
+    else:
+        return float(item.split(' ')[1][:-1]) > 50
 
 @col_check(4)
 def check_sys_status(item):
@@ -289,29 +298,57 @@ def check_sys_status(item):
         return None
     return item == "STANDBY"
 
-
 @col_check(5)
 def check_cal_status(item):
     if not item:
         return None
     return item == "OK"
 
-
 @col_check(6)
+def check_mode(item):
+    if not item:
+        return None
+    return (item != "NO_FCU") and not ("CMODE" in item)
+
+
+@col_check(7)
 def check_selfcheck(item):
     if not item:
         return None
     return item == "OK"
 
 
-@col_check(7)
-def check_cal_status(item):
+@col_check(8)
+def check_pos_status(item):
     if not item:
         return None
-    return True
+    str_pos = item.split(' ')
+    if str_pos[0] != 'nan' and str_pos[0] != 'NO_POS':
+        Checks.current_position = []
+        for i in range(3):
+            Checks.current_position.append(float(str_pos[i]))
+        return True
+    Checks.current_position = 'NO_POS'
+    return False
+
+@col_check(9)
+def check_start_pos_status(item):
+    if not item:
+        return None
+    str_start_pos = item.split(' ')
+    if str_start_pos[0] != 'nan' and str_start_pos[0] != 'NO_POS':
+        Checks.start_position = []
+        for i in range(3):
+            Checks.start_position.append(float(str_start_pos[i]))
+        delta = Checks.get_pos_delta()
+        if delta == 'NO_POS':
+            return False
+        else:
+            return delta < 1.    
+    return False
 
 
-@col_check(8)
+@col_check(10)
 def check_time_delta(item):
     if not item:
         return None
@@ -334,7 +371,7 @@ def takeoff_checks(copter_item):
 
 def flip_checks(copter_item):
     for col in Checks.takeoff_checklist:
-        if col != 4:
+        if col != 4 or col != 7:
             if not Checks.all_checks[col](copter_item[col]):
                 return False
         else:

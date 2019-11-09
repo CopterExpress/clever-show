@@ -24,7 +24,7 @@ def get_id(filepath="animation.csv"):
     try:
         animation_file = open(filepath)
     except IOError:
-        logging.error("File {} can't be opened".format(filepath))
+        logger.error("File {} can't be opened".format(filepath))
         anim_id = "No animation"
         return anim_id
     else:
@@ -35,10 +35,44 @@ def get_id(filepath="animation.csv"):
             row_0 = csv_reader.next()
             if len(row_0) == 1:
                 anim_id = row_0[0]
-                print("Got animation_id: {}".format(anim_id))
+                logger.debug("Got animation_id: {}".format(anim_id))
             else:
-                print("No animation id in file")
+                anim_id = "Empty id"
+                logger.debug("No animation id in file")
     return anim_id
+
+def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1):
+    try:
+        animation_file = open(filepath)
+    except IOError:
+        logger.error("File {} can't be opened".format(filepath))
+        anim_id = "No animation"
+        return float('nan'), float('nan')
+    else:
+        with animation_file:
+            csv_reader = csv.reader(
+                animation_file, delimiter=',', quotechar='|'
+            )
+            try:
+                row_0 = csv_reader.next()
+            except:
+                return float('nan'), float('nan')
+            if len(row_0) == 1:
+                anim_id = row_0[0]
+                logger.debug("Got animation_id: {}".format(anim_id))
+                try:
+                    frame_number, x, y, z, yaw, red, green, blue = csv_reader.next()
+                except:
+                    return float('nan'), float('nan')
+            else:
+                anim_id = "Empty id"
+                logger.debug("No animation id in file")
+                try:
+                    frame_number, x, y, z, yaw, red, green, blue = row_0
+                except:
+                    return float('nan'), float('nan')
+    return float(x)*x_ratio, float(y)*y_ratio
+
 
 def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):
     imported_frames = []
@@ -56,9 +90,9 @@ def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, x_ratio=1, y_rati
             row_0 = csv_reader.next()
             if len(row_0) == 1:
                 anim_id = row_0[0]
-                print("Got animation_id: {}".format(anim_id))
+                logger.debug("Got animation_id: {}".format(anim_id))
             else:
-                print("No animation id in file")
+                logger.debug("No animation id in file")
                 frame_number, x, y, z, yaw, red, green, blue = row_0
                 imported_frames.append({
                     'number': int(frame_number),

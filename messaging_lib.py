@@ -5,6 +5,7 @@ import json
 import socket
 import struct
 import random
+import inspect
 import logging
 import threading
 import collections
@@ -20,6 +21,7 @@ except ImportError:
 
 PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
                                                            "callback", "callback_args", "callback_kwargs",
+                                                           "request_args", "resend",
                                                            ])
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ def get_ip_address():
             ip_socket.connect(("8.8.8.8", 80))
             return ip_socket.getsockname()[0]
     except OSError:
-        logging.warning("No network connection detected, using localhost")
+        logger.warning("No network connection detected, using localhost")
         return "localhost"
 
 
@@ -193,7 +195,7 @@ class ConnectionManager(object):
     messages_callbacks = {}
     requests_callbacks = {}
 
-    def __init__(self):
+    def __init__(self, whoami = "computer"):
         self.selector = None
         self.socket = None
         self.addr = None
@@ -202,6 +204,8 @@ class ConnectionManager(object):
 
         self._recv_buffer = b""
         self._send_buffer = b""
+
+        self.whoami = whoami
 
         self._send_queue = collections.deque()
         self._received_queue = collections.deque()
@@ -213,6 +217,7 @@ class ConnectionManager(object):
 
         self.BUFFER_SIZE = 1024
         self.resume_queue = False
+        self.resend_requests = True
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', 'rw'."""
@@ -226,7 +231,7 @@ class ConnectionManager(object):
             raise ValueError("Invalid events mask mode {}.".format(mode))
 
         key = self.selector.modify(self.socket, events, data=self)
-        logging.debug("Switched selector of {} to mode {}".format(self.addr, key.events))
+        logger.debug("Switched selector of {} to mode {}".format(self.addr, key.events))
         return key
 
     def connect(self, client_selector, client_socket, client_addr):
@@ -235,6 +240,8 @@ class ConnectionManager(object):
         self.addr = client_addr
 
         self._set_selector_events_mask('r')
+        if self.resend_requests:
+            self._resend_requests()
 
     def close(self):
         with self._close_lock:
@@ -245,6 +252,12 @@ class ConnectionManager(object):
 
     def _close(self):
         logger.info("Closing connection to {}".format(self.addr))
+
+        if not self.resume_queue:
+            self._recv_buffer = b''
+            self._send_buffer = b''
+            self._received_queue.clear()  #
+
         try:
             logger.info("Unregistering selector of {}".format(self.addr))
             self.selector.unregister(self.socket)
@@ -298,7 +311,7 @@ class ConnectionManager(object):
                 self._received_queue[0].income_raw = b''
 
             if self._received_queue:
-                if self._received_queue[-1].content:
+                if self._received_queue[0].content:
                     self.process_received(self._received_queue.popleft())
 
     def _read(self):
@@ -313,8 +326,6 @@ class ConnectionManager(object):
                 logger.debug("Received {} from {}".format(data, self.addr))
             else:
                 logger.warning("Connection to {} lost!".format(self.addr))
-                if not self.resume_queue:
-                    self._recv_buffer = b''
 
                 raise RuntimeError("Peer closed.")
 
@@ -357,21 +368,20 @@ class ConnectionManager(object):
 
     def _process_response(self, message):
         request_id, requested_value = message.content["request_id"], message.content["requested_value"]
+
         with self._request_lock:
-            for key, value in self._request_queue.items():  # TODO as try []
-                if (key == request_id) and (value.requested_value == requested_value):
-                    request = self._request_queue.pop(key)
-                    value = message.content["value"]
-                    logger.debug(
-                        "Request {} successfully closed with value {}".format(request, message.content["value"])
-                    )
+            request = self._request_queue.pop(request_id, None)
 
-                    f = request.callback
-                    f(value, *request.callback_args, **request.callback_kwargs)
+        if (request is not None) and (request.requested_value == requested_value):
+            value = message.content["value"]
+            logger.debug(
+                "Request {} successfully closed with value {}".format(request, message.content["value"])
+            )
 
-                    break
-            else:
-                logger.warning("Unexpected  response!")
+            f = request.callback
+            f(value, *request.callback_args, **request.callback_kwargs)
+        else:
+            logger.warning("Unexpected  response!")
 
     def _process_filetransfer(self, message):  # TODO path?
         if message.jsonheader["content-type"] == "binary":
@@ -383,7 +393,9 @@ class ConnectionManager(object):
                 logger.error("File {} can not be written due error: {}".format(filepath, error))
             else:
                 logger.info("File {} successfully received ".format(filepath))
-                os.system("chown -R pi:pi /home/pi/clever-show")
+                if self.whoami == "pi":
+                    logger.info("Return rights to pi:pi after file transfer")
+                    os.system("chown pi:pi {}".format(filepath))
 
     def write(self):
         with self._send_lock:
@@ -418,7 +430,7 @@ class ConnectionManager(object):
             self._send_queue.append(data)
 
         if self.selector.get_key(self.socket).events != selectors.EVENT_WRITE:
-            self._set_selector_events_mask('w')
+            self._set_selector_events_mask('rw')
             NotifierSock().notify()
 
     def get_response(self, requested_value, callback, request_args=None,  # timeout=30,
@@ -437,8 +449,21 @@ class ConnectionManager(object):
                 callback=callback,
                 callback_args=callback_args,
                 callback_kwargs=callback_kwargs,
+                request_args=request_args,
+                resend=True,
             )
         self._send(MessageManager.create_request(requested_value, request_id, request_args))
+
+    def _resend_requests(self):
+        with self._request_lock:
+            for request_id, request in self._request_queue.items():
+                if request.resend:
+                    self._send(MessageManager.create_request(
+                        request.requested_value, request_id, request.request_args.update(resend=request.resend))
+                    )
+                    #request.resend = False
+
+            # self._request_queue.clear()
 
     def send_message(self, command, args=None):
         self._send(MessageManager.create_simple_message(command, args))
@@ -459,7 +484,7 @@ class ConnectionManager(object):
             ))
 
 
-class NotifierSock(Singleton):
+class NotifierSock(Singleton):  #TODO remake as connecting ONLY to self socket and selector
     def __init__(self):
         self.receive_socket = None
         self.addr = None

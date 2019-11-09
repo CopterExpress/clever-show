@@ -16,6 +16,7 @@ from quamash import QEventLoop, QThreadExecutor
 from server_gui import Ui_MainWindow
 
 from server import *
+import messaging_lib as messaging
 from copter_table_models import *
 from emergency import *
 
@@ -53,7 +54,6 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
         return wrapper
 
     return inner
-
 
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
@@ -113,14 +113,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
+        logging.debug("Start remove {}".format(client.copter_id))
         row_data = self.model.get_row_by_attr("client", client)
         row_num = self.model.get_row_index(row_data)
+        logging.debug("Removing {}".format(client.copter_id))
         if row_num is not None:
             if Server().remove_disconnected and (not client.connected):
                 client.remove()
                 self.signals.remove_client_signal.emit(row_num)
             else:
                 self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
+        logging.debug("{} removed".format(client.copter_id))
 
     def init_ui(self):
         # Connecting
@@ -170,59 +173,40 @@ class MainWindow(QtWidgets.QMainWindow):
     def selfcheck_selected(self):
         for copter_data_row in self.model.user_selected():
             client = copter_data_row.client
+            client.get_response("telemetry", self.update_table_data)
 
-            client.get_response("anim_id", self.set_copter_data, callback_args=(1, copter_data_row))
-            client.get_response("batt_voltage", self.set_copter_data, callback_args=(2, copter_data_row))
-            client.get_response("cell_voltage", self.set_copter_data, callback_args=(3, copter_data_row))
-            client.get_response("sys_status", self.set_copter_data, callback_args=(4, copter_data_row))
-            client.get_response("cal_status", self.set_copter_data, callback_args=(5, copter_data_row))
-            client.get_response("selfcheck", self.set_copter_data, callback_args=(6, copter_data_row))
-            client.get_response("position", self.set_copter_data, callback_args=(7, copter_data_row))
-            client.get_response("time", self.set_copter_data, callback_args=(8, copter_data_row))
-
-    def set_copter_data(self, value, col, copter_data_row):
-        row = self.model.get_row_index(copter_data_row)
-        if row is None:
-            logging.error("No such client!")
-            return
-
-        if col == 1:
-            data = value
-        elif col == 2:
-            data = "{}".format(round(float(value), 3))
-        elif col == 3:
-            batt_percent = ((float(value) - 3.2) / (4.2 - 3.2)) * 100  # TODO config
-            data = "{}".format(round(batt_percent, 3))
-        elif col == 4:
-            data = str(value)
-        elif col == 5:
-            data = str(value)
-        elif col == 6:
-            data = value
-        elif col == 7:
-            data = str(value)
-        elif col == 8:
-            data = "{}".format(round(float(value) - time.time(), 3))
-            if abs(float(data)) > 1:
-                copter_data_row.client.send_message("repair_chrony")
+    @pyqtSlot(str)
+    def update_table_data(self, message):
+        fields = message.split('`')
+        # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
+        copter_id = fields[0]
+        git_version = fields[1]
+        animation_id = fields[2]
+        battery_v = fields[3]
+        battery_p = fields[4]
+        if battery_v == 'nan' or battery_p == 'nan':
+            battery_info = "NO_INFO"
         else:
-            logging.error("No column matched for response")
-            return
-
-        self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
-
-
-    #def set_copter_id(self, value, copter_data_row):
-    #    col = 0
-    #    row = self.model.get_row_index(copter_data_row)
-    #    if row is None:
-    #        logging.error("No such client!")
-    #        return
-    #    logging.info("SET COPTER ID TO {}".format(value))
-    #
-    #    copter_data_row.client.copter_id = value
-    #    self.signals.update_data_signal.emit(row, col, value, ModelDataRole)
-    #    self.signals.update_data_signal.emit(row, col, True, ModelStateRole)
+            battery_info = "{}V {}%".format(battery_v, battery_p)
+        sys_status = fields[5]
+        cal_status = fields[6]
+        mode = fields[7]
+        selfcheck = fields[8]
+        current_pos = fields[9]
+        start_pos = fields[10]
+        copter_time = fields[11]
+        time_delta = "{}".format(round(float(copter_time) - time.time(), 3))
+        row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
+        self.signals.update_data_signal.emit(row, 1, git_version, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 2, animation_id, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 3, battery_info, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 6, mode, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 7, selfcheck, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 8, current_pos, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 9, start_pos, ModelDataRole)
+        self.signals.update_data_signal.emit(row, 10, time_delta, ModelDataRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
@@ -248,10 +232,16 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def remove_selected(self):
         for copter in self.model.user_selected():
-            row_num = self.model.data_contents.index(copter)
-            copter.client.remove()
-            self.signals.remove_client_signal.emit(row_num)
-            logging.info("Client removed from table!")
+            row_num = self.model.get_row_index(copter)
+            if row_num is not None:
+                copter.client.remove()
+
+                if not Server().remove_disconnected:
+                    self.signals.remove_client_signal.emit(row_num)
+                
+                logging.info("Client removed from table!")
+            else:
+                logging.error("Client is not in table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
@@ -263,7 +253,7 @@ class MainWindow(QtWidgets.QMainWindow):
             music_dt = self.ui.music_delay_spin.value()
             asyncio.ensure_future(self.play_music_at_time(music_dt+time_now), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
-        self.selfcheck_selected()
+        # self.selfcheck_selected()
         for copter in self.model.user_selected():
             if all_checks(copter):
                 server.send_starttime(copter.client, dt+time_now)
@@ -366,13 +356,12 @@ class MainWindow(QtWidgets.QMainWindow):
             print("Selected directory:", path)
             files = [file for file in glob.glob(path + '/*.csv')]
             names = [os.path.basename(file).split(".")[0] for file in files]
-            # print(files)
             for file, name in zip(files, names):
                 for copter in self.model.user_selected():
                     if name == copter.copter_id:
                         copter.client.send_file(file, "animation.csv")  # TODO config
                 else:
-                    print("Filename has no matches with any drone selected")
+                    logging.info("Filename has no matches with any drone selected")
 
     @pyqtSlot()
     def send_calibrations(self):
@@ -388,7 +377,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if name == copter.copter_id:
                         copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
                 else:
-                    print("Filename has no matches with any drone selected")
+                    logging.info("Filename has no matches with any drone selected")
 
     @pyqtSlot()
     def send_configurations(self):
@@ -401,7 +390,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for section in sendable_config.sections():
                 for option in dict(sendable_config.items(section)):
                     value = sendable_config[section][option]
-                    logging.debug("Got item from config:".format(section, option, value))
+                    logging.debug("Got item from config: {} {} {}".format(section, option, value))
                     options.append(ConfigOption(section, option, value))
 
             for copter in self.model.user_selected():
@@ -419,12 +408,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_launch(self):
-        path = QFileDialog.getOpenFileName(self, "Select launch file for clever", filter="Launch files (*.launch)")[0]
+        path = str(QFileDialog.getExistingDirectory(self, "Select directory with launch files"))
         if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
+            print("Selected directory:", path)
+            files = [file for file in glob.glob(path + '/*.launch')]
             for copter in self.model.user_selected():
-                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
+                for file in files:
+                    filename = os.path.basename(file)
+                    copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
                 # copter.client.send_message("service_restart", {"name": "clever"})
     
     @pyqtSlot()
@@ -562,6 +553,11 @@ class MainWindow(QtWidgets.QMainWindow):
             for row_num in range(client_row_min, client_row_max + 1):
                 self.model.data_contents[row_num].client \
                     .send_message("disarm")
+
+@messaging.message_callback("telem")
+def get_telem_data(*args, **kwargs):
+    message = kwargs.get("message", None)
+    window.update_table_data(message)
 
 
 if __name__ == "__main__":
