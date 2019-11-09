@@ -641,17 +641,33 @@ def _play_animation(*args, **kwargs):
 
 
 class Telemetry:
+    params_default_dict = {"git_version": None,
+                    "animation_id": None,
+                    "battery": None,
+                    "system_status": None,
+                    "calibration_status": None,
+                    "mode": None,
+                    "selfcheck": None,
+                    "current_position": None,
+                    "start_position": None,
+                    "telemetry_time": None,
+                           }
+
     def __init__(self):
-        self.git_version = None
-        self.animation_id = None
-        self.battery = None
-        self.system_status = None
-        self.calibration_status = None
-        self.mode = None
-        self.selfcheck = None
-        self.current_position = None
-        self.start_position = None
-        self.telemetry_time = None
+        for key, value in self.params_default_dict.items():
+            setattr(self, key, value)
+
+        self._lock = threading.Lock()
+
+    def __setattr__(self, key, value):
+        if key in getattr(self, 'params_default_dict'):
+            with getattr(self, '_lock'):
+                setattr(self, key, value)
+
+    def __getattr__(self, item):
+        if item in getattr(self, 'params_default_dict'):
+            with getattr(self, '_lock'):
+                return getattr(self, item)
 
     @classmethod
     def get_git_version(cls):
@@ -754,7 +770,7 @@ class Telemetry:
         self.calibration_status = 'NO_FCU'
         self.system_status = 'NO_FCU'
         self.mode = 'NO_FCU'
-        self.selfcheck = 'NO_FCU'
+        self.selfcheck = ['NO_FCU']
         self.current_position = 'NO_POS'
 
     def _update_loop(self, freq):  # TODO extract?
@@ -775,9 +791,9 @@ class Telemetry:
 
     def create_msg_contents(self, keys=None):  # keys: set or list
         if keys is None:
-            return self.__dict__
-        # else return only existing keys from 'keys'
-        return {k: self.__dict__[k] for k in keys if k in self.__dict__}
+            keys = self.params_default_dict.keys()
+        # return only existing keys from 'keys'
+        return {k: self.__dict__[k] for k in keys if k in self.params_default_dict}
 
 
 if __name__ == "__main__":
