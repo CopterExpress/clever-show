@@ -279,7 +279,7 @@ def check_bat(item):
     if item == "NO_INFO":
         return False
     else:
-        return float(item.split(' ')[1][:-1]) > 30
+        return float(item.split(' ')[1][:-1]) > 50
 
 @col_check(4)
 def check_sys_status(item):
