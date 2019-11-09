@@ -654,20 +654,24 @@ class Telemetry:
                            }
 
     def __init__(self):
+        self._lock = threading.Lock()
+
         for key, value in self.params_default_dict.items():
             setattr(self, key, value)
 
-        self._lock = threading.Lock()
-
     def __setattr__(self, key, value):
-        if key in getattr(self, 'params_default_dict'):
-            with getattr(self, '_lock'):
-                setattr(self, key, value)
+        if key in self.params_default_dict:
+            with self.__dict__['_lock']:
+                self.__dict__[key] = value
+        else:
+            self.__dict__[key] = value
 
     def __getattr__(self, item):
-        if item in getattr(self, 'params_default_dict'):
-            with getattr(self, '_lock'):
-                return getattr(self, item)
+        if item in self.params_default_dict:
+            with self.__dict__['_lock']:
+                return self.__dict__[item]
+
+        return self.__dict__[item]
 
     @classmethod
     def get_git_version(cls):
