@@ -396,7 +396,7 @@ class ConnectionManager(object):
             )
 
             f = request.callback
-            f(value, *request.callback_args, **request.callback_kwargs)
+            f(self, value, *request.callback_args, **request.callback_kwargs)
         else:
             logger.warning("Unexpected  response!")
 

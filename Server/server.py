@@ -289,7 +289,7 @@ class Client(messaging.ConnectionManager):
         if self.on_connect:
             self.on_connect(self)
 
-    def _got_id(self, value):
+    def _got_id(self, _client, value):
         logging.info("Got copter id: {} for client {}".format(value, self.addr))
         old_id = self.copter_id
         self.copter_id = value
