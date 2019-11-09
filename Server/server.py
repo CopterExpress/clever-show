@@ -171,6 +171,7 @@ class Server(messaging.Singleton):
             logging.info("New client")
         else:
             client = Client.clients[addr[0]]
+            client.close(True)  # to ensure in unregistering
             logging.info("Reconnected client")
         self.sel.register(conn, selectors.EVENT_READ, data=client)
         client.connect(self.sel, conn, addr)
@@ -312,11 +313,12 @@ class Client(messaging.ConnectionManager):
     def remove(self):
         if self.connected:
             self.close()
-        if self.clients:
-            try:
-                self.clients.pop(self.addr[0])
-            except Exception as e:
-                logging.error(e)
+
+        try:
+            self.clients.pop(self.addr[0])
+        except KeyError as e:
+            logging.error(e)
+
         logging.info("Client {} successfully removed!".format(self.copter_id))
 
     @requires_connect
