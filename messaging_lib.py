@@ -518,6 +518,9 @@ class NotifierSock(Singleton):
         selector.register(self._receiving_sock, selectors.EVENT_READ, data=self)
         logger.info("Notify socket: selector registered")
 
+    def get_sock(self):
+        return self._receiving_sock
+
     def notify(self):
         with self._send_lock:
             if self._receiving_sock is not None:
