@@ -667,7 +667,11 @@ class Telemetry:
         y_delta = client.active_client.Y0 + client.active_client.Y0_COMMON
         z_delta = client.active_client.Z0 + client.active_client.Z0_COMMON
 
-        return x_start+x_delta, y_start+y_delta, z_delta
+        x = x_start + x_delta
+        y = y_start + y_delta
+        if not FlightLib._check_nans(x, y, z_delta):
+            return x, y, z_delta
+        return 'NO_POS'
 
     @classmethod
     def _get_battery(cls, ros_telemetry):
