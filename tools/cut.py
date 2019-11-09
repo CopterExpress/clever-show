@@ -52,7 +52,6 @@ def cut_file(filename, _from, _to):
             _to = len(imported_frames)-1
 
         path = '{}/cut_{}_{}'.format(os.path.dirname(filename),_from,_to)
-        print('Path is {}'.format(path))
         
         csv_file = open(path+'/'+os.path.basename(filename), mode='w+')
         with csv_file:
@@ -63,7 +62,7 @@ def cut_file(filename, _from, _to):
                 csv_writer.writerow([imported_frames[i]['number'], imported_frames[i]['x'], imported_frames[i]['y'], imported_frames[i]['z'],
                                     imported_frames[i]['yaw'], imported_frames[i]['red'], imported_frames[i]['green'], imported_frames[i]['blue']])
 
-        print("Successfully created file {}".format(path+'/'+filename))
+        print("Successfully created file {}".format(path+'/'+os.path.basename(filename)))
 
 if __name__ == "__main__":
     
@@ -81,19 +80,18 @@ if __name__ == "__main__":
 
     path = '{}/cut_{}_{}'.format(args.directory,_from,_to)
 
-    try:
-        os.mkdir(path)
-    except OSError:
-        print("Creation of the directory %s failed" % path)
-        files = [f for f in glob.glob(args.directory + '/*.csv')]
-        for f in files:
-            cut_file(f, _from, _to)
-    else:
-        print("Successfully created the directory %s " % path)
 
-        files = [f for f in glob.glob(args.directory + '/*.csv')]
-        for f in files:
-            cut_file(f, _from, _to)
+    if not os.path.exists(path):
+        try:
+            os.mkdir(path)
+        except OSError:
+            print("Creation of the directory %s failed" % path)
+        else:
+            print("Successfully created the directory %s " % path)
+    
+    files = [f for f in glob.glob(args.directory + '/*.csv')]
+    for f in files:
+        cut_file(f, _from, _to)
 
 
 
