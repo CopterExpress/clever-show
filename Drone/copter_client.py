@@ -758,7 +758,7 @@ class Telemetry:
         while not rospy.is_shutdown():
             self.update_telemetry()
 
-            if client.active_client.TELEM_TRANSMIT:
+            if client.active_client.TELEM_TRANSMIT and client.active_client.connected:
                 client.active_client.server_connection.\
                     send_message('telemetry', args={'value': self.create_msg_contents()})
 
