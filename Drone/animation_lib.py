@@ -144,11 +144,11 @@ def correct_animation(frames, frame_delay=0.1, min_takeoff_height=0.5, move_delt
             if abs(corrected_frames[i-1]['z'] - corrected_frames[i]['z']) < move_delta:
                 break
             del corrected_frames[i]
-        #for i in range(len(corrected_frames)-1,0,-1):
-        #    if (abs(corrected_frames[i-1]['x'] - corrected_frames[i]['x']) > move_delta or
-        #        abs(corrected_frames[i-1]['y'] - corrected_frames[i]['y']) > move_delta):
-        #        break
-        #    del corrected_frames[i]
+        for i in range(len(corrected_frames)-1,0,-1):
+            if (abs(corrected_frames[i-1]['x'] - corrected_frames[i]['x']) > move_delta or
+                abs(corrected_frames[i-1]['y'] - corrected_frames[i]['y']) > move_delta):
+                break
+            del corrected_frames[i]
     return corrected_frames, start_action, start_delay
 
 # Needs for test
