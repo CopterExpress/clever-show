@@ -425,10 +425,11 @@
     </widget>
     <addaction name="action_set_z_offset_to_ground"/>
     <addaction name="action_reset_z_offset"/>
+    <addaction name="separator"/>
+    <addaction name="action_restart_chrony"/>
     <addaction name="action_remove_row"/>
     <addaction name="separator"/>
     <addaction name="menuDeveloper_mode_2"/>
-    <addaction name="action_remove_row"/>
    </widget>
    <widget class="QMenu" name="menuMusic">
     <property name="title">
@@ -559,6 +560,11 @@
   <action name="action_reboot_all">
    <property name="text">
     <string>Reboot all</string>
+   </property>
+  </action>
+  <action name="action_restart_chrony">
+   <property name="text">
+    <string>Restart chrony</string>
    </property>
   </action>
  </widget>
