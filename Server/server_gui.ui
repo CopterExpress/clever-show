@@ -398,6 +398,7 @@
     <addaction name="action_send_launch_file"/>
     <addaction name="action_send_Aruco_map"/>
     <addaction name="action_send_calibrations"/>
+    <addaction name="action_send_fcu_parameters"/>
     <addaction name="separator"/>
     <addaction name="menuDeveloper_mode"/>
     <addaction name="separator"/>
@@ -565,6 +566,11 @@
   <action name="action_restart_chrony">
    <property name="text">
     <string>Restart chrony</string>
+   </property>
+  </action>
+  <action name="action_send_fcu_parameters">
+   <property name="text">
+    <string>Send FCU parameters</string>
    </property>
   </action>
  </widget>
