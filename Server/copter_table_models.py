@@ -53,6 +53,13 @@ class StatedCopterData(CopterData):
             try:
                 self.states.__dict__[key] = \
                     Checks.all_checks[self.attrs_dict.keys().index(key)](value)
+                if key == 'start_pos':
+                    if (self.__dict__['position'] is not None) and (self.__dict__['start_pos'] is not None):
+                        current_pos = get_position(self.__dict__['position'])                   
+                        start_pos = get_position(self.__dict__['start_pos'])
+                        delta = get_position_delta(current_pos, start_pos)
+                        if delta != 'NO_POS':
+                            self.states.__dict__[key] = (delta < Checks.start_pos_delta_max)
             except KeyError:  # No check present for that col
                 pass
             else:  # update selfchecked and takeoff_ready
@@ -64,24 +71,32 @@ class StatedCopterData(CopterData):
                     [self.states[i] for i in Checks.takeoff_checklist]
                 )
 
+def get_position(pos_string):
+    pos = []
+    pos_str = pos_string.split(' ')
+    if pos_str[0] != 'nan' and pos_str[0] != 'NO_POS':
+        for i in range(3):
+            pos.append(float(pos_str[i]))
+    else:
+        pos = 'NO_POS'
+    return pos
+
+
+def get_position_delta(pos1, pos2):
+    if pos1 != 'NO_POS' and pos2 != 'NO_POS':
+        delta_squared = 0
+        for i in range(3):
+            delta_squared += (pos1[i]-pos2[i])**2
+        return math.sqrt(delta_squared)
+    return 'NO_POS'
+
 
 class Checks:
     all_checks = {}
     takeoff_checklist = (3, 4, 6, 7, 8)
-    current_position = 'NO_POS'
-    start_position = 'NO_POS'
     battery_min = config.getfloat('CHECKS', 'battery_percentage_min') 
     start_pos_delta_max = config.getfloat('CHECKS', 'start_pos_delta_max')
     time_delta_max = config.getfloat('CHECKS', 'time_delta_max')    
-
-    @classmethod
-    def get_pos_delta(self):
-        if self.current_position != 'NO_POS' and self.start_position != 'NO_POS':
-            delta_squared = 0
-            for i in range(3):
-                delta_squared += (self.current_position[i]-self.start_position[i])**2
-            return math.sqrt(delta_squared)
-        return 'NO_POS'
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)
@@ -317,43 +332,25 @@ def check_mode(item):
         return None
     return (item != "NO_FCU") and not ("CMODE" in item)
 
-
 @col_check(7)
 def check_selfcheck(item):
     if not item:
         return None
     return item == "OK"
 
-
 @col_check(8)
 def check_pos_status(item):
     if not item:
         return None
     str_pos = item.split(' ')
-    if str_pos[0] != 'nan' and str_pos[0] != 'NO_POS':
-        Checks.current_position = []
-        for i in range(3):
-            Checks.current_position.append(float(str_pos[i]))
-        return True
-    Checks.current_position = 'NO_POS'
-    return False
+    return str_pos[0] != 'nan' and str_pos[0] != 'NO_POS'
 
 @col_check(9)
 def check_start_pos_status(item):
     if not item:
         return None
     str_start_pos = item.split(' ')
-    if str_start_pos[0] != 'nan' and str_start_pos[0] != 'NO_POS':
-        Checks.start_position = []
-        for i in range(3):
-            Checks.start_position.append(float(str_start_pos[i]))
-        delta = Checks.get_pos_delta()
-        if delta == 'NO_POS':
-            return False
-        else:
-            return delta < Checks.start_pos_delta_max    
-    return False
-
+    return str_start_pos[0] != 'nan' and str_start_pos[0] != 'NO_POS'
 
 @col_check(10)
 def check_time_delta(item):
@@ -368,13 +365,11 @@ def all_checks(copter_item):
             return False
     return True
 
-
 def takeoff_checks(copter_item):
     for col in Checks.takeoff_checklist:
         if not Checks.all_checks[col](copter_item[col]):
             return False
     return True
-
 
 def flip_checks(copter_item):
     for col in Checks.takeoff_checklist:
