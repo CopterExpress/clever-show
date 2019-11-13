@@ -369,6 +369,11 @@ def _calibrate_level(*args, **kwargs):
     calibrate('level')
     return get_calibration_status()
 
+@messaging.request_callback("load_params")
+def _load_params(*args, **kwargs):
+    result = load_param_file('temp.params')
+    logger.info("Load parameters to FCU success: {}".format(result))
+    return result
 
 @messaging.message_callback("test")
 def _command_test(*args, **kwargs):
