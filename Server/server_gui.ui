@@ -391,7 +391,7 @@
       <string>Developer mode</string>
      </property>
      <addaction name="action_send_any_file"/>
-     <addaction name="actionSend_any_command"/>
+     <addaction name="action_send_any_command"/>
     </widget>
     <addaction name="action_send_animations"/>
     <addaction name="action_send_configurations"/>
@@ -538,7 +538,7 @@
     <string>Send any file</string>
    </property>
   </action>
-  <action name="actionSend_any_command">
+  <action name="action_send_any_command">
    <property name="text">
     <string>Send any command</string>
    </property>
