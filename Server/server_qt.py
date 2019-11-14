@@ -9,7 +9,7 @@ from PyQt5 import QtWidgets, QtMultimedia
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject, QUrl
 
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QWidget, QInputDialog, QLineEdit
 from quamash import QEventLoop, QThreadExecutor
 
 # Importing gui form
@@ -153,6 +153,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
         self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
+        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
+        self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(self.restart_clever)
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
@@ -418,7 +420,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 for file in files:
                     filename = os.path.basename(file)
                     copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
-                # copter.client.send_message("service_restart", {"name": "clever"})
     
     @pyqtSlot()
     def send_fcu_parameters(self):
@@ -432,8 +433,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _print_send_fcu_params_result(self, value, copter):
         logging.info("Send parameters to {} success: {}".format(copter.client.copter_id, value))
-                # copter.client.send_message("service_restart", {"name": "clever"})
-    
+
+    @pyqtSlot()
+    def send_any_file(self):
+        path = QFileDialog.getOpenFileName(self, "Select file")[0]
+        if path:
+            filename = os.path.basename(path)
+            print("Selected file:", path, filename)
+            text, okPressed = QInputDialog.getText(self, "Enter path to send on copter","Destination:", QLineEdit.Normal, "/home/pi/")
+            if okPressed and text != '':
+                for copter in self.model.user_selected():
+                    copter.client.send_file(path, text+'/'+filename)
+
+    @pyqtSlot()
+    def send_any_command(self):
+        text, okPressed = QInputDialog.getText(self, "Enter command to send on copter","Command:", QLineEdit.Normal, "")
+        if okPressed and text != '':
+            for copter in self.model.user_selected():
+                copter.client.send_message("execute", {"command": text})
     @pyqtSlot()
     def restart_clever(self):
         for copter in self.model.user_selected():
