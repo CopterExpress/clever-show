@@ -258,8 +258,10 @@ def configure_bashrc(hostname):
 @messaging.message_callback("execute")
 def _execute(*args, **kwargs):
     command = kwargs.get("command", None)
-    if command:
+    if command is not None:
+        logger.info("Executing command: {}".format(command))
         execute_command(command)
+        logger.info("Executing done")
 
 @messaging.message_callback("id")
 def _response_id(*args, **kwargs):
