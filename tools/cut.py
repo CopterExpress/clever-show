@@ -12,7 +12,7 @@ def cut_file(filename, _from, _to, reverse = False):
     try:
         animation_file = open(filename)
     except IOError:
-        logging.error("File {} can't be opened".format(filepath))
+        logging.error("File {} can't be opened".format(filename))
     else:
         with animation_file:
             csv_reader = csv.reader(
