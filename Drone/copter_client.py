@@ -215,9 +215,11 @@ def configure_hosts(hostname):
     index_start = raw_content.find("127.0.1.1", )
     index_stop = raw_content.find("\n", index_start)
 
-    _ip, current_hostname = raw_content[index_start:index_stop].split()
+    hosts_array = raw_content[index_start:index_stop].split()
+    _ip = hosts_array[0]
+    current_hostname = hosts_array[1]
     if current_hostname != hostname:
-        content = raw_content[:index_start] + "{}       {} {}".format(_ip, hostname, hostname+'.local') + raw_content[index_stop:]
+        content = raw_content[:index_start] + "{}       {} {}.local".format(_ip, hostname, hostname) + raw_content[index_stop:]
         try:
             with open(path, 'w') as f:
                 f.write(content)
