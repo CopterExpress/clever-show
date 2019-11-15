@@ -217,7 +217,7 @@ def configure_hosts(hostname):
 
     _ip, current_hostname = raw_content[index_start:index_stop].split()
     if current_hostname != hostname:
-        content = raw_content[:index_start] + "{}       {}".format(_ip, hostname) + raw_content[index_stop:]
+        content = raw_content[:index_start] + "{}       {} {}".format(_ip, hostname, hostname+'.local') + raw_content[index_stop:]
         try:
             with open(path, 'w') as f:
                 f.write(content)

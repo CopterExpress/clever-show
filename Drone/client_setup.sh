@@ -48,7 +48,7 @@ systemctl restart dhcpcd
 cat << EOF | tee /etc/hostname
 $3
 EOF
-sed -i "/127.0.1.1/c 127.0.1.1       $3" /etc/hosts
+sed -i "/127.0.1.1/c 127.0.1.1       $3 $3.local" /etc/hosts
 
 # set hostname for ROS
 sed -i "/ROS_HOSTNAME/c ROS_HOSTNAME=\'$3\'" /home/pi/.bashrc
