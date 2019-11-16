@@ -6,7 +6,7 @@ from geometry_msgs.msg import PoseStamped
 land = rospy.ServiceProxy('/land', Trigger)
 
 visual_pose_last_timestamp = 0
-visual_pose_timeout = 1.
+visual_pose_timeout = 2.
 
 rospy.init_node('visual_pose_watchdog')
 rospy.loginfo('visual_pose_watchdog inited')
