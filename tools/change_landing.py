@@ -53,8 +53,8 @@ def parse_positions_file(filename):
             n_str = pos_file.readline()[:-1].split(' ')
             nx = int(n_str[0])
             ny = int(n_str[1])
-            dx = int(n_str[2])
-            dy = int(n_str[3])
+            dx = float(n_str[2])
+            dy = float(n_str[3])
             pos_str = pos_file.readline()[:-1].split(' ')
             for i in range(3):
                 pos.append(float(pos_str[i]))    
