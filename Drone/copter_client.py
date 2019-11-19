@@ -82,6 +82,7 @@ class CopterClient(client.Client):
         self.SAFE_TAKEOFF = self.config.getboolean('COPTERS', 'safe_takeoff')
         self.RFP_TIME = self.config.getfloat('COPTERS', 'reach_first_point_time')
         self.LAND_TIME = self.config.getfloat('COPTERS', 'land_time')
+        self.LAND_TIMEOUT = self.config.getfloat('COPTERS', 'land_timeout')
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
         self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
@@ -645,7 +646,7 @@ def _play_animation(*args, **kwargs):
     # Land
     task_manager.add_task(land_time, 0, animation.land,
                     task_kwargs={
-                        "timeout": client.active_client.TAKEOFF_TIME,
+                        "timeout": client.active_client.LAND_TIMEOUT,
                         "frame_id": client.active_client.FRAME_ID,
                         "use_leds": client.active_client.USE_LEDS,
                     },
