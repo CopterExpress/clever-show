@@ -753,13 +753,17 @@ def telemetry_loop():
             mem_usage = psutil.virtual_memory().percent
             cpu_temp_info = psutil.sensors_temperatures()['cpu-thermal'][0]
             cpu_temp = cpu_temp_info.current
+            # https://github.com/raspberrypi/documentation/blob/JamesH65-patch-vcgencmd-vcdbg-docs/raspbian/applications/vcgencmd.md
+            throttled_hex = subprocess.check_output("vcgencmd get_throttled", shell=True).split('=')[1]
+            under_voltage = bool(int(bin(int(throttled_hex,16))[2:][-1]))
+            power_state = 'normal' if not under_voltage else 'under voltage!'
             if cpu_temp_info.critical:
                 cpu_temp_state = 'critical'
             elif cpu_temp_info.high:
                 cpu_temp_state = 'high'
             else:
                 cpu_temp_state = 'normal'
-            logger.info("CPU usage: {} | Memory: {} % | T: {} ({})".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state))
+            logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
 
         rate.sleep()
 
