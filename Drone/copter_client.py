@@ -7,6 +7,7 @@ from clever import srv
 import datetime
 import logging
 import threading
+import psutil
 import subprocess
 import ConfigParser
 from collections import namedtuple
@@ -75,6 +76,7 @@ class CopterClient(client.Client):
         super(CopterClient, self).load_config()
         self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
+        self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
         self.FRAME_FLIPPED_HEIGHT = 0.
         self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
@@ -736,6 +738,18 @@ def telemetry_loop():
                     tasks_cleared = True
             else:
                 tasks_cleared = False
+        if client.active_client.LOG_CPU_AND_MEMORY:
+            cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
+            mem_usage = psutil.virtual_memory().percent
+            cpu_temp_info = psutil.sensors_temperatures()['cpu-thermal'][0]
+            cpu_temp = cpu_temp_info.current
+            if cpu_temp_info.critical:
+                cpu_temp_state = 'critical'
+            elif cpu_temp_info.high:
+                cpu_temp_state = 'high'
+            else:
+                cpu_temp_state = 'normal'
+            logger.info("CPU usage: {} | Memory: {} % | T: {} ({})".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state))
 
         rate.sleep()
 
