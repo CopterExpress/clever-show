@@ -27,8 +27,8 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion, qua
 import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
-Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position")
-telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS')
+Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position armed")
+telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS', False)
 
 # get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 
@@ -86,6 +86,7 @@ class CopterClient(client.Client):
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
         self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
+        self.CLEAR_TASKS_WHEN_LAND = self.config.getboolean('COPTERS', 'clear_tasks_when_land')
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
@@ -607,12 +608,12 @@ def _play_animation(*args, **kwargs):
         # Calculate start time
         start_time += start_delay
         # Arm
-        task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
-                            task_kwargs={
-                                "state": True
-                            }
-                            )
-        frame_time = start_time + 1.0
+        #task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
+        #                    task_kwargs={
+        #                        "state": True
+        #                    }
+        #                    )
+        frame_time = start_time # + 1.0
         point, color, yaw = animation.convert_frame(corrected_frames[0])
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                         task_kwargs={
@@ -654,6 +655,7 @@ def _play_animation(*args, **kwargs):
 
 def telemetry_loop():
     global telemetry
+    tasks_cleared = False
     rate = rospy.Rate(client.active_client.TELEM_FREQ)
     while not rospy.is_shutdown():
         telemetry = telemetry._replace(animation_id = animation.get_id())
@@ -674,6 +676,7 @@ def telemetry_loop():
             try:
                 ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
                 if ros_telemetry.connected:
+                    telemetry = telemetry._replace(armed = ros_telemetry.armed)
                     telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
                     batt_empty_param = get_param('BAT_V_EMPTY')
                     batt_charged_param = get_param('BAT_V_CHARGED')
@@ -721,13 +724,26 @@ def telemetry_loop():
                 client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
             except AttributeError as e:
                 logger.debug(e)
+        if client.active_client.CLEAR_TASKS_WHEN_LAND:
+            mode = telemetry.mode
+            armed = telemetry.armed
+            last_task = task_manager.get_last_task_name()
+            if mode != "OFFBOARD" and armed == True and last_task not in [None, 'land']:
+                if not tasks_cleared:
+                    logger.info("Clear task manager because of outside interception")
+                    logger.info("Mode: {} | armed: {} | last task: {}".format(mode, armed, last_task))
+                    task_manager.reset()
+                    tasks_cleared = True
+            else:
+                tasks_cleared = False
 
         rate.sleep()
 
 def create_telemetry_message(telemetry):
     msg = client.active_client.client_id + '`'
     for key in telemetry.__dict__:
-        msg += telemetry.__dict__[key] + '`'
+        if key != 'armed':
+            msg += telemetry.__dict__[key] + '`'
     msg += repr(time.time())
     return msg 
 
