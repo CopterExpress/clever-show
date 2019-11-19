@@ -23,6 +23,7 @@ import animation_lib as animation
 
 from mavros_mavlink import *
 
+from std_msgs.msg import Bool
 from geometry_msgs.msg import Point, Quaternion, TransformStamped
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
 import tf2_ros
@@ -30,6 +31,7 @@ import tf2_ros
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 Telemetry = namedtuple("Telemetry", "git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position armed")
 telemetry = Telemetry('nan', 'No animation', 'nan', 'nan', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_FCU', 'NO_POS', 'NO_POS', False)
+emergency = False
 
 # get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 
@@ -76,6 +78,7 @@ class CopterClient(client.Client):
         super(CopterClient, self).load_config()
         self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
+        self.CLEAR_TASKS_WHEN_EMERGENCY = self.config.getboolean('TELEMETRY', 'clear_tasks_when_emergency')
         self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
         self.FRAME_FLIPPED_HEIGHT = 0.
@@ -88,7 +91,6 @@ class CopterClient(client.Client):
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
         self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
-        self.CLEAR_TASKS_WHEN_LAND = self.config.getboolean('COPTERS', 'clear_tasks_when_land')
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
@@ -656,7 +658,7 @@ def _play_animation(*args, **kwargs):
                     )
 
 def telemetry_loop():
-    global telemetry
+    global telemetry, emergency
     tasks_cleared = False
     rate = rospy.Rate(client.active_client.TELEM_FREQ)
     while not rospy.is_shutdown():
@@ -726,13 +728,21 @@ def telemetry_loop():
                 client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
             except AttributeError as e:
                 logger.debug(e)
-        if client.active_client.CLEAR_TASKS_WHEN_LAND:
+        if client.active_client.CLEAR_TASKS_WHEN_EMERGENCY:
             mode = telemetry.mode
             armed = telemetry.armed
             last_task = task_manager.get_last_task_name()
-            if mode != "OFFBOARD" and armed == True and last_task not in [None, 'land']:
+            external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
+            log_msg = ''
+            if emergency and external_interruption:
+                log_msg = "emergency and external interruption"
+            elif emergency:
+                log_msg = "emergency"
+            elif external_interruption:
+                log_msg = "external interruption"
+            if emergency or external_interruption:
                 if not tasks_cleared:
-                    logger.info("Clear task manager because of outside interception")
+                    logger.info("Clear task manager because of {}".format(log_msg))
                     logger.info("Mode: {} | armed: {} | last task: {}".format(mode, armed, last_task))
                     task_manager.reset()
                     tasks_cleared = True
@@ -761,10 +771,15 @@ def create_telemetry_message(telemetry):
     msg += repr(time.time())
     return msg 
 
+def emergency_callback(data):
+    global emergency
+    emergency = data.data
+
 telemetry_thread = threading.Thread(target=telemetry_loop, name="Telemetry getting thread")
 
 if __name__ == "__main__":
     
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
+    rospy.Subscriber('/emergency', Bool, emergency_callback)
     copter_client.start(task_manager)
