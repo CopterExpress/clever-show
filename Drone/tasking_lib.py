@@ -41,6 +41,8 @@ class TaskManager(object):
         self._task_interrupt_event = threading.Event()
         self._shutdown_event = threading.Event()
 
+        self._last_task = None
+
         self._timeshift = 0.0
 
     def add_task(self, timestamp, priority, task_function,
@@ -84,6 +86,9 @@ class TaskManager(object):
             if self.task_queue:
                 return heapq.heappop(self.task_queue)
             raise KeyError('Pop from an empty priority queue')
+
+    def get_last_task_name(self):
+        return self._last_task
 
     def start(self):
         #print("Task manager is started")
@@ -187,6 +192,7 @@ class TaskManager(object):
                     self.pop_task()
                 except KeyError as e:
                     logger.error(str(e))
+                self._last_task = task.func.__name__
                 #try:
                     #print("Pop {} function!".format(task.func.__name__))
                 #except Exception as e:
