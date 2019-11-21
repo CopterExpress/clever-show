@@ -659,6 +659,9 @@ def _play_animation(*args, **kwargs):
 
 def telemetry_loop():
     global telemetry, emergency
+    last_state = []
+    equal_state_counter = 0
+    max_count = 2
     tasks_cleared = False
     rate = rospy.Rate(client.active_client.TELEM_FREQ)
     while not rospy.is_shutdown():
@@ -732,6 +735,11 @@ def telemetry_loop():
             mode = telemetry.mode
             armed = telemetry.armed
             last_task = task_manager.get_last_task_name()
+            state = [mode, armed, last_task]
+            if state == last_state:
+                equal_state_counter += 1
+            else:
+                equal_state_counter = 0
             external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
             log_msg = ''
             if emergency and external_interruption:
@@ -740,14 +748,17 @@ def telemetry_loop():
                 log_msg = "emergency"
             elif external_interruption:
                 log_msg = "external interruption"
-            if emergency or external_interruption:
+                logger.info("Possible expernal interruption, state_counter = {}".format(equal_state_counter))
+            if emergency or (external_interruption and equal_state_counter >= max_count):
                 if not tasks_cleared:
                     logger.info("Clear task manager because of {}".format(log_msg))
-                    logger.info("Mode: {} | armed: {} | last task: {}".format(mode, armed, last_task))
+                    logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
                     task_manager.reset()
                     tasks_cleared = True
+                    equal_state_counter = 0
             else:
                 tasks_cleared = False
+            last_state = state
         if client.active_client.LOG_CPU_AND_MEMORY:
             cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
             mem_usage = psutil.virtual_memory().percent
