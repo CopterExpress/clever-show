@@ -598,8 +598,23 @@ def get_telem_data(*args, **kwargs):
     window.update_table_data(message)
 
 
+def set_taskbar_icon():
+    import ctypes
+
+    myappid = 'COEX.droneshow.droneserver'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
+
+    app_icon = QtGui.QIcon()
+    app_icon.addFile('icons/image.ico', QtCore.QSize(256, 256))
+    app.setWindowIcon(app_icon)
+
+    if sys.platform == 'win32':
+        set_taskbar_icon()
+
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
