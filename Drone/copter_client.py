@@ -91,6 +91,7 @@ class CopterClient(client.Client):
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
         self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
+        self.YAW = self.config.get('COPTERS', 'yaw')
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
@@ -581,7 +582,6 @@ def _play_animation(*args, **kwargs):
                                         check_takeoff=client.active_client.TAKEOFF_CHECK,
                                         check_land=client.active_client.LAND_CHECK,
                                         ) 
-
     # Choose start action
     if start_action == 'takeoff':
         # Takeoff first
@@ -635,10 +635,15 @@ def _play_animation(*args, **kwargs):
     # Play animation file
     for frame in corrected_frames:
         point, color, yaw = animation.convert_frame(frame)
+        if client.active_client.YAW == "animation":
+            yaw = frame["yaw"]
+        else:
+            yaw = math.radians(float(client.active_client.YAW))
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                         task_kwargs={
                             "point": point,
                             "color": color,
+                            "yaw": yaw,
                             "frame_id": client.active_client.FRAME_ID,
                             "use_leds": client.active_client.USE_LEDS,
                             "flight_func": FlightLib.navto,
