@@ -177,9 +177,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            if orientation == Qt.Horizontal:
-                return self.headers[section]
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.headers[section]
 
     def data(self, index, role=Qt.DisplayRole):
         row = index.row()
