@@ -644,7 +644,7 @@ def _play_animation(*args, **kwargs):
                             "flight_func": FlightLib.navto,
                         }
                         )
-        frame_time += client.active_client.FRAME_DELAY
+        frame_time += frame["delay"]
 
     # Calculate land_time
     land_time = frame_time + client.active_client.LAND_TIME
