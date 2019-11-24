@@ -162,9 +162,6 @@ def check_angles(angle_limit=math.radians(5)):
     if abs(telemetry.roll) >= angle_limit:
         yield ("Roll estimation: {:.3f} rad;{:.3f} degrees".format(telemetry.roll,
                                                                    math.degrees(telemetry.roll)))
-    if abs(telemetry.yaw) >= angle_limit:
-        yield ("Yaw estimation: {:.3f} rad;{:.3f} degrees".format(telemetry.yaw,
-                                                                  math.degrees(telemetry.yaw)))
 
 
 def selfcheck():
