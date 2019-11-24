@@ -44,6 +44,7 @@ FLIP_MIN_Z = 2.0
 
 checklist = []
 get_telemetry_lock = threading.Lock()
+delta = 0.0
 
 def get_telemetry_locked(*args, **kwargs):
     with get_telemetry_lock:
@@ -174,12 +175,22 @@ def selfcheck():
 
     return checks
 
+def get_delta():
+    global delta
+    return delta
+
+def reset_delta():
+    global delta
+    delta = 0
 
 def navto(x, y, z, yaw=float('nan'), frame_id=FRAME_ID, auto_arm=False, **kwargs):
+    global delta
     set_position(frame_id=frame_id, x=x, y=y, z=z, yaw=yaw, auto_arm=auto_arm)
-    #telemetry = get_telemetry_locked(frame_id=frame_id)
+    telemetry = get_telemetry_locked(frame_id=frame_id)
+    delta = get_distance3d(x, y, z, telemetry.x, telemetry.y, telemetry.z)
 
     logger.info('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
+    #logger.info('Delta: {}'.format(delta))
     #print('Going to: | x: {:.3f} y: {:.3f} z: {:.3f} yaw: {:.3f}'.format(x, y, z, yaw))
     ##logger.info('Telemetry now: | z: {:.3f}'.format(telemetry.z))
     #print('Telemetry now: | z: {:.3f}'.format(telemetry.z))
@@ -272,6 +283,7 @@ def stop(frame_id='body', hold_speed=SPEED):
 
 def land(descend=True, z=Z_DESCEND, frame_id_descend=FRAME_ID, frame_id_land=FRAME_ID,
          timeout_descend=TIMEOUT_DESCEND, timeout_land=TIMEOUT_LAND, freq=FREQUENCY, interrupter=INTERRUPTER):
+    reset_delta()
     if descend:
         logger.info("Descending to: | z: {:.3f}".format(z))
         #print("Descending to: | z: {:.3f}".format(z))

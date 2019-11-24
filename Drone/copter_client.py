@@ -80,6 +80,7 @@ class CopterClient(client.Client):
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
         self.CLEAR_TASKS_WHEN_EMERGENCY = self.config.getboolean('TELEMETRY', 'clear_tasks_when_emergency')
         self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
+        self.LAND_POS_DELTA = self.config.getfloat('TELEMETRY', 'land_if_pos_delta_bigger_than')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
         self.FRAME_FLIPPED_HEIGHT = 0.
         self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
@@ -759,6 +760,7 @@ def telemetry_loop():
                     logger.info("Clear task manager because of {}".format(log_msg))
                     logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
                     task_manager.reset()
+                    FlightLib.reset_delta()
                     tasks_cleared = True
                     equal_state_counter = 0
             else:
@@ -780,6 +782,10 @@ def telemetry_loop():
             else:
                 cpu_temp_state = 'normal'
             logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
+        delta = FlightLib.get_delta()
+        logger.info("Delta: {}".format(delta))
+        if delta > client.active_client.LAND_POS_DELTA:
+            _command_land()
 
         rate.sleep()
 
