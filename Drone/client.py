@@ -20,6 +20,7 @@ sys.path.insert(0, parent_dir)
 logger = logging.getLogger(__name__)
 
 import messaging_lib as messaging
+import config
 
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 

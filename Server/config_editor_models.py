@@ -4,13 +4,17 @@ from PyQt5.QtCore import Qt as Qt
 
 
 class ConfigModelItem:
-    def __init__(self, data: list, parent=None):
+    def __init__(self, label, value="", parent=None):
         self.parentItem = parent
-        self.itemData = data
+        self.itemData = [label, value]
         self.childItems = []
+
+        if self.parentItem is not None:
+            self.parentItem.appendChild(self)
 
     def appendChild(self, item):
         self.childItems.append(item)
+        item.parentItem = self
 
     def child(self, row):
         return self.childItems[row]
@@ -19,7 +23,7 @@ class ConfigModelItem:
         return len(self.childItems)
 
     def columnCount(self):
-        return len(self.itemData)
+        return 2
 
     def data(self, column):
         try:
@@ -27,32 +31,51 @@ class ConfigModelItem:
         except IndexError:
             return None
 
+    def set_data(self, data, column):
+        try:
+            self.itemData[column] = data
+        except IndexError:
+            return False
+
+        return True
+
     def parent(self):
         return self.parentItem
 
     def row(self):
-        if self.parentItem:
+        if self.parentItem is not None:
             return self.parentItem.childItems.index(self)
 
         return 0
+
+    def removeChild(self, position):
+        if position < 0 or position > len(self.childItems):
+            return False
+
+        child = self.childItems.pop(position)
+        child.parentItem = None
+        return True
+
 
 class ConfigModel(QtCore.QAbstractItemModel):
     def __init__(self, data, parent=None):
         super(ConfigModel, self).__init__(parent)
 
-        self.rootItem = ConfigModelItem(("Option", "Value"))
-        #self.setupModelData(data.split('\n'), self.rootItem)
-        self.rootItem.appendChild(ConfigModelItem(("1314", "345")))
+        self.rootItem = ConfigModelItem("Option", "Value")
+        self.setup(data)
+
+        #i = ConfigModelItem("1314", "")
+        #self.rootItem.appendChild(i)
+        #i.appendChild(ConfigModelItem("36hhj", "34566"))
+        #i.appendChild(ConfigModelItem("36hhj", "34566"))
+
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
             return self.rootItem.data(section)
 
     def columnCount(self, parent):
-        if parent.isValid():
-            return parent.internalPointer().columnCount()
-        else:
-            return self.rootItem.columnCount()
+        return 2
 
     def rowCount(self, parent):
         if parent.column() > 0:
@@ -93,6 +116,99 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         return self.createIndex(parentItem.row(), 0, parentItem)
 
+    def data(self, index, role):
+        if not index.isValid():
+            return None
+
+        item = index.internalPointer()
+
+        if role == Qt.DisplayRole or role == Qt.EditRole:
+            return item.data(index.column())
+
+        return None
+
+    @QtCore.pyqtSlot()
+    def setData(self, index, value, role=Qt.EditRole):
+        if not index.isValid():
+            return False
+
+        item = index.internalPointer()
+        if role == Qt.EditRole:
+            item.set_data(value, index.column())
+
+        self.dataChanged.emit(index, index, (role,))
+
+        return True
+
+    def flags(self, index):
+        if not index.isValid():
+            return Qt.NoItemFlags
+        childItem = index.internalPointer()
+        parentItem = childItem.parent()
+
+        flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+        if index.column() == 1 and parentItem != self.rootItem:
+            flags |= Qt.ItemIsEditable
+
+        return flags
+
+    @QtCore.pyqtSlot()
+    def removeRow(self, index):
+        parent = index.parent()
+        self.beginRemoveRows(parent, index.row(), index.row())
+
+        if not parent.isValid():
+            parentNode = self.rootItem
+        else:
+            parentNode = parent.internalPointer()
+
+        parentNode.removeChild(index.row())
+
+        self.endRemoveRows()
+        return True
+
+    def setup(self, d: dict):
+        for section, options in d.items():
+            section_item = ConfigModelItem(section, parent=self.rootItem)
+            for option, value in options.items():
+                section_item.appendChild(ConfigModelItem(option, value))
+
+    def to_dict(self):
+        d = {}
+        for section in self.rootItem.childItems:
+            section_d = {}
+            section_name, _ = section.itemData
+
+            for item in section.childItems:
+                option, value = item.itemData
+                section_d[option] = value
+
+            d[section_name] = section_d
+
+        return d
+
+
+class ConfigDialog(config_editor.Ui_config_dialog):
+    def __init__(self, data):
+        super(ConfigDialog, self).__init__()
+        self.model = ConfigModel(data)
+
+    def setupUi(self, config_dialog):
+        super(ConfigDialog, self).setupUi(config_dialog)
+
+        self.config_view.setModel(self.model)
+        self.config_view.expandAll()
+
+        self.delete_button.pressed.connect(self.remove_selected)
+
+    def remove_selected(self):
+        index = self.config_view.selectedIndexes()[0]
+        self.model.removeRow(index)
+
+        #print(self.model.to_dict())
+
+
 if __name__ == '__main__':
     import sys
 
@@ -102,12 +218,16 @@ if __name__ == '__main__':
 
     sys.excepthook = except_hook
 
-    m = ConfigModel([12313, 123])
-
     app = QtWidgets.QApplication(sys.argv)
     Dialog = QtWidgets.QDialog()
-    ui = config_editor.Ui_Dialog()
+
+    data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": ""},
+            "section 2": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": ""}}
+
+    ui = ConfigDialog(data)
     ui.setupUi(Dialog)
-    ui.treeView.setModel(m)
+
+
     Dialog.show()
-    sys.exit(app.exec_())
+    print(app.exec_())
+    sys.exit()
