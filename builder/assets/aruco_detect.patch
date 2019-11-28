@@ -6,7 +6,7 @@ index cf15bc0..90b409f 100644
  		dictionary_ = cv::aruco::getPredefinedDictionary(static_cast<cv::aruco::PREDEFINED_DICTIONARY_NAME>(dictionary));
  		parameters_ = cv::aruco::DetectorParameters::create();
  		parameters_->cornerRefinementMethod = cv::aruco::CORNER_REFINE_SUBPIX;
-+		parameters_->adaptiveThreshConstant = 2;
++		parameters_->adaptiveThreshConstant = 4;
  
  		image_transport::ImageTransport it(nh_);
  		image_transport::ImageTransport it_priv(nh_priv_);
