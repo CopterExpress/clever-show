@@ -9,7 +9,7 @@ from PyQt5 import QtWidgets, QtMultimedia
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject, QUrl
 
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QWidget, QInputDialog, QLineEdit
 from quamash import QEventLoop, QThreadExecutor
 
 # Importing gui form
@@ -152,6 +152,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_configurations.triggered.connect(self.send_configurations)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
+        self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
+        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
+        self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(self.restart_clever)
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
@@ -160,6 +163,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_reset_start.triggered.connect(self.reset_start)
         self.ui.action_set_z_offset_to_ground.triggered.connect(self.set_z_offset_to_ground)
         self.ui.action_reset_z_offset.triggered.connect(self.reset_z_offset)
+        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
@@ -416,8 +420,37 @@ class MainWindow(QtWidgets.QMainWindow):
                 for file in files:
                     filename = os.path.basename(file)
                     copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
-                # copter.client.send_message("service_restart", {"name": "clever"})
     
+    @pyqtSlot()
+    def send_fcu_parameters(self):
+        path = QFileDialog.getOpenFileName(self, "Select px4 param file", filter="px4 params (*.params)")[0]
+        if path:
+            filename = os.path.basename(path)
+            print("Selected file:", path, filename)
+            for copter in self.model.user_selected():
+                copter.client.send_file(path, "temp.params")
+                copter.client.get_response("load_params", self._print_send_fcu_params_result, callback_args=(copter, ))
+
+    def _print_send_fcu_params_result(self, value, copter):
+        logging.info("Send parameters to {} success: {}".format(copter.client.copter_id, value))
+
+    @pyqtSlot()
+    def send_any_file(self):
+        path = QFileDialog.getOpenFileName(self, "Select file")[0]
+        if path:
+            filename = os.path.basename(path)
+            print("Selected file:", path, filename)
+            text, okPressed = QInputDialog.getText(self, "Enter path to send on copter","Destination:", QLineEdit.Normal, "/home/pi/")
+            if okPressed and text != '':
+                for copter in self.model.user_selected():
+                    copter.client.send_file(path, text+'/'+filename)
+
+    @pyqtSlot()
+    def send_any_command(self):
+        text, okPressed = QInputDialog.getText(self, "Enter command to send on copter","Command:", QLineEdit.Normal, "")
+        if okPressed and text != '':
+            for copter in self.model.user_selected():
+                copter.client.send_message("execute", {"command": text})
     @pyqtSlot()
     def restart_clever(self):
         for copter in self.model.user_selected():
@@ -457,6 +490,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def reset_z_offset(self):
         for copter in self.model.user_selected():
             copter.client.send_message("reset_z_offset")
+
+    @pyqtSlot()
+    def restart_chrony(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("repair_chrony")
 
     @pyqtSlot()
     def select_music_file(self):

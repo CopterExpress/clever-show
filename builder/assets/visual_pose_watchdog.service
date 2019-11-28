@@ -1,13 +1,13 @@
 [Unit]
-Description=Clever Show Client Service
+Description=Visual Pose Watchdog
 Requires=roscore.service
-After=clever.service
+After=network.target
 
 [Service]
+User=pi
 WorkingDirectory=/home/pi/clever-show/Drone
 ExecStart=/bin/bash -c ". /home/pi/catkin_ws/devel/setup.sh; \
-                      ROS_HOSTNAME=`hostname`.local /usr/bin/python /home/pi/clever-show/Drone/copter_client.py"
-KillSignal=SIGKILL
+                      ROS_HOSTNAME=`hostname`.local /usr/bin/python /home/pi/clever-show/Drone/visual_pose_watchdog.py"
 Restart=on-failure
 RestartSec=3
 

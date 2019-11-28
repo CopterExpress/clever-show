@@ -1,12 +1,14 @@
 import rospy
 import time
+import logging
 from mavros_msgs.srv import CommandLong
-from mavros_msgs.srv import ParamGet
-from mavros_msgs.msg import State
+from mavros_msgs.srv import ParamGet, ParamSet
+from mavros_msgs.msg import State, ParamValue
 from pymavlink.dialects.v20 import common as mavlink
 
 send_command_long = rospy.ServiceProxy('/mavros/cmd/command', CommandLong)
 get_param = rospy.ServiceProxy('/mavros/param/get', ParamGet)
+set_param = rospy.ServiceProxy('/mavros/param/set', ParamSet)
 system_status = -1
 heartbeat_sub = None
 heartbeat_sub_status = None
@@ -122,4 +124,26 @@ def stop_subscriber():
     if heartbeat_sub:
         heartbeat_sub.unregister()
         heartbeat_sub_status = False
+
+def load_param_file(px4_file):
+    result = True
+    try:
+        px4_params = open(px4_file)
+    except IOError:
+        logging.error("File {} can't be opened".format(filepath))
+        result = False
+    else:    
+        with open(px4_file) as px4_params:
+            for line in px4_params:
+                param_str_array = line[:-1].split('\t')
+                param_name = param_str_array[2]
+                param_value_str = param_str_array[3]
+                param_type = param_str_array[4]
+                if param_type == '6':
+                    param_value = ParamValue(integer=int(param_value_str))
+                else:
+                    param_value = ParamValue(real=float(param_value_str))
+                if not set_param(param_name, param_value):
+                    result = False
+    return result
 

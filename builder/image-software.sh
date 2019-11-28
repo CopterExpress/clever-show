@@ -61,6 +61,7 @@ chrony \
 
 echo_stamp "Install python libs"
 my_travis_retry pip install selectors2
+my_travis_retry pip install psutil
 
 echo_stamp "Install catkin packages"
 cd /home/pi/catkin_ws/src
