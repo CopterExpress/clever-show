@@ -116,8 +116,9 @@ img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-software.sh'
 # Configure image
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 
-# Copy service file for clever show client
+# Copy service files for clever show client and visual_pose_watchdog
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
+img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/visual_pose_watchdog.service' '/lib/systemd/system/'
 
 # Copy config files for clever
 if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
