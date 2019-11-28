@@ -86,7 +86,7 @@ def check_selfcheck(item):
 def check_pos_status(item):
     if item == 'NO_POS':
         return False
-    return any(math.isnan(x) for x in item)
+    return not math.isnan(item[0])
 
 
 @ModelChecks.col_check(9)
@@ -212,9 +212,9 @@ def place_battery(value):
 
 @ModelFormatter.col_format(3, ModelFormatter.VIEW_FORMATTER)
 def view_battery(value):
-    if isinstance(value, tuple):
+    if isinstance(value, list):
         battery_v, battery_p = value
-        return "{}V {:1f}%".format(battery_v, battery_p*100)
+        return "{:.1f}V {:d}%".format(battery_v, int(battery_p*100))
     return value
 
 
@@ -225,7 +225,7 @@ def place_time_delta(value):
 
 @ModelFormatter.col_format(10, ModelFormatter.VIEW_FORMATTER)
 def view_time_delta(value):
-    return "{:3f}".format(value)
+    return "{:.3f}".format(value)
 
 
 class CopterDataModel(QtCore.QAbstractTableModel):
