@@ -224,7 +224,7 @@ class Client(object):
 @messaging.message_callback("config_write")
 def _command_config_write(*args, **kwargs):
     options = [ConfigOption(**raw_option) for raw_option in kwargs["options"]]
-    logger.info("Writing config options: {}".format(options))
+    logger.info("Writing config_attrs options: {}".format(options))
     active_client.write_config(kwargs["reload"], *options)
 
 

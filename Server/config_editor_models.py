@@ -4,10 +4,12 @@ from PyQt5.QtCore import Qt as Qt
 
 
 class ConfigModelItem:
-    def __init__(self, label, value="", parent=None):
-        self.parentItem = parent
+    def __init__(self, label, value="", is_section=False, parent=None):
         self.itemData = [label, value]
+
+        self.is_section=is_section
         self.childItems = []
+        self.parentItem = parent
 
         if self.parentItem is not None:
             self.parentItem.appendChild(self)
@@ -63,12 +65,6 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         self.rootItem = ConfigModelItem("Option", "Value")
         self.setup(data)
-
-        #i = ConfigModelItem("1314", "")
-        #self.rootItem.appendChild(i)
-        #i.appendChild(ConfigModelItem("36hhj", "34566"))
-        #i.appendChild(ConfigModelItem("36hhj", "34566"))
-
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -143,12 +139,11 @@ class ConfigModel(QtCore.QAbstractItemModel):
     def flags(self, index):
         if not index.isValid():
             return Qt.NoItemFlags
-        childItem = index.internalPointer()
-        parentItem = childItem.parent()
+        item = index.internalPointer()
 
         flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
-        if index.column() == 1 and parentItem != self.rootItem:
+        if index.column() == 1 and not item.is_section:
             flags |= Qt.ItemIsEditable
 
         return flags
@@ -168,13 +163,18 @@ class ConfigModel(QtCore.QAbstractItemModel):
         self.endRemoveRows()
         return True
 
-    def setup(self, d: dict):
-        for section, options in d.items():
-            section_item = ConfigModelItem(section, parent=self.rootItem)
-            for option, value in options.items():
-                section_item.appendChild(ConfigModelItem(option, value))
+    def setup(self, data: dict, parent=None):
+        if parent is None:
+            parent = self.rootItem
 
-    def to_dict(self):
+        for key, value in data.items():
+            if isinstance(value, dict):
+                item = ConfigModelItem(key, parent=parent, is_section=True)
+                self.setup(value, parent=item)
+            else:
+                parent.appendChild(ConfigModelItem(key, value))
+
+    def to_dict(self):  # TODO recursive
         d = {}
         for section in self.rootItem.childItems:
             section_d = {}
@@ -221,8 +221,8 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     Dialog = QtWidgets.QDialog()
 
-    data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": ""},
-            "section 2": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": ""}}
+    data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": {'subopt': 'bal'}},
+            "section 2": {"opt1": "str", "opt2": [1.1, 2.3, 34], "opt3": 1.23, "opt4": False, "...": ""}}
 
     ui = ConfigDialog(data)
     ui.setupUi(Dialog)
@@ -230,4 +230,8 @@ if __name__ == '__main__':
 
     Dialog.show()
     print(app.exec_())
+
+    print(Dialog.result())
+    print(ui.model.to_dict())
+
     sys.exit()
