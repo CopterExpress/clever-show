@@ -38,6 +38,7 @@ country=GB
 network={
     ssid="$1"
     psk="$2"
+    scan_ssid=1    
 }
 EOF
 
