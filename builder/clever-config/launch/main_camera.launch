@@ -27,8 +27,8 @@
         <param name="rescale_camera_info" value="true"/> <!-- automatically rescale camera calibration info -->
 
         <!-- camera resolution, NOTE: camera_info file should match it -->
-        <param name="image_width" value="640"/>
-        <param name="image_height" value="480"/>
+        <param name="image_width" value="480"/>
+        <param name="image_height" value="360"/>
     </node>
 
     <!-- camera visualization markers -->
