@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_config_dialog(object):
     def setupUi(self, config_dialog):
         config_dialog.setObjectName("config_dialog")
-        config_dialog.resize(317, 247)
+        config_dialog.resize(600, 700)
         config_dialog.setModal(False)
         self.gridLayout = QtWidgets.QGridLayout(config_dialog)
         self.gridLayout.setObjectName("gridLayout")
