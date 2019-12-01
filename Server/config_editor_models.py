@@ -21,22 +21,55 @@ def dict_walk(d: dict, keys):
     return current
 
 
+states_colors = {
+    'normal': Qt.white, #Qt.black,
+    'unchanged': Qt.darkGray,
+    'default': Qt.lightGray,
+    'edited': Qt.yellow,
+    'added': Qt.green,
+    'deleted': Qt.red,
+}
+
+
 class ConfigModelItem:
     def __init__(self, values=(), is_section=False, state='normal', default=None, parent=None):
+        self.default = default
+
         values = list(values)
         if is_section:
             values[1:1] = ('<section>',)
+            self.default = values[1]
 
         self.itemData = values
         self.is_section = is_section
         self.state = state
-        self.default = default
+
+        self.defaults = deepcopy(self.itemData)
+        self.default_state = state
 
         self.childItems = []
         self.parentItem = parent
 
         if self.parentItem is not None:
             self.parentItem.appendChild(self)
+
+    def reset(self):
+        self.set_data(self.default, 1)
+
+        self.check_state()
+        if self.default_state == 'unchanged':
+            self.set_state('unchanged')
+
+        for child in self.childItems:
+            child.reset()
+
+    def reset_all(self):
+        self.itemData = self.defaults
+        print(self.itemData, self.defaults)
+        self.set_state(self.default_state)
+
+        for child in self.childItems:
+            child.reset()
 
     def appendChild(self, item):
         self.childItems.append(item)
@@ -66,15 +99,38 @@ class ConfigModelItem:
             return None
 
     def set_data(self, data, column):
-        if self.data(column) is None:
+        old_data = self.data(column)
+        if old_data is None:
             data = literal_eval(data) if data else None
+
+        print(data, old_data)
 
         try:
             self.itemData[column] = data
         except IndexError:
             return False
 
+        print(self.itemData[column])
+
+        if old_data != data:
+            self.set_state('edited')
+            self.check_state()
+
         return True
+
+    def check_state(self):
+        if self.default is not None and self.data(1) == self.default:
+            self.set_state('default')
+
+    def set_state(self, state):
+        # if self.state == 'unchanged' and state == 'default':
+        #     return
+        if self.state == 'added' and state in ('edited', 'unchanged', 'default', 'normal'):
+            return
+
+        self.state = state
+        for child in self.childItems:
+            child.set_state(state)
 
     def parent(self):
         return self.parentItem
@@ -178,6 +234,8 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         if role == Qt.DisplayRole or role == Qt.EditRole:
             return item.data(index.column())
+        if role == Qt.BackgroundRole: #Qt.BackgroundRole:
+            return QtGui.QBrush(states_colors[item.state])
 
         return None
 
@@ -211,7 +269,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
             if item.is_section:
                 flags |= int(QtCore.Qt.ItemIsDropEnabled)
 
-        if not (index.column() == 1 and item.is_section):
+        if not (index.column() > 0 and item.is_section):
             flags |= Qt.ItemIsEditable
 
         return flags
@@ -444,13 +502,22 @@ class Tree(QTreeView):
 
         menu.addSeparator()
 
+        reset = QAction("Reset value to default")
+        reset.triggered.connect(partial(self.reset_item, index, False))
+        menu.addAction(reset)
+
+        reset_all = QAction("Reset all data")
+        reset_all.triggered.connect(partial(self.reset_item, index, True))
+        menu.addAction(reset_all)
+
+        menu.addSeparator()
+
         add_option = QAction("Add option")
         add_option.triggered.connect(partial(self.add_item, index, False))
         menu.addAction(add_option)
 
         add_section = QAction("Add section")
         add_section.triggered.connect(partial(self.add_item, index, True))
-
         menu.addAction(add_section)
 
         if item is None:
@@ -461,6 +528,7 @@ class Tree(QTreeView):
 
     def duplicate(self, index):
         item = deepcopy(index.internalPointer())
+        item.set_state('added')
         ensure_unique_names(item)
         self.model().insertItems(index.row() + 1, [item], index.parent())
         self.expandAll()  # fix not expanded duplicated section
@@ -474,7 +542,7 @@ class Tree(QTreeView):
         if not ok:
             return
 
-        item = ConfigModelItem((text,), is_section=is_section)
+        item = ConfigModelItem((text, None, '', ''), is_section=is_section, state='added')
         row = index.row()
         if row == -1:  # to append at last position
             parentItem = self.model().nodeFromIndex(index)
@@ -482,6 +550,13 @@ class Tree(QTreeView):
 
         self.model().insertItems(row + 1, [item], index.parent())
         ensure_unique_names(item, include_self=False)
+
+    def reset_item(self, index, reset_all):
+        item = index.internalPointer()
+        if reset_all:
+            item.reset_all()
+        else:
+            item.reset()
 
 
 if __name__ == '__main__':
