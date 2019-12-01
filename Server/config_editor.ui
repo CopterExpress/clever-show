@@ -17,33 +17,6 @@
    <bool>false</bool>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="3" column="0">
-    <layout class="QGridLayout" name="gridLayout_2">
-     <item row="0" column="0">
-      <widget class="QCheckBox" name="checkBox">
-       <property name="text">
-        <string>Restart</string>
-       </property>
-       <property name="shortcut">
-        <string>R</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QDialogButtonBox" name="buttonBox">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="standardButtons">
-        <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
-       </property>
-       <property name="centerButtons">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
    <item row="0" column="0">
     <widget class="QTreeView" name="config_view">
      <property name="editTriggers">
@@ -57,45 +30,44 @@
      </attribute>
     </widget>
    </item>
-   <item row="1" column="0">
-    <layout class="QGridLayout" name="gridLayout_3">
-     <item row="0" column="1">
-      <widget class="QPushButton" name="delete_button">
-       <property name="text">
-        <string>Delete</string>
-       </property>
-       <property name="shortcut">
-        <string>Del</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="3">
-      <widget class="QPushButton" name="add_option_button">
-       <property name="text">
-        <string>Add option</string>
-       </property>
-      </widget>
-     </item>
+   <item row="2" column="0">
+    <layout class="QGridLayout" name="gridLayout_2">
      <item row="0" column="2">
-      <widget class="QPushButton" name="add_section_button">
+      <widget class="QDialogButtonBox" name="buttonBox">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="standardButtons">
+        <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+       </property>
+       <property name="centerButtons">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QCheckBox" name="do_restart">
        <property name="text">
-        <string>Add section</string>
+        <string>Restart</string>
        </property>
        <property name="shortcut">
-        <string>Ctrl+A</string>
+        <string>R</string>
        </property>
       </widget>
      </item>
      <item row="0" column="0">
-      <widget class="QPushButton" name="hard_delete">
+      <widget class="QCheckBox" name="do_coloring">
        <property name="text">
-        <string>Mark for deletion</string>
+        <string>Color Indication</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
     </layout>
    </item>
-   <item row="2" column="0">
+   <item row="1" column="0">
     <widget class="Line" name="line">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>

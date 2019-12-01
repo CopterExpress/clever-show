@@ -22,7 +22,7 @@ def dict_walk(d: dict, keys):
 
 
 states_colors = {
-    'normal': Qt.white, #Qt.black,
+    'normal': Qt.white,
     'unchanged': Qt.darkGray,
     'default': Qt.lightGray,
     'edited': Qt.yellow,
@@ -33,18 +33,18 @@ states_colors = {
 
 class ConfigModelItem:
     def __init__(self, values=(), is_section=False, state='normal', default=None, parent=None):
-        self.default = default
+        self.spec_default = default
 
         values = list(values)
         if is_section:
             values[1:1] = ('<section>',)
-            self.default = values[1]
+            self.spec_default = values[1]
 
         self.itemData = values
-        self.is_section = is_section
+        self.type = 'section' if is_section else None
         self.state = state
 
-        self.defaults = deepcopy(self.itemData)
+        self.default_values = deepcopy(self.itemData)
         self.default_state = state
 
         self.childItems = []
@@ -53,8 +53,12 @@ class ConfigModelItem:
         if self.parentItem is not None:
             self.parentItem.appendChild(self)
 
+    @property
+    def is_section(self):
+        return self.type == 'section'
+
     def reset(self):
-        self.set_data(self.default, 1)
+        self.set_data(self.spec_default, 1)
 
         self.check_state()
         if self.default_state == 'unchanged':
@@ -64,8 +68,7 @@ class ConfigModelItem:
             child.reset()
 
     def reset_all(self):
-        self.itemData = self.defaults
-        print(self.itemData, self.defaults)
+        self.itemData = self.default_values
         self.set_state(self.default_state)
 
         for child in self.childItems:
@@ -103,14 +106,10 @@ class ConfigModelItem:
         if old_data is None:
             data = literal_eval(data) if data else None
 
-        print(data, old_data)
-
         try:
             self.itemData[column] = data
         except IndexError:
             return False
-
-        print(self.itemData[column])
 
         if old_data != data:
             self.set_state('edited')
@@ -119,7 +118,8 @@ class ConfigModelItem:
         return True
 
     def check_state(self):
-        if self.default is not None and self.data(1) == self.default:
+        if self.spec_default is not None and self.data(1) == self.spec_default \
+                and self.data(0) == self.default_values[0]:
             self.set_state('default')
 
     def set_state(self, state):
@@ -176,8 +176,15 @@ class ConfigModel(QtCore.QAbstractItemModel):
         self.widget = widget
 
         self.rootItem = ConfigModelItem(headers)
+        self.do_color = True
+
         self.initial_comment = ''
         self.final_comment = ''
+
+    @QtCore.pyqtSlot(int)
+    def enable_color(self, value):
+        self.do_color = value
+        self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex(), (Qt.BackgroundRole, ))
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -234,7 +241,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         if role == Qt.DisplayRole or role == Qt.EditRole:
             return item.data(index.column())
-        if role == Qt.BackgroundRole: #Qt.BackgroundRole:
+        if role == Qt.BackgroundRole and self.do_color:
             return QtGui.QBrush(states_colors[item.state])
 
         return None
@@ -246,12 +253,13 @@ class ConfigModel(QtCore.QAbstractItemModel):
         item = index.internalPointer()
         if role == Qt.EditRole:
             if index.column() == 0 and (self.widget is not None) \
-                    and not self.widget.edit_caution():
-                return False
+                    and value != item.data(index.column()):
+                if not self.widget.edit_caution():
+                    return False
 
             item.set_data(value, index.column())
             if index.column() == 0:
-                ensure_unique_names(item)
+                ensure_unique_names(item, include_self=False)
 
         self.dataChanged.emit(index, index, (role,))
 
@@ -403,13 +411,16 @@ class ConfigModel(QtCore.QAbstractItemModel):
             data['final_comment'] = self.final_comment.split('\n')
 
         for item in parent.childItems:
-            key = item.data(1)
+            key = item.data(0)
 
             if item.is_section:
-                data[key] = self.to_config_dict(item)
+                d = self.to_config_dict(item)
+                if d:  # to prevent empty sections
+                    data[key] = d
+
             elif item.state != 'unchanged':
                 d = {'__option__': True,
-                     'value': item.data(0),
+                     'value': item.data(1),
                      # 'default': item.default,
                      # 'unchanged': False,
                      'comments': (item.data(2) or '').split('\n'),
@@ -448,6 +459,8 @@ class ConfigDialog(QtWidgets.QDialog):
         self.ui.config_view.setModel(self.model)
         self.ui.gridLayout.addWidget(self.ui.config_view, 0, 0, 1, 1)
         self.ui.config_view.expandAll()
+
+        self.ui.do_coloring.stateChanged.connect(self.model.enable_color)
 
         # self.ui.delete_button.pressed.connect(self.remove_selected)
 
@@ -521,6 +534,8 @@ class Tree(QTreeView):
         menu.addAction(add_section)
 
         if item is None:
+            reset.setDisabled(True)
+            reset_all.setDisabled(True)
             duplicate.setDisabled(True)
             remove.setDisabled(True)
 
@@ -594,10 +609,10 @@ if __name__ == '__main__':
                      'comments': ['#host = ntp1.stratum2.ru'], 'inline_comment': None},
             'host': {'__option__': True, 'value': 'ntp1.stratum2.ru', 'default': 'ntp1.stratum2.ru', 'unchanged': True,
                      'comments': [], 'inline_comment': ''}}, 'PRIVATE': {
-            'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': False,
+            'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': True,
                    'comments': ['# avialiable options: /hostname ; /default ; /ip ; any string 63 characters lengh', 'newlibe'],
                    'inline_comment': None}},
-        'initial_comment': ['# This is generated config_attrs with defaults', '# Modify to configure'],
+        'initial_comment': ['# This is generated config_attrs with default_values', '# Modify to configure'],
         'final_comment': []}
 
     ui = ConfigDialog()
