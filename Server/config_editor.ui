@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>310</width>
-    <height>399</height>
+    <width>600</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -45,7 +45,17 @@
     </layout>
    </item>
    <item row="0" column="0">
-    <widget class="QTreeView" name="config_view"/>
+    <widget class="QTreeView" name="config_view">
+     <property name="editTriggers">
+      <set>QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed|QAbstractItemView::SelectedClicked</set>
+     </property>
+     <attribute name="headerCascadingSectionResizes">
+      <bool>false</bool>
+     </attribute>
+     <attribute name="headerDefaultSectionSize">
+      <number>250</number>
+     </attribute>
+    </widget>
    </item>
    <item row="1" column="0">
     <layout class="QGridLayout" name="gridLayout_3">
