@@ -1,19 +1,36 @@
+import pickle
+from ast import literal_eval
+from functools import partial
 from copy import deepcopy
 
-import pickle
-
-import config_editor
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
 from PyQt5.QtGui import QCursor, QStandardItemModel
-from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu
+from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog
+
+import config_editor
+
+
+def dict_walk(d: dict, keys):
+    current = d
+    for key in keys:
+        try:
+            current = current[key]
+        except KeyError:
+            return None
+    return current
 
 
 class ConfigModelItem:
-    def __init__(self, label, value="", is_section=False, state='default', parent=None):
-        self.itemData = [label, value]
+    def __init__(self, values=(), is_section=False, state='normal', default=None, parent=None):
+        values = list(values)
+        if is_section:
+            values[1:1] = ('<section>',)
+
+        self.itemData = values
         self.is_section = is_section
         self.state = state
+        self.default = default
 
         self.childItems = []
         self.parentItem = parent
@@ -27,13 +44,8 @@ class ConfigModelItem:
 
     def addChildren(self, items, row):
         if row == -1:
-            self.childItems.extend(items)
-        else:
-            #row -= 1
-            print('row', row)
-            self.childItems[row:row] = items
-
-        print(self.childItems)
+            row = 0
+        self.childItems[row:row] = items
 
         for item in items:
             item.parentItem = self
@@ -45,7 +57,7 @@ class ConfigModelItem:
         return len(self.childItems)
 
     def columnCount(self):
-        return 2
+        return len(self.itemData)
 
     def data(self, column):
         try:
@@ -54,6 +66,9 @@ class ConfigModelItem:
             return None
 
     def set_data(self, data, column):
+        if self.data(column) is None:
+            data = literal_eval(data) if data else None
+
         try:
             self.itemData[column] = data
         except IndexError:
@@ -67,41 +82,53 @@ class ConfigModelItem:
     def row(self):
         if self.parentItem is not None:
             return self.parentItem.childItems.index(self)
-
         return 0
 
     def removeChild(self, position):
         if position < 0 or position > len(self.childItems):
             return False
-        print('removing', position)
         child = self.childItems.pop(position)
         child.parentItem = None
-        return True
-
-    def removeChildren(self, row, count):
-        print(range(row, row+count))
-        for pos in range(row, row+count):
-            self.removeChild(pos)
-
         return True
 
     def __repr__(self):
         return str(self.itemData)
 
 
-class ConfigModel(QtCore.QAbstractItemModel):
-    def __init__(self, data, parent=None):
-        super(ConfigModel, self).__init__(parent)
+def ensure_unique_names(item, include_self=True):
+    name = item.data(0)
+    siblings_names = [child.data(0) for child in item.parent().childItems]
+    if not include_self:
+        siblings_names.remove(name)
 
-        self.rootItem = ConfigModelItem("Option", "Value")
-        self.setup(data)
+    print(siblings_names, name)
+
+    while name in siblings_names:
+        if '_copy' in name:
+            spl = name.split('_copy')
+            num = int(spl[1]) if spl[1] else 0
+            num += 1
+            name = spl[0] + '_copy' + str(num)
+        else:
+            name = name + '_copy'
+
+    item.set_data(name, 0)
+
+
+class ConfigModel(QtCore.QAbstractItemModel):
+    def __init__(self, parent=None, widget=None,
+                 headers=("Option", "Value", 'Comment', 'Inline Comment')):
+        super(ConfigModel, self).__init__(parent)
+        self.widget = widget
+
+        self.rootItem = ConfigModelItem(headers)
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
             return self.rootItem.data(section)
 
     def columnCount(self, parent):
-        return 2
+        return self.rootItem.columnCount()
 
     def rowCount(self, parent):
         if parent.column() > 0:
@@ -154,14 +181,19 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         return None
 
-    @QtCore.pyqtSlot()
     def setData(self, index, value, role=Qt.EditRole):
         if not index.isValid():
             return False
 
         item = index.internalPointer()
         if role == Qt.EditRole:
+            if index.column() == 0 and (self.widget is not None) \
+                    and not self.widget.edit_caution():
+                return False
+
             item.set_data(value, index.column())
+            if index.column() == 0:
+                ensure_unique_names(item)
 
         self.dataChanged.emit(index, index, (role,))
 
@@ -179,7 +211,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
             if item.is_section:
                 flags |= int(QtCore.Qt.ItemIsDropEnabled)
 
-        if index.column() == 1 and not item.is_section:
+        if not (index.column() == 1 and item.is_section):
             flags |= Qt.ItemIsEditable
 
         return flags
@@ -188,45 +220,39 @@ class ConfigModel(QtCore.QAbstractItemModel):
         return QtCore.Qt.CopyAction | QtCore.Qt.MoveAction
 
     def mimeTypes(self):
-        return ['bstream', 'text/xml']
+        return ['app/configitem', 'text/xml']
 
     def mimeData(self, indexes):
         mimedata = QtCore.QMimeData()
         index = indexes[0]
-        mimedata.setData('bstream', pickle.dumps(self.nodeFromIndex(index)))
+        mimedata.setData('app/configitem', pickle.dumps(self.nodeFromIndex(index)))
         return mimedata
 
     def dropMimeData(self, mimedata, action, row, column, parentIndex):
-        print(action)
-        print('mim', row)
         if action == Qt.IgnoreAction:
             return True
 
-        parentNode = self.nodeFromIndex(parentIndex)
-        droppedNode = deepcopy(pickle.loads(mimedata.data('bstream')))
-        print(droppedNode.itemData, 'node')
-        #droppedNode = pickle.loads(mimedata.data('bstream')) #
-        #self.removeRow()#self.index(row, column, parentIndex))#parentNode.child(row))
+        droppedNode = deepcopy(pickle.loads(mimedata.data('app/configitem')))
+
         self.insertItems(row, [droppedNode], parentIndex)
         self.dataChanged.emit(parentIndex, parentIndex)
 
+        self.widget.ui.config_view.expandAll()
+
+        if action & Qt.CopyAction:
+            return False  # to not delete original item
         return True
 
-    def removeRows1(self, row, count, parent):
-        print('rem', row, count)
-        self.beginRemoveRows(parent, row, row+count-1)
+    def removeRows(self, row, count, parent):
+        self.beginRemoveRows(parent, row, row + count - 1)
         parentItem = self.nodeFromIndex(parent)
-        print(parentItem, parentItem.itemData)
 
-        #parentItem.removeChild(row)
-        parentItem.removeChildren(row, count)
-        print(parentItem.childItems)
+        for x in range(count):
+            parentItem.removeChild(row)
 
         self.endRemoveRows()
-        print('removed')
         return True
 
-    @QtCore.pyqtSlot()
     def removeRow(self, index):
         parent = index.parent()
         self.beginRemoveRows(parent, index.row(), index.row())
@@ -238,27 +264,61 @@ class ConfigModel(QtCore.QAbstractItemModel):
         return True
 
     def insertItems(self, row, items, parentIndex):
-        print('ins', row)
         parent = self.nodeFromIndex(parentIndex)
-        self.beginInsertRows(parentIndex, row, row+len(items)-1)
+        self.beginInsertRows(parentIndex, row, row + len(items) - 1)
 
         parent.addChildren(items, row)
-        print(parent.childItems)
 
         self.endInsertRows()
         self.dataChanged.emit(parentIndex, parentIndex)
         return True
 
-    def setup(self, data: dict, parent=None):
+    def get_key_sequence(self, index):
+        item = index.internalPointer()
+        keys = []
+        while item is not None:
+            key = item.data(0)
+            keys.append(key)
+            item = item.parent()
+        return list(reversed(keys[:-1]))
+
+    def dict_setup(self, data: dict, parent=None):
         if parent is None:
             parent = self.rootItem
 
         for key, value in data.items():
             if isinstance(value, dict):
-                item = ConfigModelItem(key, parent=parent, is_section=True)
-                self.setup(value, parent=item)
+                item = ConfigModelItem((key,), parent=parent, is_section=True)
+                self.dict_setup(value, parent=item)
             else:
-                parent.appendChild(ConfigModelItem(key, value))
+                parent.appendChild(ConfigModelItem((key, value)))
+
+    def config_dict_setup(self, data: dict, parent=None):
+        if parent is None:
+            data.pop('initial_comment', [''])
+            data.pop('final_comment', [''])
+            parent = self.rootItem
+
+        for key, item in data.items():
+            if item.get('__option__', False):
+                # {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': False, 'comments': [], 'inline_comment': None}
+                value = item['value']
+                default = item['default']
+                comments = '\n'.join(item['comments'])
+                inline_comment = item['inline_comment']
+
+                if item['unchanged']:
+                    state = 'unchanged'
+                elif value == default:
+                    state = 'default'
+                else:
+                    state = 'normal'
+
+                parent.appendChild(ConfigModelItem((key, value, comments, inline_comment), state=state))
+
+            else:
+                section = ConfigModelItem((key,), parent=parent, is_section=True)
+                self.config_dict_setup(item, parent=section)
 
     def to_dict(self, parent=None) -> dict:
         if parent is None:
@@ -266,11 +326,22 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         data = {}
         for item in parent.childItems:
-            item_name, item_data = item.itemData
-            if item.childItems:
+            item_name, item_data = item.data(0), item.data(1)
+            if item.is_section:
                 data[item_name] = self.to_dict(item)
             else:
                 data[item_name] = item_data
+
+        return data
+
+    def to_config_dict(self, parent=None) -> dict:
+        if parent is None:
+            parent = self.rootItem
+
+        for item in parent.childItems:
+            pass
+
+        data = {}
 
         return data
 
@@ -279,67 +350,122 @@ class ConfigModel(QtCore.QAbstractItemModel):
         return self.to_dict()
 
 
-class ConfigDialog(config_editor.Ui_config_dialog):
-    def __init__(self, data):
+class ConfigDialog(QtWidgets.QDialog):
+    def __init__(self):
         super(ConfigDialog, self).__init__()
-        self.model = ConfigModel(data)
+        self.ui = config_editor.Ui_config_dialog()
+        self.model = ConfigModel(widget=self)
+        self.setupUi()
 
-    def setupUi(self, config_dialog):
-        super(ConfigDialog, self).setupUi(config_dialog)
+    def setupModel(self, data, pure_dict=False):
+        if pure_dict:
+            self.model.dict_setup(data)
+        else:
+            self.model.config_dict_setup(data)
 
-        #self.config_view = Tree()
+        self.ui.config_view.expandAll()
 
-        self.config_view = Tree()
-        self.config_view.setObjectName("config_view")
-        self.config_view.setModel(self.model)
-        self.gridLayout.addWidget(self.config_view, 0, 0, 1, 1)
+    def setupUi(self):
+        self.ui.setupUi(self)
 
-        self.config_view.expandAll()
-        #self.config_view.setDragDropMode(True)
-        #self.setDragDropMode(QAbstractItemView.InternalMove)
-        #self.setDragEnabled(True)
-        #self.setAcceptDrops(True)
-        #self.setDropIndicatorShown(True)
+        self.ui.config_view = Tree()
+        self.ui.config_view.setObjectName("config_view")
+        self.ui.config_view.setModel(self.model)
+        self.ui.gridLayout.addWidget(self.ui.config_view, 0, 0, 1, 1)
+        self.ui.config_view.expandAll()
 
-        self.delete_button.pressed.connect(self.remove_selected)
+        # self.ui.delete_button.pressed.connect(self.remove_selected)
 
-    def remove_selected(self):
-        index = self.config_view.selectedIndexes()[0]
-        self.model.removeRow(index)\
+        # index = self.config_view.selectedIndexes()[0]
+
+    def edit_caution(self):
+        reply = QMessageBox().warning(self, "Editing caution",
+                                      "Are you sure you want to edit section/option name? "
+                                      "Proceed with caution!",
+                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                                      )
+        return reply == QMessageBox.Yes
 
 
 class Tree(QTreeView):
     def __init__(self):
         QTreeView.__init__(self)
-        data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": {'subopt': 'bal'}},
-                "section 2": {"opt1": "str", "opt2": [1.1, 2.3, 34], "opt3": 1.23, "opt4": False, "...": ""}}
-        #model = ConfigModel(data)
 
-        #self.setModel(model)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_menu)
 
         self.setSelectionMode(self.SingleSelection)
-        self.setDragDropMode(QAbstractItemView.InternalMove)
+        # self.setSelectionBehavior(self.SelectItems)
+
+        self.setDragDropMode(QAbstractItemView.DragDrop)
+        self.setDefaultDropAction(Qt.MoveAction)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
 
-    # def dropEvent(self, e):
-    #     print(e.dropAction()==QtCore.Qt.MoveAction)
-    #     if e.keyboardModifiers() & QtCore.Qt.AltModifier:
-    #         e.setDropAction()
-    #         print('copy')
-    #     else:
-    #         e.setDropAction(QtCore.Qt.MoveAction)
-    #         print("drop")
-    #     print(e)
-    #     e.accept()
+        # self.header()
+        # header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        # header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        # self.resizeColumnToContents(1)
+        # header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
-    def open_menu(self):
+        self.setAnimated(True)
+
+    def open_menu(self, point):
+        index = self.indexAt(point)
+        item = index.internalPointer()
+
         menu = QMenu()
-        menu.addAction("Create new folder")
+
+        duplicate = QAction("Duplicate")
+        duplicate.triggered.connect(partial(self.duplicate, index))
+        menu.addAction(duplicate)
+
+        remove = QAction("Remove from config")
+        remove.triggered.connect(partial(self.remove, index))
+        menu.addAction(remove)
+
+        menu.addSeparator()
+
+        add_option = QAction("Add option")
+        add_option.triggered.connect(partial(self.add_item, index, False))
+        menu.addAction(add_option)
+
+        add_section = QAction("Add section")
+        add_section.triggered.connect(partial(self.add_item, index, True))
+
+        menu.addAction(add_section)
+
+        if item is None:
+            duplicate.setDisabled(True)
+            remove.setDisabled(True)
+
         menu.exec_(QCursor.pos())
+
+    def duplicate(self, index):
+        item = deepcopy(index.internalPointer())
+        ensure_unique_names(item)
+        self.model().insertItems(index.row() + 1, [item], index.parent())
+        self.expandAll()  # fix not expanded duplicated section
+
+    def remove(self, index):
+        self.model().removeRow(index)
+
+    def add_item(self, index, is_section):
+        prompt = 'Enter {} name'.format('section' if is_section else 'option')
+        text, ok = QInputDialog.getText(self, prompt, prompt)
+        if not ok:
+            return
+
+        item = ConfigModelItem((text,), is_section=is_section)
+        row = index.row()
+        if row == -1:  # to append at last position
+            parentItem = self.model().nodeFromIndex(index)
+            row = parentItem.childCount() - 1
+
+        self.model().insertItems(row + 1, [item], index.parent())
+        ensure_unique_names(item, include_self=False)
+
 
 if __name__ == '__main__':
     import sys
@@ -348,22 +474,47 @@ if __name__ == '__main__':
     def except_hook(cls, exception, traceback):
         sys.__excepthook__(cls, exception, traceback)
 
+
     sys.excepthook = except_hook
 
     app = QtWidgets.QApplication(sys.argv)
-    Dialog = QtWidgets.QDialog()
 
-    data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, }}#"...": {'subopt': 'bal'}},}
-            #"section 2": {"opt1": "str", "opt2": [1.1, 2.3, 34], "opt3": 1.23, "opt4": False, "...": ""}}
+    # data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": {'subopt': 'bal'}},
+    #         "section 2": {"opt1": "str", "opt2": [1.1, 2.3, 34], "opt3": 1.23, "opt4": False, "...": ""}}
+    data = {
+        'config_name': {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': False,
+                        'comments': [], 'inline_comment': None},
+        'config_version': {'__option__': True, 'value': 0.0, 'default': 0.0, 'unchanged': False, 'comments': [],
+                           'inline_comment': None}, 'SERVER': {
+            'port': {'__option__': True, 'value': 25000, 'default': 25000, 'unchanged': False, 'comments': [],
+                     'inline_comment': None},
+            'host': {'__option__': True, 'value': '192.168.1.103', 'default': '192.168.1.101', 'unchanged': False,
+                     'comments': [], 'inline_comment': None},
+            'buffer_size': {'__option__': True, 'value': 1024, 'default': 1024, 'unchanged': False, 'comments': [],
+                            'inline_comment': None}}, 'BROADCAST': {
+            'use': {'__option__': True, 'value': True, 'default': True, 'unchanged': False, 'comments': [],
+                    'inline_comment': None},
+            'port': {'__option__': True, 'value': 8181, 'default': 8181, 'unchanged': False, 'comments': [],
+                     'inline_comment': None}}, 'NTP': {
+            'use': {'__option__': True, 'value': False, 'default': False, 'unchanged': False, 'comments': [],
+                    'inline_comment': None},
+            'port': {'__option__': True, 'value': 123, 'default': 123, 'unchanged': False,
+                     'comments': ['#host = ntp1.stratum2.ru'], 'inline_comment': None},
+            'host': {'__option__': True, 'value': 'ntp1.stratum2.ru', 'default': 'ntp1.stratum2.ru', 'unchanged': True,
+                     'comments': [], 'inline_comment': ''}}, 'PRIVATE': {
+            'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': False,
+                   'comments': ['# avialiable options: /hostname ; /default ; /ip ; any string 63 characters lengh'],
+                   'inline_comment': None}},
+        'initial_comment': ['# This is generated config_attrs with defaults', '# Modify to configure'],
+        'final_comment': []}
 
-    ui = ConfigDialog(data)
-    ui.setupUi(Dialog)
+    ui = ConfigDialog()
+    ui.setupModel(data)
+    ui.show()
 
-    print(Qt.DisplayRole)
-    Dialog.show()
     print(app.exec_())
 
-    print(Dialog.result())
+    print(ui.result())
     print(ui.model.to_dict())
 
     sys.exit()
