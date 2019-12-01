@@ -23,7 +23,7 @@ class ConfigManager:
         result = {}
         for key, val in d.items():
             if isinstance(val, dict) and val.get('__option__', False):
-                if not val.get('unchanged'):
+                if not val.get('unchanged', False):
                     result[key] = val.get('value')
             else:
                 result[key] = cls._extract_values(val)

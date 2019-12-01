@@ -101,8 +101,6 @@ def ensure_unique_names(item, include_self=True):
     if not include_self:
         siblings_names.remove(name)
 
-    print(siblings_names, name)
-
     while name in siblings_names:
         if '_copy' in name:
             spl = name.split('_copy')
@@ -122,6 +120,8 @@ class ConfigModel(QtCore.QAbstractItemModel):
         self.widget = widget
 
         self.rootItem = ConfigModelItem(headers)
+        self.initial_comment = ''
+        self.final_comment = ''
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -295,17 +295,18 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
     def config_dict_setup(self, data: dict, parent=None):
         if parent is None:
-            data.pop('initial_comment', [''])
-            data.pop('final_comment', [''])
             parent = self.rootItem
+
+            self.initial_comment = '\n'.join(data.pop('initial_comment', ['']))
+            self.final_comment = '\n'.join(data.pop('final_comment', ['']))
 
         for key, item in data.items():
             if item.get('__option__', False):
                 # {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': False, 'comments': [], 'inline_comment': None}
                 value = item['value']
                 default = item['default']
-                comments = '\n'.join(item['comments'])
-                inline_comment = item['inline_comment']
+                comments = '\n'.join(item['comments']) or ''
+                inline_comment = item['inline_comment'] or ''
 
                 if item['unchanged']:
                     state = 'unchanged'
@@ -314,7 +315,8 @@ class ConfigModel(QtCore.QAbstractItemModel):
                 else:
                     state = 'normal'
 
-                parent.appendChild(ConfigModelItem((key, value, comments, inline_comment), state=state))
+                parent.appendChild(ConfigModelItem((key, value, comments, inline_comment),
+                                                   state=state, default=default))
 
             else:
                 section = ConfigModelItem((key,), parent=parent, is_section=True)
@@ -335,13 +337,28 @@ class ConfigModel(QtCore.QAbstractItemModel):
         return data
 
     def to_config_dict(self, parent=None) -> dict:
+        data = {}
+
         if parent is None:
             parent = self.rootItem
+            data['initial_comment'] = self.initial_comment.split('\n')
+            data['final_comment'] = self.final_comment.split('\n')
 
         for item in parent.childItems:
-            pass
+            key = item.data(1)
 
-        data = {}
+            if item.is_section:
+                data[key] = self.to_config_dict(item)
+            elif item.state != 'unchanged':
+                d = {'__option__': True,
+                     'value': item.data(0),
+                     # 'default': item.default,
+                     # 'unchanged': False,
+                     'comments': (item.data(2) or '').split('\n'),
+                     'inline_comment': item.data(3) or ''
+                     }
+
+                data[key] = d
 
         return data
 
@@ -503,7 +520,7 @@ if __name__ == '__main__':
             'host': {'__option__': True, 'value': 'ntp1.stratum2.ru', 'default': 'ntp1.stratum2.ru', 'unchanged': True,
                      'comments': [], 'inline_comment': ''}}, 'PRIVATE': {
             'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': False,
-                   'comments': ['# avialiable options: /hostname ; /default ; /ip ; any string 63 characters lengh'],
+                   'comments': ['# avialiable options: /hostname ; /default ; /ip ; any string 63 characters lengh', 'newlibe'],
                    'inline_comment': None}},
         'initial_comment': ['# This is generated config_attrs with defaults', '# Modify to configure'],
         'final_comment': []}
@@ -516,5 +533,6 @@ if __name__ == '__main__':
 
     print(ui.result())
     print(ui.model.to_dict())
+    print(ui.model.to_config_dict())
 
     sys.exit()
