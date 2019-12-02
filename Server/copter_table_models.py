@@ -162,7 +162,8 @@ class StatedCopterData(CopterData):
                 )
 
 def get_position(pos_array):
-    if pos_array[0] not in ['nan', 'NO_POS']:
+    if pos_array[0] != 'nan' and pos_array != 'NO_POS':
+        pos = []
         for i in range(3):
             pos.append(pos_array[i])
     else:
@@ -248,6 +249,25 @@ def view_battery(value):
         return "{:.1f}V {:d}%".format(battery_v, int(battery_p*100))
     return value
 
+@ModelFormatter.col_format(7, ModelFormatter.VIEW_FORMATTER)
+def view_selfcheck(value):
+    if isinstance(value, list):
+        return "ERROR"
+    return value
+
+@ModelFormatter.col_format(8, ModelFormatter.VIEW_FORMATTER)
+def view_selfcheck(value):
+    if isinstance(value, list):
+        x, y, z, yaw, frame = value
+        return "{:.2f} {:.2f} {:.2f} {:d} {}".format(x, y, z, int(yaw), frame)
+    return value
+
+@ModelFormatter.col_format(9, ModelFormatter.VIEW_FORMATTER)
+def view_selfcheck(value):
+    if isinstance(value, list):
+        x, y, z = value
+        return "{:.2f} {:.2f} {:.2f}".format(x, y, z)
+    return value
 
 @ModelFormatter.col_format(10, ModelFormatter.PLACE_FORMATTER)
 def place_time_delta(value):
