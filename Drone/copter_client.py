@@ -662,120 +662,6 @@ def _play_animation(*args, **kwargs):
                     },
                     )
 
-
-
-def telemetry_loop():
-    global telemetry, emergency
-    last_state = []
-    equal_state_counter = 0
-    max_count = 2
-    tasks_cleared = False
-    rate = rospy.Rate(client.active_client.TELEM_FREQ)
-    while not rospy.is_shutdown():
-        telemetry = telemetry._replace(animation_id = animation.get_id())
-        telemetry = telemetry._replace(git_version = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True))
-        try:
-            ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
-            if ros_telemetry.connected:
-                telemetry = telemetry._replace(armed = ros_telemetry.armed)
-                telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
-                batt_empty_param = get_param('BAT_V_EMPTY')
-                batt_charged_param = get_param('BAT_V_CHARGED')
-                batt_cells_param = get_param('BAT_N_CELLS')
-                if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
-                    batt_empty = batt_empty_param.value.real
-                    batt_charged = batt_charged_param.value.real
-                    batt_cells = batt_cells_param.value.integer
-                    try:
-                        telemetry = telemetry._replace(battery_p = '{}'.format(int(min((ros_telemetry.voltage/batt_cells - batt_empty)/(batt_charged - batt_empty)*100., 100))))
-                    except ValueError:
-                        telemetry = telemetry._replace(battery_p = 'nan')
-                else:
-                    telemetry = telemetry._replace(battery_p = 'nan')
-                telemetry = telemetry._replace(calibration_status = get_calibration_status())
-                telemetry = telemetry._replace(system_status = get_sys_status())
-                telemetry = telemetry._replace(mode = ros_telemetry.mode)
-                check = FlightLib.selfcheck()
-                if not check:
-                    check = "OK"
-                telemetry = telemetry._replace(selfcheck = str(check))    
-                if not math.isnan(ros_telemetry.x):
-                    telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
-                                                                                    math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
-                else: 
-                    telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
-            else:
-                telemetry = telemetry._replace(battery_v = 'nan')
-                telemetry = telemetry._replace(battery_p = 'nan')
-                telemetry = telemetry._replace(calibration_status = 'NO_FCU')
-                telemetry = telemetry._replace(system_status = 'NO_FCU')
-                telemetry = telemetry._replace(mode = 'NO_FCU')
-                telemetry = telemetry._replace(selfcheck = 'NO_FCU')
-                telemetry = telemetry._replace(current_position = 'NO_POS')
-        except rospy.ServiceException:
-            logger.debug("Some service is unavailable")
-        except AttributeError as e:
-            logger.debug(e)
-        except rospy.TransportException as e:
-            logger.debug(e)
-        else:
-            telemetry = telemetry._replace(selfcheck = 'WAIT_ROS')
-        if client.active_client.TELEM_TRANSMIT:
-            try:
-                client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
-            except AttributeError as e:
-                logger.debug(e)
-        if client.active_client.CLEAR_TASKS_WHEN_EMERGENCY:
-            mode = telemetry.mode
-            armed = telemetry.armed
-            last_task = task_manager.get_last_task_name()
-            state = [mode, armed, last_task]
-            if state == last_state:
-                equal_state_counter += 1
-            else:
-                equal_state_counter = 0
-            external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
-            log_msg = ''
-            if emergency and external_interruption:
-                log_msg = "emergency and external interruption"
-            elif emergency:
-                log_msg = "emergency"
-            elif external_interruption:
-                log_msg = "external interruption"
-                logger.info("Possible expernal interruption, state_counter = {}".format(equal_state_counter))
-            if emergency or (external_interruption and equal_state_counter >= max_count):
-                if not tasks_cleared:
-                    logger.info("Clear task manager because of {}".format(log_msg))
-                    logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
-                    task_manager.reset()
-                    FlightLib.reset_delta()
-                    tasks_cleared = True
-                    equal_state_counter = 0
-            else:
-                tasks_cleared = False
-            last_state = state
-        if client.active_client.LOG_CPU_AND_MEMORY:
-            cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
-            mem_usage = psutil.virtual_memory().percent
-            cpu_temp_info = psutil.sensors_temperatures()['cpu-thermal'][0]
-            cpu_temp = cpu_temp_info.current
-            # https://github.com/raspberrypi/documentation/blob/JamesH65-patch-vcgencmd-vcdbg-docs/raspbian/applications/vcgencmd.md
-            throttled_hex = subprocess.check_output("vcgencmd get_throttled", shell=True).split('=')[1]
-            under_voltage = bool(int(bin(int(throttled_hex,16))[2:][-1]))
-            power_state = 'normal' if not under_voltage else 'under voltage!'
-            if cpu_temp_info.critical:
-                cpu_temp_state = 'critical'
-            elif cpu_temp_info.high:
-                cpu_temp_state = 'high'
-            else:
-                cpu_temp_state = 'normal'
-            logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
-        delta = FlightLib.get_delta()
-        logger.info("Delta: {}".format(delta))
-        if delta > client.active_client.LAND_POS_DELTA:
-            _command_land()
-
-
 class Telemetry:
     params_default_dict = {
         "git_version": None,
@@ -788,7 +674,7 @@ class Telemetry:
         "selfcheck": None,
         "current_position": None,
         "start_position": None,
-        "telemetry_time": None,
+        "time": None,
     }
 
     def __init__(self):
@@ -849,7 +735,7 @@ class Telemetry:
             batt_cells = batt_cells_param.value.integer
 
             battery_p = (ros_telemetry.voltage / batt_cells - batt_empty) / (batt_charged - batt_empty) * 1.
-            battery_p = max(min(battery_p, 1), 0)
+            battery_p = max(min(battery_p, 1.), 0.)
         else:
             battery_p = float('nan')
 
@@ -892,7 +778,13 @@ class Telemetry:
             rospy.logdebug(e)
         except rospy.TransportException as e:
             rospy.logdebug(e)
-        self.telemetry_time = time.time()
+        self.time = time.time()
+
+    def round_telemetry(self):
+        round_list = ["battery", "start_position", "current_position"]
+        for key in round_list:
+            if self.__dict__[key] not in [None, 'NO_POS', 'NO_FCU']:
+                self.__dict__[key] = [round(v,2) if type(v) == float else v for v in self.__dict__[key]]
 
     def reset_telemetry_values(self):
         self.battery = float('nan'), float('nan')
@@ -940,6 +832,13 @@ class Telemetry:
         if delta > client.active_client.LAND_POS_DELTA:
             _command_land()
 
+    def transmit_message(self):
+        try:
+            client.active_client.server_connection.\
+                send_message('telemetry', args={'value': self.create_msg_contents()})
+        except AttributeError as e:
+            logger.debug(e)
+
     @classmethod
     def log_cpu_and_memory(cls):
         cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
@@ -961,12 +860,13 @@ class Telemetry:
     def _update_loop(self, freq):  # TODO extract?
         rate = rospy.Rate(freq)
         while not rospy.is_shutdown():
+
             self.update_telemetry()
+            self.round_telemetry()
             self.check_failsafe()
 
             if client.active_client.TELEM_TRANSMIT and client.active_client.connected:
-                client.active_client.server_connection.\
-                    send_message('telemetry', args={'value': self.create_msg_contents()})
+                self.transmit_message()
             
             if client.active_client.LOG_CPU_AND_MEMORY:
                 self.log_cpu_and_memory()
@@ -990,8 +890,6 @@ class Telemetry:
 def emergency_callback(data):
     global emergency
     emergency = data.data
-
-telemetry_thread = threading.Thread(target=telemetry_loop, name="Telemetry getting thread")
 
 if __name__ == "__main__":
     telemetry = Telemetry()
