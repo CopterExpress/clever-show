@@ -1,8 +1,9 @@
 import re
 import sys
-import math
 import time
-
+import math
+import configparser
+import collections
 import indexed
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -12,6 +13,12 @@ from PyQt5.QtCore import Qt as Qt
 ModelDataRole = 998
 ModelStateRole = 999
 
+config = configparser.ConfigParser()
+config.read("server_config.ini")
+
+battery_min = config.getfloat('CHECKS', 'battery_percentage_min') 
+start_pos_delta_max = config.getfloat('CHECKS', 'start_pos_delta_max')
+time_delta_max = config.getfloat('CHECKS', 'time_delta_max')   
 
 class ModelChecks:
     checks_dict = {}
@@ -59,7 +66,7 @@ def check_anim(item):
 def check_bat(item):
     if item == "NO_INFO":
         return False
-    return item[1] > 0.3
+    return item[1] > battery_min
 
 
 @ModelChecks.col_check(4)
@@ -96,7 +103,7 @@ def check_start_pos_status(item):
 
 @ModelChecks.col_check(10)
 def check_time_delta(item):
-    return abs(item) < 1.
+    return abs(item) < time_delta_max
 
 
 class CopterData:
@@ -136,6 +143,13 @@ class StatedCopterData(CopterData):
             try:
                 self.states.__dict__[key] = \
                     ModelChecks.checks_dict[self.attrs_dict.keys().index(key)](value)
+                if key == 'start_pos':
+                    if (self.__dict__['position'] is not None) and (self.__dict__['start_pos'] is not None):
+                        current_pos = get_position(self.__dict__['position'])                   
+                        start_pos = get_position(self.__dict__['start_pos'])
+                        delta = get_position_delta(current_pos, start_pos)
+                        if delta != 'NO_POS':
+                            self.states.__dict__[key] = (delta < start_pos_delta_max)
             except KeyError:  # No check present for that col
                 pass
             else:  # update selfchecked and takeoff_ready
@@ -146,6 +160,23 @@ class StatedCopterData(CopterData):
                 self.states.__dict__["takeoff_ready"] = all(
                     [self.states[i] for i in ModelChecks.takeoff_checklist]
                 )
+
+def get_position(pos_array):
+    if pos_array[0] not in ['nan', 'NO_POS']:
+        for i in range(3):
+            pos.append(pos_array[i])
+    else:
+        pos = 'NO_POS'
+    return pos
+
+
+def get_position_delta(pos1, pos2):
+    if pos1 != 'NO_POS' and pos2 != 'NO_POS':
+        delta_squared = 0
+        for i in range(3):
+            delta_squared += (pos1[i]-pos2[i])**2
+        return math.sqrt(delta_squared)
+    return 'NO_POS'
 
 
 class ModelFormatter:
@@ -225,8 +256,7 @@ def place_time_delta(value):
 
 @ModelFormatter.col_format(10, ModelFormatter.VIEW_FORMATTER)
 def view_time_delta(value):
-    return "{:.3f}".format(value)
-
+    return "{:.3f}".format(value)  
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)
@@ -237,8 +267,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'calibration', 
-                        '  mode  ', 'selfcheck', 'current x y z yaw frame_id', ' start x y z ', 'dt')
+        self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'sensors', 
+                        '  mode  ', 'checks', 'current x y z yaw frame_id', '    start x y z    ', 'dt')
         self.data_contents = []
 
         self.checks = checks
@@ -411,7 +441,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         row = self.get_row_index(data)
         if row is not None:
             self.removeRows(row)
-
 
 def flip_checks(copter_item):
     for col in ModelChecks.takeoff_checklist:

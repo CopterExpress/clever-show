@@ -3,6 +3,7 @@ import time
 import socket
 import random
 import logging
+import datetime
 import threading
 import selectors
 import collections
@@ -17,11 +18,22 @@ import messaging_lib as messaging
 
 random.seed()
 
+now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+path = 'server_logs'
+if not os.path.exists(path):
+    try:
+        os.mkdir(path)
+    except OSError:
+        print("Creation of the directory %s failed" % path)
+    else:
+        print("Successfully created the directory %s " % path)
+
 logging.basicConfig(  # TODO all prints as logs
     level=logging.DEBUG,
     format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
     handlers=[
-        logging.FileHandler("server_logs.log"),
+        logging.FileHandler("server_logs/{}.log".format(now)),
         logging.StreamHandler()
     ])
 

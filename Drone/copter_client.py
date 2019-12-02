@@ -3,9 +3,11 @@ import sys
 import time
 import math
 import rospy
+from clever import srv
 import datetime
 import logging
 import threading
+import psutil
 import subprocess
 import ConfigParser
 from collections import namedtuple
@@ -21,11 +23,14 @@ import animation_lib as animation
 
 from mavros_mavlink import *
 
+from std_msgs.msg import Bool
 from geometry_msgs.msg import Point, Quaternion, TransformStamped
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
 import tf2_ros
 
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
+
+emergency = False
 
 logging.basicConfig(  # TODO all prints as logs
    level=logging.DEBUG, # INFO
@@ -70,6 +75,9 @@ class CopterClient(client.Client):
         super(CopterClient, self).load_config()
         self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
+        self.CLEAR_TASKS_WHEN_EMERGENCY = self.config.getboolean('TELEMETRY', 'clear_tasks_when_emergency')
+        self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
+        self.LAND_POS_DELTA = self.config.getfloat('TELEMETRY', 'land_if_pos_delta_bigger_than')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
         self.FRAME_FLIPPED_HEIGHT = 0.
         self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
@@ -77,9 +85,11 @@ class CopterClient(client.Client):
         self.SAFE_TAKEOFF = self.config.getboolean('COPTERS', 'safe_takeoff')
         self.RFP_TIME = self.config.getfloat('COPTERS', 'reach_first_point_time')
         self.LAND_TIME = self.config.getfloat('COPTERS', 'land_time')
+        self.LAND_TIMEOUT = self.config.getfloat('COPTERS', 'land_timeout')
         self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
         self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
         self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
+        self.YAW = self.config.get('COPTERS', 'yaw')
         self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
         self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
         self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
@@ -211,9 +221,11 @@ def configure_hosts(hostname):
     index_start = raw_content.find("127.0.1.1", )
     index_stop = raw_content.find("\n", index_start)
 
-    _ip, current_hostname = raw_content[index_start:index_stop].split()
+    hosts_array = raw_content[index_start:index_stop].split()
+    _ip = hosts_array[0]
+    current_hostname = hosts_array[1]
     if current_hostname != hostname:
-        content = raw_content[:index_start] + "{}       {}".format(_ip, hostname) + raw_content[index_stop:]
+        content = raw_content[:index_start] + "{}       {} {}.local".format(_ip, hostname, hostname) + raw_content[index_stop:]
         try:
             with open(path, 'w') as f:
                 f.write(content)
@@ -254,8 +266,10 @@ def configure_bashrc(hostname):
 @messaging.message_callback("execute")
 def _execute(*args, **kwargs):
     command = kwargs.get("command", None)
-    if command:
+    if command is not None:
+        logger.info("Executing command: {}".format(command))
         execute_command(command)
+        logger.info("Executing done")
 
 @messaging.message_callback("id")
 def _response_id(*args, **kwargs):
@@ -324,7 +338,7 @@ def _response_animation_id(*args, **kwargs):
 @messaging.request_callback("batt_voltage")
 def _response_batt(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
-        return FlightLib.get_telemetry('body').voltage
+        return FlightLib.get_telemetry_locked('body').voltage
     else:
         stop_subscriber()
         return float('nan')
@@ -333,7 +347,7 @@ def _response_batt(*args, **kwargs):
 @messaging.request_callback("cell_voltage")
 def _response_cell(*args, **kwargs):
     if check_state_topic(wait_new_status=True):
-        return FlightLib.get_telemetry('body').cell_voltage
+        return FlightLib.get_telemetry_locked('body').cell_voltage
     else:
         stop_subscriber()
         return float('nan')
@@ -352,7 +366,7 @@ def _response_cal_status(*args, **kwargs):
 
 @messaging.request_callback("position")
 def _response_position(*args, **kwargs):
-    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
     return "{:.2f} {:.2f} {:.2f} {:.1f} {}".format(
         telem.x, telem.y, telem.z, math.degrees(telem.yaw), client.active_client.FRAME_ID)
 
@@ -366,6 +380,11 @@ def _calibrate_level(*args, **kwargs):
     calibrate('level')
     return get_calibration_status()
 
+@messaging.request_callback("load_params")
+def _load_params(*args, **kwargs):
+    result = load_param_file('temp.params')
+    logger.info("Load parameters to FCU success: {}".format(result))
+    return result
 
 @messaging.message_callback("test")
 def _command_test(*args, **kwargs):
@@ -381,7 +400,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
                                         )
     logger.debug("x_start = {}, y_start = {}".format(x_start, y_start))
     if not math.isnan(x_start):
-        telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+        telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
         logger.debug("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
         if not math.isnan(telem.x):
             client.active_client.config.set('PRIVATE', 'x0', telem.x - x_start)
@@ -404,7 +423,7 @@ def _command_reset_start(*args, **kwargs):
 
 @messaging.message_callback("set_z_to_ground")
 def _command_set_z(*args, **kwargs):
-    telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+    telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
     client.active_client.config.set('PRIVATE', 'z0', telem.z)
     client.active_client.rewrite_config()
     client.active_client.load_config()
@@ -486,7 +505,7 @@ def _command_takeoff(*args, **kwargs):
 def _command_takeoff_z(*args, **kwargs):
     z_str = kwargs.get("z", None)
     if z_str is not None:
-        telem = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+        telem = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
         logger.info("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
         task_manager.add_task(0, 0, FlightLib.reach_point,
                           task_kwargs={
@@ -563,7 +582,6 @@ def _play_animation(*args, **kwargs):
                                         check_takeoff=client.active_client.TAKEOFF_CHECK,
                                         check_land=client.active_client.LAND_CHECK,
                                         ) 
-
     # Choose start action
     if start_action == 'takeoff':
         # Takeoff first
@@ -594,12 +612,12 @@ def _play_animation(*args, **kwargs):
         # Calculate start time
         start_time += start_delay
         # Arm
-        task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
-                            task_kwargs={
-                                "state": True
-                            }
-                            )
-        frame_time = start_time + 1.0
+        #task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
+        #                    task_kwargs={
+        #                        "state": True
+        #                    }
+        #                    )
+        frame_time = start_time # + 1.0
         point, color, yaw = animation.convert_frame(corrected_frames[0])
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                         task_kwargs={
@@ -617,44 +635,168 @@ def _play_animation(*args, **kwargs):
     # Play animation file
     for frame in corrected_frames:
         point, color, yaw = animation.convert_frame(frame)
+        if client.active_client.YAW == "animation":
+            yaw = frame["yaw"]
+        else:
+            yaw = math.radians(float(client.active_client.YAW))
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                         task_kwargs={
                             "point": point,
                             "color": color,
+                            "yaw": yaw,
                             "frame_id": client.active_client.FRAME_ID,
                             "use_leds": client.active_client.USE_LEDS,
                             "flight_func": FlightLib.navto,
                         }
                         )
-        frame_time += client.active_client.FRAME_DELAY
+        frame_time += frame["delay"]
 
     # Calculate land_time
     land_time = frame_time + client.active_client.LAND_TIME
     # Land
     task_manager.add_task(land_time, 0, animation.land,
                     task_kwargs={
-                        "timeout": client.active_client.TAKEOFF_TIME,
+                        "timeout": client.active_client.LAND_TIMEOUT,
                         "frame_id": client.active_client.FRAME_ID,
                         "use_leds": client.active_client.USE_LEDS,
                     },
                     )
 
 
+
+def telemetry_loop():
+    global telemetry, emergency
+    last_state = []
+    equal_state_counter = 0
+    max_count = 2
+    tasks_cleared = False
+    rate = rospy.Rate(client.active_client.TELEM_FREQ)
+    while not rospy.is_shutdown():
+        telemetry = telemetry._replace(animation_id = animation.get_id())
+        telemetry = telemetry._replace(git_version = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True))
+        try:
+            ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
+            if ros_telemetry.connected:
+                telemetry = telemetry._replace(armed = ros_telemetry.armed)
+                telemetry = telemetry._replace(battery_v = '{:.2f}'.format(ros_telemetry.voltage))
+                batt_empty_param = get_param('BAT_V_EMPTY')
+                batt_charged_param = get_param('BAT_V_CHARGED')
+                batt_cells_param = get_param('BAT_N_CELLS')
+                if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
+                    batt_empty = batt_empty_param.value.real
+                    batt_charged = batt_charged_param.value.real
+                    batt_cells = batt_cells_param.value.integer
+                    try:
+                        telemetry = telemetry._replace(battery_p = '{}'.format(int(min((ros_telemetry.voltage/batt_cells - batt_empty)/(batt_charged - batt_empty)*100., 100))))
+                    except ValueError:
+                        telemetry = telemetry._replace(battery_p = 'nan')
+                else:
+                    telemetry = telemetry._replace(battery_p = 'nan')
+                telemetry = telemetry._replace(calibration_status = get_calibration_status())
+                telemetry = telemetry._replace(system_status = get_sys_status())
+                telemetry = telemetry._replace(mode = ros_telemetry.mode)
+                check = FlightLib.selfcheck()
+                if not check:
+                    check = "OK"
+                telemetry = telemetry._replace(selfcheck = str(check))    
+                if not math.isnan(ros_telemetry.x):
+                    telemetry = telemetry._replace(current_position = '{:.2f} {:.2f} {:.2f} {:.1f} {}'.format(ros_telemetry.x, ros_telemetry.y, ros_telemetry.z, 
+                                                                                    math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID))
+                else: 
+                    telemetry = telemetry._replace(current_position = 'NO_POS in {}'.format(client.active_client.FRAME_ID))
+            else:
+                telemetry = telemetry._replace(battery_v = 'nan')
+                telemetry = telemetry._replace(battery_p = 'nan')
+                telemetry = telemetry._replace(calibration_status = 'NO_FCU')
+                telemetry = telemetry._replace(system_status = 'NO_FCU')
+                telemetry = telemetry._replace(mode = 'NO_FCU')
+                telemetry = telemetry._replace(selfcheck = 'NO_FCU')
+                telemetry = telemetry._replace(current_position = 'NO_POS')
+        except rospy.ServiceException:
+            logger.debug("Some service is unavailable")
+        except AttributeError as e:
+            logger.debug(e)
+        except rospy.TransportException as e:
+            logger.debug(e)
+        else:
+            telemetry = telemetry._replace(selfcheck = 'WAIT_ROS')
+        if client.active_client.TELEM_TRANSMIT:
+            try:
+                client.active_client.server_connection.send_message('telem', args={'message':create_telemetry_message(telemetry)})
+            except AttributeError as e:
+                logger.debug(e)
+        if client.active_client.CLEAR_TASKS_WHEN_EMERGENCY:
+            mode = telemetry.mode
+            armed = telemetry.armed
+            last_task = task_manager.get_last_task_name()
+            state = [mode, armed, last_task]
+            if state == last_state:
+                equal_state_counter += 1
+            else:
+                equal_state_counter = 0
+            external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
+            log_msg = ''
+            if emergency and external_interruption:
+                log_msg = "emergency and external interruption"
+            elif emergency:
+                log_msg = "emergency"
+            elif external_interruption:
+                log_msg = "external interruption"
+                logger.info("Possible expernal interruption, state_counter = {}".format(equal_state_counter))
+            if emergency or (external_interruption and equal_state_counter >= max_count):
+                if not tasks_cleared:
+                    logger.info("Clear task manager because of {}".format(log_msg))
+                    logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
+                    task_manager.reset()
+                    FlightLib.reset_delta()
+                    tasks_cleared = True
+                    equal_state_counter = 0
+            else:
+                tasks_cleared = False
+            last_state = state
+        if client.active_client.LOG_CPU_AND_MEMORY:
+            cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
+            mem_usage = psutil.virtual_memory().percent
+            cpu_temp_info = psutil.sensors_temperatures()['cpu-thermal'][0]
+            cpu_temp = cpu_temp_info.current
+            # https://github.com/raspberrypi/documentation/blob/JamesH65-patch-vcgencmd-vcdbg-docs/raspbian/applications/vcgencmd.md
+            throttled_hex = subprocess.check_output("vcgencmd get_throttled", shell=True).split('=')[1]
+            under_voltage = bool(int(bin(int(throttled_hex,16))[2:][-1]))
+            power_state = 'normal' if not under_voltage else 'under voltage!'
+            if cpu_temp_info.critical:
+                cpu_temp_state = 'critical'
+            elif cpu_temp_info.high:
+                cpu_temp_state = 'high'
+            else:
+                cpu_temp_state = 'normal'
+            logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
+        delta = FlightLib.get_delta()
+        logger.info("Delta: {}".format(delta))
+        if delta > client.active_client.LAND_POS_DELTA:
+            _command_land()
+
+
 class Telemetry:
-    params_default_dict = {"git_version": None,
-                    "animation_id": None,
-                    "battery": None,
-                    "system_status": None,
-                    "calibration_status": None,
-                    "mode": None,
-                    "selfcheck": None,
-                    "current_position": None,
-                    "start_position": None,
-                    "telemetry_time": None,
-                           }
+    params_default_dict = {
+        "git_version": None,
+        "animation_id": None,
+        "battery": None,
+        "armed": False,
+        "system_status": None,
+        "calibration_status": None,
+        "mode": None,
+        "selfcheck": None,
+        "current_position": None,
+        "start_position": None,
+        "telemetry_time": None,
+    }
 
     def __init__(self):
         self._lock = threading.Lock()
+        self._last_state = []
+        self._equal_state_counter = 0
+        self._max_equal_states_count = 2
+        self._tasks_cleared = False
 
         for key, value in self.params_default_dict.items():
             setattr(self, key, value)
@@ -694,7 +836,7 @@ class Telemetry:
         return 'NO_POS'
 
     @classmethod
-    def _get_battery(cls, ros_telemetry):
+    def get_battery(cls, ros_telemetry):
         battery_v = ros_telemetry.voltage
 
         batt_empty_param = get_param('BAT_V_EMPTY')
@@ -714,15 +856,6 @@ class Telemetry:
         return battery_v, battery_p
 
     @classmethod
-    def get_battery(cls):
-        ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
-
-        if ros_telemetry.connected:
-            return cls._get_battery(ros_telemetry)
-
-        return float('nan'), float('nan')
-
-    @classmethod
     def get_selfcheck(cls):
         check = FlightLib.selfcheck()
         if not check:
@@ -730,46 +863,38 @@ class Telemetry:
         return check
 
     @classmethod
-    def _get_position(cls, ros_telemetry):
+    def get_position(cls, ros_telemetry):
         x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
-        if not FlightLib._check_nans(x, y, z):
+        if not math.isnan(x):
             return x, y, z, math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID
         return 'NO_POS'
 
     def update_telemetry(self):
-        self._reset_telemetry_values()
-
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
-        self.start_position = self.get_start_position()
-        self.telemetry_time = time.time()  # TODO NTP?
-
-        services_unavailable = FlightLib.check_ros_services_unavailable()
-        if not services_unavailable:
-            self._update_ros_telemetry()
-        else:
-            self.selfcheck = ['WAIT_ROS']
-
-    def _update_ros_telemetry(self):
+        self.start_position = self.get_start_position()        
         try:
-            ros_telemetry = FlightLib.get_telemetry(client.active_client.FRAME_ID)
+            ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
             if ros_telemetry.connected:
-                self.battery = self._get_battery(ros_telemetry)
-
+                self.battery = self.get_battery(ros_telemetry)
+                self.armed = ros_telemetry.armed
                 self.calibration_status = get_calibration_status()
                 self.system_status = get_sys_status()
                 self.mode = ros_telemetry.mode
                 self.selfcheck = self.get_selfcheck()
-
-                self.current_position = self._get_position(ros_telemetry)
+                self.current_position = self.get_position(ros_telemetry)
+            else:
+                self.reset_telemetry_values()
         except rospy.ServiceException:
             rospy.logdebug("Some service is unavailable")
+            self.selfcheck = ["WAIT_ROS"]
         except AttributeError as e:
             rospy.logdebug(e)
         except rospy.TransportException as e:
             rospy.logdebug(e)
+        self.telemetry_time = time.time()
 
-    def _reset_telemetry_values(self):
+    def reset_telemetry_values(self):
         self.battery = float('nan'), float('nan')
         self.calibration_status = 'NO_FCU'
         self.system_status = 'NO_FCU'
@@ -777,31 +902,100 @@ class Telemetry:
         self.selfcheck = ['NO_FCU']
         self.current_position = 'NO_POS'
 
+    def check_failsafe(self):
+        global emergency
+        # check current state
+        state = [self.mode, self.armed, task_manager.get_last_task_name()]
+        mode, armed, last_task = state
+        # count equal states
+        if state == self._last_state:
+            self._equal_state_counter += 1
+        else:
+            self._equal_state_counter = 0
+        # check external interruption
+        external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
+        log_msg = ''
+        if emergency and external_interruption:
+            log_msg = "emergency and external interruption"
+        elif emergency:
+            log_msg = "emergency"
+        elif external_interruption:
+            log_msg = "external interruption"
+            logger.info("Possible expernal interruption, state_counter = {}".format(self._equal_state_counter))
+        # clear task manager if emergency or external interruption
+        if emergency or (external_interruption and equal_state_counter >= self._max_equal_states_count):
+            if not self._tasks_cleared:
+                logger.info("Clear task manager because of {}".format(log_msg))
+                logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
+                task_manager.reset()
+                FlightLib.reset_delta()
+                self._tasks_cleared = True
+                self._equal_state_counter = 0
+        else:
+            self._tasks_cleared = False
+        self._last_state = state
+        # check position delta
+        delta = FlightLib.get_delta()
+        logger.info("Delta: {}".format(delta))
+        if delta > client.active_client.LAND_POS_DELTA:
+            _command_land()
+
+    @classmethod
+    def log_cpu_and_memory(cls):
+        cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
+        mem_usage = psutil.virtual_memory().percent
+        cpu_temp_info = psutil.sensors_temperatures()['cpu-thermal'][0]
+        cpu_temp = cpu_temp_info.current
+        # https://github.com/raspberrypi/documentation/blob/JamesH65-patch-vcgencmd-vcdbg-docs/raspbian/applications/vcgencmd.md
+        throttled_hex = subprocess.check_output("vcgencmd get_throttled", shell=True).split('=')[1]
+        under_voltage = bool(int(bin(int(throttled_hex,16))[2:][-1]))
+        power_state = 'normal' if not under_voltage else 'under voltage!'
+        if cpu_temp_info.critical:
+            cpu_temp_state = 'critical'
+        elif cpu_temp_info.high:
+            cpu_temp_state = 'high'
+        else:
+            cpu_temp_state = 'normal'
+        logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
+
     def _update_loop(self, freq):  # TODO extract?
         rate = rospy.Rate(freq)
         while not rospy.is_shutdown():
             self.update_telemetry()
+            self.check_failsafe()
 
             if client.active_client.TELEM_TRANSMIT and client.active_client.connected:
                 client.active_client.server_connection.\
                     send_message('telemetry', args={'value': self.create_msg_contents()})
-
+            
+            if client.active_client.LOG_CPU_AND_MEMORY:
+                self.log_cpu_and_memory()
+            
             rate.sleep()
 
     def start_loop(self):
-        telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
-                                            args=(client.active_client.TELEM_FREQ,))  # TODO MOVE? Daemon?
-        telemetry_thread.start()
+        if client.active_client.TELEM_FREQ > 0:
+            telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
+                                                args=(client.active_client.TELEM_FREQ,))  # TODO MOVE? Daemon?
+            telemetry_thread.start()
+        else:
+            logger.info("Don't create telemetry loop because of zero or negative telemetry frequency")
 
     def create_msg_contents(self, keys=None):  # keys: set or list
         if keys is None:
             keys = self.params_default_dict.keys()
         # return only existing keys from 'keys'
-        return {k: self.__dict__[k] for k in keys if k in self.params_default_dict}
+        return {k: self.__dict__[k] for k in keys if k in self.params_default_dict} 
 
+def emergency_callback(data):
+    global emergency
+    emergency = data.data
+
+telemetry_thread = threading.Thread(target=telemetry_loop, name="Telemetry getting thread")
 
 if __name__ == "__main__":
     telemetry = Telemetry()
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
+    rospy.Subscriber('/emergency', Bool, emergency_callback)
     copter_client.start(task_manager)
