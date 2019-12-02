@@ -198,7 +198,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "selfcheck": 7,
             "current_position": 8,
             "start_position": 9,
-            "telemetry_time": 10,
+            "time": 10,
         }
 
         for key, value in telems.items():
