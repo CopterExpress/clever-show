@@ -6,6 +6,12 @@ Software for making the drone show controlled by Raspberry Pi and COEX [Clever](
 
 [![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
 
+## Demo video
+
+[![Autonomous drone show in a theater](http://img.youtube.com/vi/HdHbZFz7nR0/0.jpg)](http://www.youtube.com/watch?v=HdHbZFz7nR0)
+
+12 drones perform in a show in Electrotheatre Stanislavsky, Moscow.
+
 ## This software includes
 
 * [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) with autonomous flight module, animation player module and client application for remote synchronized control of drones
