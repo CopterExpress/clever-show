@@ -193,7 +193,9 @@ if __name__ == '__main__':
     # print(cfg.unchanged_defaults)
 
     # print(11111)
-    print(cfg.full_dict)
+    import pprint
+    pprint.pprint(cfg.full_dict)
+    #print(cfg.full_dict)
 
     #cfg.load_from_dict(cfg.full_dict, 'Drone/config/client.ini')
     #print(cfg.config.initial_comment, cfg.config.final_comment)
