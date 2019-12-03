@@ -30,19 +30,19 @@ states_colors = {
     'deleted': Qt.red,
 }
 
+StateRole = 999
+TypeRole = 998
 
 class ConfigModelItem:
-    def __init__(self, values=(), is_section=False, state='normal', default=None, parent=None):
+    def __init__(self, values=(None, None, None, None), item_type='option',
+                 state='normal', default=None, parent=None):
         self.spec_default = default
-
-        values = list(values)
-        if is_section:
-            values[1:1] = ('<section>',)
-            self.spec_default = values[1]
-
-        self.itemData = values
-        self.type = 'section' if is_section else None
+        self.itemData = list(values)
         self.state = state
+        self.type = item_type
+
+        if isinstance(self.data(1), list):
+            self.type = 'list'
 
         self.default_values = deepcopy(self.itemData)
         self.default_state = state
@@ -50,29 +50,54 @@ class ConfigModelItem:
         self.childItems = []
         self.parentItem = parent
 
+        self.setup_type()
+
         if self.parentItem is not None:
             self.parentItem.appendChild(self)
 
+    def setup_type(self):
+        if self.type == 'section':
+            self.itemData[1:1] = ('<section>',)
+            self.spec_default = self.data(1)
+
+        elif self.type == 'list':
+            self._setup_list(self.get_list_items())
+
+    def _get_list_spec(self):
+        data = self.data(1)
+        comments = self.data(2)
+        if comments:
+            try:
+                raw_spec = comments.split('\n')[-1].split()[1:]
+                print(raw_spec)
+                if raw_spec[0] == '__list__': # and len(raw_spec[1:]) == len(data):
+                    return raw_spec[1:]
+            except IndexError:
+                pass
+        return list(map(str, range(len(data))))
+
+    def get_list_items(self):
+        spec = self._get_list_spec()
+        values = self.data(1)
+        if isinstance(self.spec_default, list):
+            defaults = self.spec_default
+        else:
+            defaults = (None, )*len(spec)
+
+        self.itemData[1] = '<list: {}>'.format(' '.join(spec))
+        # self.spec_default = self.itemData[1]
+
+        for key, value, default in zip(spec, values, defaults):
+            yield ConfigModelItem((key, value, None, None), item_type='list_item',
+                                  state=self.state, default=default)
+
+    def _setup_list(self, items):  # use only at initialization
+        for child in items:
+            self.appendChild(child)
+
     @property
-    def is_section(self):
+    def is_section(self):  # probably deprecated
         return self.type == 'section'
-
-    def reset(self):
-        self.set_data(self.spec_default, 1)
-
-        self.check_state()
-        if self.default_state == 'unchanged':
-            self.set_state('unchanged')
-
-        for child in self.childItems:
-            child.reset()
-
-    def reset_all(self):
-        self.itemData = self.default_values
-        self.set_state(self.default_state)
-
-        for child in self.childItems:
-            child.reset()
 
     def appendChild(self, item):
         self.childItems.append(item)
@@ -104,7 +129,13 @@ class ConfigModelItem:
     def set_data(self, data, column):
         old_data = self.data(column)
         if old_data is None:
-            data = literal_eval(data) if data else None
+            try:
+                data = literal_eval(data) if data else None
+            except (SyntaxError, ValueError):
+                data = str(data)
+
+        if data == '<list>':
+            data = []
 
         try:
             self.itemData[column] = data
@@ -123,14 +154,22 @@ class ConfigModelItem:
             self.set_state('default')
 
     def set_state(self, state):
-        # if self.state == 'unchanged' and state == 'default':
-        #     return
+        if self.state == 'unchanged' and state == 'default':
+            return
+
         if self.state == 'added' and state in ('edited', 'unchanged', 'default', 'normal'):
             return
 
         self.state = state
+
         for child in self.childItems:
             child.set_state(state)
+
+        if state == 'edited':
+            self.parentItem.state = state
+
+    def set_type(self, item_type):
+        self.type = item_type
 
     def parent(self):
         return self.parentItem
@@ -204,6 +243,12 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         return parentItem.childCount()
 
+    def childrenIndexes(self, parent):
+        column = parent.column()
+        parent = self.index(parent.row(), 0, parent.parent())
+        for i in range(self.rowCount(parent)):
+            yield self.index(i, column, parent)
+
     def index(self, row, column, parent):
         if not self.hasIndex(row, column, parent):
             return QtCore.QModelIndex()
@@ -221,12 +266,18 @@ class ConfigModel(QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
 
         childItem = index.internalPointer()
+        if not isinstance(childItem, ConfigModelItem):
+            print(childItem, index.column()),# index.row(), index.parent().internalPointer())
+            return QtCore.QModelIndex()
         parentItem = childItem.parent()
 
-        if parentItem == self.rootItem or parentItem is None:
+        if parentItem == self.rootItem: #or parentItem is None:
             return QtCore.QModelIndex()
 
         return self.createIndex(parentItem.row(), 0, parentItem)
+
+    def modifyCol(self, index, col):
+        return self.index(index.row(), col, index.parent())
 
     def nodeFromIndex(self, index):
         if index.isValid():
@@ -241,8 +292,14 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         if role == Qt.DisplayRole or role == Qt.EditRole:
             return item.data(index.column())
+
         if role == Qt.BackgroundRole and self.do_color:
             return QtGui.QBrush(states_colors[item.state])
+
+        if role == StateRole:
+            return item.state
+        if role == TypeRole:
+            return item.type
 
         return None
 
@@ -251,15 +308,33 @@ class ConfigModel(QtCore.QAbstractItemModel):
             return False
 
         item = index.internalPointer()
+
         if role == Qt.EditRole:
-            if index.column() == 0 and (self.widget is not None) \
-                    and value != item.data(index.column()):
+            column = index.column()
+
+            if column == 0 and value != item.data(column):
                 if not self.widget.edit_caution():
                     return False
 
-            item.set_data(value, index.column())
-            if index.column() == 0:
+            item.set_data(value, column)
+
+            if column == 0:
                 ensure_unique_names(item, include_self=False)
+
+            elif column == 1 and isinstance(item.data(1), (list, tuple)) \
+                    and item.type not in ('list', 'list_item'):
+
+                item.set_type('list')
+                self.insertItems(0, list(item.get_list_items()), index)
+                self.widget.ui.config_view.expandAll()
+
+        elif role == StateRole:
+            item.set_state(value)
+
+        elif role == TypeRole:
+            # if value != item.type and value == 'list':  # when list is created:
+            #    pass
+            item.set_type(value)
 
         self.dataChanged.emit(index, index, (role,))
 
@@ -273,11 +348,17 @@ class ConfigModel(QtCore.QAbstractItemModel):
         flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         if index.column() == 0:
-            flags |= int(QtCore.Qt.ItemIsDragEnabled)
-            if item.is_section:
+            if item.type != 'list_item':
+                flags |= int(QtCore.Qt.ItemIsDragEnabled)
+
+            if item.type == 'section':
                 flags |= int(QtCore.Qt.ItemIsDropEnabled)
 
-        if not (index.column() > 0 and item.is_section):
+        not_section = not (index.column() > 0 and item.type == 'section')
+        not_list_item = not (index.column() > 1 and item.type == 'list_item')
+        not_list_val = not (index.column() == 1 and item.type == 'list')
+
+        if not_section and not_list_item and not_list_val:
             flags |= Qt.ItemIsEditable
 
         return flags
@@ -312,8 +393,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
     def removeRows(self, row, count, parent):
         self.beginRemoveRows(parent, row, row + count - 1)
         parentItem = self.nodeFromIndex(parent)
-
-        for x in range(count):
+        for _ in range(count):
             parentItem.removeChild(row)
 
         self.endRemoveRows()
@@ -331,15 +411,20 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
     def insertItems(self, row, items, parentIndex):
         parent = self.nodeFromIndex(parentIndex)
-        self.beginInsertRows(parentIndex, row, row + len(items) - 1)
+        self.beginInsertRows(parentIndex, row, row + len(items) - 1)  # parentIndex or QtCore.QModelIndex()
 
         parent.addChildren(items, row)
 
         self.endInsertRows()
-        self.dataChanged.emit(parentIndex, parentIndex)
+        self.update_all()
+
         return True
 
-    def get_key_sequence(self, index):
+    def update_all(self):
+        self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
+
+    @staticmethod
+    def get_key_sequence(index):  # yet unused
         item = index.internalPointer()
         keys = []
         while item is not None:
@@ -354,10 +439,10 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         for key, value in data.items():
             if isinstance(value, dict):
-                item = ConfigModelItem((key,), parent=parent, is_section=True)
+                item = ConfigModelItem((key,), parent=parent, item_type='section')
                 self.dict_setup(value, parent=item)
             else:
-                parent.appendChild(ConfigModelItem((key, value)))
+                parent.appendChild(ConfigModelItem((key, value, '', '')))
 
     def config_dict_setup(self, data: dict, parent=None):
         if parent is None:
@@ -368,7 +453,6 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         for key, item in data.items():
             if item.get('__option__', False):
-                # {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': False, 'comments': [], 'inline_comment': None}
                 value = item['value']
                 default = item['default']
                 comments = '\n'.join(item['comments']) or ''
@@ -385,7 +469,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
                                                    state=state, default=default))
 
             else:
-                section = ConfigModelItem((key,), parent=parent, is_section=True)
+                section = ConfigModelItem((key,), parent=parent, item_type='section')
                 self.config_dict_setup(item, parent=section)
 
     def to_dict(self, parent=None) -> dict:
@@ -418,9 +502,14 @@ class ConfigModel(QtCore.QAbstractItemModel):
                 if d:  # to prevent empty sections
                     data[key] = d
 
-            elif item.state != 'unchanged':
+            elif item.state not in ('unchanged', 'deleted'):
+                if item.type == 'list':
+                    value = [child.data(1) for child in item.childItems]
+                else:
+                    value = item.data(1)
+
                 d = {'__option__': True,
-                     'value': item.data(1),
+                     'value': value,
                      # 'default': item.default,
                      # 'unchanged': False,
                      'comments': (item.data(2) or '').split('\n'),
@@ -454,7 +543,7 @@ class ConfigDialog(QtWidgets.QDialog):
     def setupUi(self):
         self.ui.setupUi(self)
 
-        self.ui.config_view = Tree()
+        self.ui.config_view = ConfigTreeWidget()
         self.ui.config_view.setObjectName("config_view")
         self.ui.config_view.setModel(self.model)
         self.ui.gridLayout.addWidget(self.ui.config_view, 0, 0, 1, 1)
@@ -475,7 +564,7 @@ class ConfigDialog(QtWidgets.QDialog):
         return reply == QMessageBox.Yes
 
 
-class Tree(QTreeView):
+class ConfigTreeWidget(QTreeView):
     def __init__(self):
         QTreeView.__init__(self)
 
@@ -491,12 +580,6 @@ class Tree(QTreeView):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
 
-        # self.header()
-        # header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
-        # header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-        # self.resizeColumnToContents(1)
-        # header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-
         self.setAnimated(True)
 
     def open_menu(self, point):
@@ -509,18 +592,26 @@ class Tree(QTreeView):
         duplicate.triggered.connect(partial(self.duplicate, index))
         menu.addAction(duplicate)
 
+        exclude = QAction("Toggle exclude")
+        exclude.triggered.connect(partial(self.exclude, index))
+        menu.addAction(exclude)
+
         remove = QAction("Remove from config")
         remove.triggered.connect(partial(self.remove, index))
         menu.addAction(remove)
 
         menu.addSeparator()
 
-        reset = QAction("Reset value to default")
-        reset.triggered.connect(partial(self.reset_item, index, False))
-        menu.addAction(reset)
+        clear = QAction("Clear item value")
+        clear.triggered.connect(partial(self.reset_item, index, 'clear_value'))
+        menu.addAction(clear)
 
-        reset_all = QAction("Reset all data")
-        reset_all.triggered.connect(partial(self.reset_item, index, True))
+        reset_default = QAction("Reset value to default")
+        reset_default.triggered.connect(partial(self.reset_item, index, 'default'))
+        menu.addAction(reset_default)
+
+        reset_all = QAction("Reset all changes")
+        reset_all.triggered.connect(partial(self.reset_item, index, 'all'))
         menu.addAction(reset_all)
 
         menu.addSeparator()
@@ -534,10 +625,22 @@ class Tree(QTreeView):
         menu.addAction(add_section)
 
         if item is None:
-            reset.setDisabled(True)
+            clear.setDisabled(True)
             reset_all.setDisabled(True)
+            reset_default.setDisabled(True)
+
             duplicate.setDisabled(True)
             remove.setDisabled(True)
+            exclude.setDisabled(True)
+        else:
+            if item.type in ('list', 'list_item'):
+                add_section.setDisabled(True)
+
+            if item.type == 'list':
+                clear.setDisabled(True)  # Temporary, cuz buggg
+
+            # if item.type == 'section':
+            #     clear.setDisabled(True)
 
         menu.exec_(QCursor.pos())
 
@@ -551,69 +654,102 @@ class Tree(QTreeView):
     def remove(self, index):
         self.model().removeRow(index)
 
+    def exclude(self, index):
+        item = self.model().nodeFromIndex(index)
+        #i
+        if item.state == 'deleted':
+            self.model().setData(index, item.default_state, StateRole)
+        else:
+            self.model().setData(index, 'deleted', StateRole)
+
     def add_item(self, index, is_section):
-        prompt = 'Enter {} name'.format('section' if is_section else 'option')
+        parentItem = self.model().nodeFromIndex(index)
+
+        if parentItem.type in ('list', 'list_item'):
+            item_type = 'list_item'
+        else:
+            item_type = 'section' if is_section else 'option'
+
+        prompt = 'Enter {} name'.format(item_type.replace('_', ' '))
         text, ok = QInputDialog.getText(self, prompt, prompt)
         if not ok:
             return
 
-        item = ConfigModelItem((text, None, '', ''), is_section=is_section, state='added')
-        row = index.row()
-        if row == -1:  # to append at last position
-            parentItem = self.model().nodeFromIndex(index)
-            row = parentItem.childCount() - 1
-
-        self.model().insertItems(row + 1, [item], index.parent())
-        ensure_unique_names(item, include_self=False)
-
-    def reset_item(self, index, reset_all):
-        item = index.internalPointer()
-        if reset_all:
-            item.reset_all()
+        if parentItem.type in ('list', 'section'):  # to append at first index in section or list
+            row = 0
+            parent = index
         else:
-            item.reset()
+            row = index.row()
+            parent = index.parent()
+            if row == -1:  # to append at last position e.g. at root
+                row = parentItem.childCount()
+            else:
+                row += 1  # to append under current position
 
+        item = ConfigModelItem((text, None, '', ''), item_type=item_type, state='added')
+        self.model().insertItems(row, [item], parent)
+
+        ensure_unique_names(item, include_self=False)
+        # parent.internalPointer().set_state('edited')
+        self.expandAll()
+
+    def reset_item(self, index, reset_type): # todo try deepcopy
+        item = index.internalPointer()
+        model = self.model()
+        itemdataindex = model.modifyCol(index, 1)
+
+        if reset_type == 'all':
+            for i, default in enumerate(item.default_values):
+                model.setData(model.modifyCol(index, i), default)
+
+            model.setData(index, item.default_state, role=StateRole)
+
+        elif reset_type == 'default':
+            # if item.type == 'list' and \
+            #         not isinstance(item.spec_default, (list, tuple)):
+            #     self.reset_item(item, 'clear_value')
+
+            model.setData(itemdataindex, item.spec_default)
+
+            if item.default_state == 'unchanged':
+                model.setData(index, 'unchanged', role=StateRole)
+
+        elif reset_type == 'clear_value':
+            model.setData(itemdataindex, None)
+
+            # if model.data(itemdataindex, TypeRole) == 'list':
+            #     model.removeRows(0, item.childCount(), index)
+            #     model.setData(index, 'option', role=TypeRole)
+            #     return
+
+        for child in model.childrenIndexes(index):
+            self.reset_item(child, reset_type)
+
+
+def call_standalone_dialog():
+    pass
 
 if __name__ == '__main__':
+    import os, inspect  # Add parent dir to PATH to import messaging_lib
+
+    current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    parent_dir = os.path.dirname(current_dir)
+
+    import config
+
     import sys
+    sys.path.insert(0, parent_dir)
 
 
     def except_hook(cls, exception, traceback):
+        print(cls, exception, traceback)
         sys.__excepthook__(cls, exception, traceback)
-
 
     sys.excepthook = except_hook
 
     app = QtWidgets.QApplication(sys.argv)
 
-    # data = {"section 1": {"opt1": "str", "opt2": 123, "opt3": 1.23, "opt4": False, "...": {'subopt': 'bal'}},
-    #         "section 2": {"opt1": "str", "opt2": [1.1, 2.3, 34], "opt3": 1.23, "opt4": False, "...": ""}}
-    data = {
-        'config_name': {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': False,
-                        'comments': [], 'inline_comment': None},
-        'config_version': {'__option__': True, 'value': 0.0, 'default': 0.0, 'unchanged': False, 'comments': [],
-                           'inline_comment': None}, 'SERVER': {
-            'port': {'__option__': True, 'value': 25000, 'default': 25000, 'unchanged': False, 'comments': [],
-                     'inline_comment': None},
-            'host': {'__option__': True, 'value': '192.168.1.103', 'default': '192.168.1.101', 'unchanged': False,
-                     'comments': [], 'inline_comment': None},
-            'buffer_size': {'__option__': True, 'value': 1024, 'default': 1024, 'unchanged': False, 'comments': [],
-                            'inline_comment': None}}, 'BROADCAST': {
-            'use': {'__option__': True, 'value': True, 'default': True, 'unchanged': False, 'comments': [],
-                    'inline_comment': None},
-            'port': {'__option__': True, 'value': 8181, 'default': 8181, 'unchanged': False, 'comments': [],
-                     'inline_comment': None}}, 'NTP': {
-            'use': {'__option__': True, 'value': False, 'default': False, 'unchanged': False, 'comments': [],
-                    'inline_comment': None},
-            'port': {'__option__': True, 'value': 123, 'default': 123, 'unchanged': False,
-                     'comments': ['#host = ntp1.stratum2.ru'], 'inline_comment': None},
-            'host': {'__option__': True, 'value': 'ntp1.stratum2.ru', 'default': 'ntp1.stratum2.ru', 'unchanged': True,
-                     'comments': [], 'inline_comment': ''}}, 'PRIVATE': {
-            'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': True,
-                   'comments': ['# avialiable options: /hostname ; /default ; /ip ; any string 63 characters lengh', 'newlibe'],
-                   'inline_comment': None}},
-        'initial_comment': ['# This is generated config_attrs with default_values', '# Modify to configure'],
-        'final_comment': []}
+    data = {'config_name': {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': True, 'comments': [], 'inline_comment': None}, 'config_version': {'__option__': True, 'value': 0.0, 'default': 0.0, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'SERVER': {'port': {'__option__': True, 'value': 25000, 'default': 25000, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'host': {'__option__': True, 'value': '192.168.1.103', 'default': '192.168.1.101', 'unchanged': False, 'comments': [], 'inline_comment': None}, 'buffer_size': {'__option__': True, 'value': 1024, 'default': 1024, 'unchanged': False, 'comments': [], 'inline_comment': None}}, 'BROADCAST': {'use': {'__option__': True, 'value': True, 'default': True, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'port': {'__option__': True, 'value': 8181, 'default': 8181, 'unchanged': False, 'comments': [], 'inline_comment': None}}, 'NTP': {'use': {'__option__': True, 'value': False, 'default': False, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'host': {'__option__': True, 'value': 'ntp1.stratum2.ru', 'default': 'ntp1.stratum2.ru', 'unchanged': False, 'comments': [], 'inline_comment': None}, 'port': {'__option__': True, 'value': 123, 'default': 123, 'unchanged': False, 'comments': [], 'inline_comment': None}}, 'PRIVATE': {'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': False, 'comments': ['# avialiable options: /hostname ; /spec_default ; /ip ; any string 63 characters lengh'], 'inline_comment': None}, 'offset': {'__option__': True, 'value': [0.0, 0.0, 0.0], 'default': [0.0, 0.0, 0.0], 'unchanged': False, 'comments': ["# Drone's individual offset", '# __list__ X Y Z'], 'inline_comment': None}}, 'initial_comment': ['# This is generated config_attrs with defaults', '# Modify to configure'], 'final_comment': []}
 
     ui = ConfigDialog()
     ui.setupModel(data)
