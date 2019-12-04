@@ -66,7 +66,7 @@ def check_anim(item):
 def check_bat(item):
     if item == "NO_INFO":
         return False
-    return item[1] > battery_min
+    return item[1]*100 > battery_min
 
 
 @ModelChecks.col_check(4)
@@ -236,9 +236,10 @@ def place_id(value):
 
 @ModelFormatter.col_format(3, ModelFormatter.PLACE_FORMATTER)
 def place_battery(value):
-    battery_v, battery_p = value
-    if math.isnan(battery_v) or math.isnan(battery_p):
-        return "NO_INFO"
+    if isinstance(value, list):
+        battery_v, battery_p = value
+        if math.isnan(battery_v) or math.isnan(battery_p):
+            return "NO_INFO"
     return value
 
 
