@@ -75,7 +75,6 @@ class CopterClient(client.Client):
         super(CopterClient, self).load_config()
         self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
-        self.CLEAR_TASKS_WHEN_EMERGENCY = self.config.getboolean('TELEMETRY', 'clear_tasks_when_emergency')
         self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
         self.LAND_POS_DELTA = self.config.getfloat('TELEMETRY', 'land_if_pos_delta_bigger_than')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
@@ -680,8 +679,8 @@ class Telemetry:
     def __init__(self):
         self._lock = threading.Lock()
         self._last_state = []
-        self._equal_state_counter = 0
-        self._max_equal_states_count = 2
+        self._interruption_counter = 0
+        self._max_interruptions = 2
         self._tasks_cleared = False
 
         for key, value in self.params_default_dict.items():
@@ -799,43 +798,44 @@ class Telemetry:
         # check current state
         state = [self.mode, self.armed, task_manager.get_last_task_name()]
         mode, armed, last_task = state
-        # count equal states
-        if state == self._last_state:
-            self._equal_state_counter += 1
-        else:
-            self._equal_state_counter = 0
         # check external interruption
         external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
         log_msg = ''
-        if emergency and external_interruption:
-            log_msg = "emergency and external interruption"
-        elif emergency:
-            log_msg = "emergency"
-        elif external_interruption:
-            log_msg = "external interruption"
-            logger.info("Possible expernal interruption, state_counter = {}".format(self._equal_state_counter))
+        if emergency:
+            log_msg += 'emergency and '
+        if external_interruption:
+            log_msg += 'external interruption and '
+            # count interruptions to avoid px4 mode glitches
+            if state == self._last_state:
+                self._interruption_counter += 1
+            else:
+                self._interruption_counter = 0
+            logger.info("Possible expernal interruption, state_counter = {}".format(self._interruption_counter))
+        # delete last ' end ' from log message
+        if len(log_msg) > 5:
+            log_msg = log_msg[:-5]
         # clear task manager if emergency or external interruption
-        if emergency or (external_interruption and equal_state_counter >= self._max_equal_states_count):
+        if emergency or (external_interruption and self._interruption_counter >= self._max_interruptions):
             if not self._tasks_cleared:
                 logger.info("Clear task manager because of {}".format(log_msg))
                 logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
                 task_manager.reset()
                 FlightLib.reset_delta()
                 self._tasks_cleared = True
-                self._equal_state_counter = 0
+                self._interruption_counter = 0
         else:
             self._tasks_cleared = False
         self._last_state = state
         # check position delta
-        delta = FlightLib.get_delta()
-        logger.info("Delta: {}".format(delta))
-        if delta > client.active_client.LAND_POS_DELTA:
-            _command_land()
+        if not emergency:
+            delta = FlightLib.get_delta()
+            if delta > client.active_client.LAND_POS_DELTA:
+                logger.info("Delta: {}".format(delta))
+                _command_land()
 
     def transmit_message(self):
         try:
-            client.active_client.server_connection.\
-                send_message('telemetry', args={'value': self.create_msg_contents()})
+            client.active_client.server_connection.send_message('telemetry', args={'value': self.create_msg_contents()})
         except AttributeError as e:
             logger.debug(e)
 
@@ -855,7 +855,8 @@ class Telemetry:
             cpu_temp_state = 'high'
         else:
             cpu_temp_state = 'normal'
-        logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
+        logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(
+                        cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
 
     def _update_loop(self, freq):  # TODO extract?
         rate = rospy.Rate(freq)
