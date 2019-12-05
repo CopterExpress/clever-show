@@ -17,12 +17,24 @@ try:
 except ImportError:
     import selectors2 as selectors
 
+
 # import logging_lib
 
-PendingRequest = collections.namedtuple("PendingRequest", ["value", "requested_value",  # "expires_on",
-                                                           "callback", "callback_args", "callback_kwargs",
-                                                           "request_args", "resend",
-                                                           ])
+
+class Namespace:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+
+class PendingRequest(Namespace): pass
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -239,9 +251,18 @@ class ConnectionManager(object):
         self.socket = client_socket
         self.addr = client_addr
 
+        self._clear()
+
         self._set_selector_events_mask('r')
         if self.resend_requests:
             self._resend_requests()
+
+    def _clear(self):
+        if not self.resume_queue:  # maybe needs locks
+            self._recv_buffer = b''
+            self._send_buffer = b''
+            self._received_queue.clear()
+            self._send_queue.clear()
 
     def close(self):
         with self._close_lock:
@@ -252,11 +273,6 @@ class ConnectionManager(object):
 
     def _close(self):
         logger.info("Closing connection to {}".format(self.addr))
-
-        if not self.resume_queue:
-            self._recv_buffer = b''
-            self._send_buffer = b''
-            self._received_queue.clear()  #
 
         try:
             logger.info("Unregistering selector of {}".format(self.addr))
@@ -281,6 +297,7 @@ class ConnectionManager(object):
         with self._close_lock:
             self._should_close = False
 
+        self._clear()
         logger.info("CLOSED connection to {}".format(self.addr))
 
     def process_events(self, mask):
@@ -379,7 +396,7 @@ class ConnectionManager(object):
             )
 
             f = request.callback
-            f(value, *request.callback_args, **request.callback_kwargs)
+            f(self, value, *request.callback_args, **request.callback_kwargs)
         else:
             logger.warning("Unexpected  response!")
 
@@ -417,9 +434,6 @@ class ConnectionManager(object):
             logger.warning(
                 "Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
 
-            if not self.resume_queue:
-                self._send_buffer = b''
-
             raise error
         else:
             logger.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
@@ -456,14 +470,12 @@ class ConnectionManager(object):
 
     def _resend_requests(self):
         with self._request_lock:
-            for request_id, request in self._request_queue.items():
+            for request_id, request in self._request_queue.items():  #TODO filter
                 if request.resend:
                     self._send(MessageManager.create_request(
                         request.requested_value, request_id, request.request_args.update(resend=request.resend))
                     )
-                    #request.resend = False
-
-            # self._request_queue.clear()
+                    request.resend = False
 
     def send_message(self, command, args=None):
         self._send(MessageManager.create_simple_message(command, args))
@@ -484,41 +496,45 @@ class ConnectionManager(object):
             ))
 
 
-class NotifierSock(Singleton):  #TODO remake as connecting ONLY to self socket and selector
+class NotifierSock(Singleton):
     def __init__(self):
-        self.receive_socket = None
-        self.addr = None
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self._server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-        self._notify_socket = None
-        self._notify_lock = threading.Lock()
+        self._sending_sock = socket.socket()
+        self._send_lock = threading.Lock()
 
-    def bind(self, server_addr):
-        self._notify_socket = socket.socket()
-        self._notify_socket.connect(server_addr)
-        logger.info("Notify socket: bind")
+        self._receiving_sock = None
 
-    def connect(self, _, client_socket, client_addr):
-        self.receive_socket = client_socket
-        self.addr = client_addr
+    def init(self, selector, port=26000):
+        port += random.randint(0, 100)  # local testing fix
 
+        self._server_socket.bind(('', port))
+        self._server_socket.listen(1)
+        self._sending_sock.connect(('127.0.0.1', port))
+        self._receiving_sock, _ = self._server_socket.accept()
         logger.info("Notify socket: connected")
 
+        selector.register(self._receiving_sock, selectors.EVENT_READ, data=self)
+        logger.info("Notify socket: selector registered")
+
+    def get_sock(self):
+        return self._receiving_sock
+
     def notify(self):
-        with self._notify_lock:
-            if self.addr is not None:
-                self._notify_socket.sendall(bytes(1))
+        with self._send_lock:
+            if self._receiving_sock is not None:
+                self._sending_sock.sendall(bytes(1))
                 logger.debug("Notify socket: notified")
 
     def process_events(self, mask):
-        if mask & selectors.EVENT_READ:
+        if mask & selectors.EVENT_READ and self._receiving_sock is not None:
             try:
-                data = self.receive_socket.recv(1024)
-            except Exception:  # TODO remove
+                self._receiving_sock.recv(1024)
+                logger.debug("Notify socket: received")
+            except io.BlockingIOError:
                 pass
-            else:
-                if data:
-                    logger.debug("Notifier received {} from {}".format(data, self.addr))
-                else:
-                    self.addr = None
-                    logger.warning("Notifier: connection to {} lost!".format(self.addr))
-
+            except Exception as e:
+                print(e)

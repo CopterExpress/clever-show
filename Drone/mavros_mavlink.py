@@ -108,9 +108,9 @@ def get_sys_status():
             mavlink.MAV_STATE_EMERGENCY: "EMERGENCY",
             mavlink.MAV_STATE_POWEROFF: "POWEROFF",
             mavlink.MAV_STATE_FLIGHT_TERMINATION: "TERMINATION"
-        }.get(system_status, "NOT_CONNECTED_TO_FCU")
+        }.get(system_status, "NO_FCU")
         return status_text
-    return "NOT_CONNECTED_TO_FCU"
+    return "NO_FCU"
 
 def start_subscriber():
     global heartbeat_sub, heartbeat_sub_status

@@ -146,11 +146,12 @@ class Server(messaging.Singleton):
     # noinspection PyArgumentList
     def _client_processor(self):
         logging.info("Client processor (selector) thread started!")
+
+        messaging.NotifierSock().init(self.sel)
+
         self.server_socket.listen()
         self.server_socket.setblocking(False)
         self.sel.register(self.server_socket, selectors.EVENT_READ, data=None) #| selectors.EVENT_WRITE
-
-        messaging.NotifierSock().bind((self.ip, self.port))
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select()
@@ -177,15 +178,12 @@ class Server(messaging.Singleton):
         logging.info("Got connection from: {}".format(str(addr)))
         conn.setblocking(False)
 
-        if addr[0] == self.ip and messaging.NotifierSock().addr is None:
-            client = messaging.NotifierSock()
-            logging.info("Notifier sock client")
-
-        elif not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
+        if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
             logging.info("New client")
         else:
             client = Client.clients[addr[0]]
+            client.close(True)  # to ensure in unregistering
             logging.info("Reconnected client")
         self.sel.register(conn, selectors.EVENT_READ, data=client)
         client.connect(self.sel, conn, addr)
@@ -284,7 +282,7 @@ class Client(messaging.ConnectionManager):
 
     @staticmethod
     def get_by_id(copter_id):
-        for client in Client.clients.values():
+        for client in Client.clients.values():  # TODO filter
             if client.copter_id == copter_id:
                 return client
 
@@ -303,10 +301,12 @@ class Client(messaging.ConnectionManager):
         if self.on_connect:
             self.on_connect(self)
 
-    def _got_id(self, value):
+    def _got_id(self, _client, value):
         logging.info("Got copter id: {} for client {}".format(value, self.addr))
+        old_id = self.copter_id
         self.copter_id = value
-        if self.on_first_connect:
+
+        if old_id is None and self.on_first_connect:
             self.on_first_connect(self)
 
     def close(self, inner=False):
@@ -325,11 +325,12 @@ class Client(messaging.ConnectionManager):
     def remove(self):
         if self.connected:
             self.close()
-        if self.clients:
-            try:
-                self.clients.pop(self.addr[0])
-            except Exception as e:
-                logging.error(e)
+
+        try:
+            self.clients.pop(self.addr[0])
+        except KeyError as e:
+            logging.error(e)
+
         logging.info("Client {} successfully removed!".format(self.copter_id))
 
     @requires_connect

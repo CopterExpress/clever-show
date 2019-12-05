@@ -37,7 +37,6 @@ def wait(end, interrupter=threading.Event(), maxsleep=0.1):
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
-
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
             reply = QMessageBox.question(
@@ -55,6 +54,7 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
 
     return inner
 
+
 # noinspection PyArgumentList,PyCallByClass
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -70,9 +70,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player = QtMultimedia.QMediaPlayer()
 
         self.init_model()
-        
+
         self.show()
-        
+
     def init_model(self):
         # self.model.on_id_changed = self.set_copter_id
 
@@ -88,7 +88,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect signals to manipulate model from threads
         self.signals.update_data_signal.connect(self.model.update_item)
         self.signals.add_client_signal.connect(self.model.add_client)
-        self.signals.remove_client_signal.connect(self.model.remove_client)
+        self.signals.remove_row_signal.connect(self.model.remove_row)
+        self.signals.remove_client_signal.connect(self.model.remove_row_data)
 
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
@@ -110,20 +111,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
 
     def new_client_connected(self, client: Client):
+        logging.debug("Added client {}".format(client))
         self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
-        logging.debug("Start remove {}".format(client.copter_id))
+        logging.debug("Connection {} changed {}".format(client, client.connected), )
         row_data = self.model.get_row_by_attr("client", client)
-        row_num = self.model.get_row_index(row_data)
-        logging.debug("Removing {}".format(client.copter_id))
-        if row_num is not None:
-            if Server().remove_disconnected and (not client.connected):
-                client.remove()
-                self.signals.remove_client_signal.emit(row_num)
-            else:
+
+        if row_data is None:
+            logging.error("No row for client presented")
+            return
+
+        if Server().remove_disconnected and (not client.connected):
+            client.remove()
+            self.signals.remove_client_signal.emit(row_data)
+            logging.debug("Removing from table")
+        else:
+            row_num = self.model.get_row_index(row_data)
+            if row_num is not None:
                 self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
-        logging.debug("{} removed".format(client.copter_id))
+                logging.debug("DATA: connected")
 
     def init_ui(self):
         # Connecting
@@ -139,7 +146,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.leds_button.clicked.connect(self.test_leds_selected)
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
         self.ui.flip_button.clicked.connect(self.flip_selected)
-        self.ui.land_button.clicked.connect(self.land_selected)        
+        self.ui.land_button.clicked.connect(self.land_selected)
 
         self.ui.reboot_fcu.clicked.connect(self.reboot_selected)
         self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
@@ -179,43 +186,36 @@ class MainWindow(QtWidgets.QMainWindow):
             client = copter_data_row.client
             client.get_response("telemetry", self.update_table_data)
 
-    @pyqtSlot(str)
-    def update_table_data(self, message):
-        fields = message.split('`')
-        # copter_id git_version animation_id battery_v battery_p system_status calibration_status mode selfcheck current_position start_position copter_time
-        copter_id = fields[0]
-        git_version = fields[1]
-        animation_id = fields[2]
-        battery_v = fields[3]
-        battery_p = fields[4]
-        if battery_v == 'nan' or battery_p == 'nan':
-            battery_info = "NO_INFO"
-        else:
-            battery_info = "{}V {}%".format(battery_v, battery_p)
-        sys_status = fields[5]
-        cal_status = fields[6]
-        mode = fields[7]
-        selfcheck = fields[8]
-        current_pos = fields[9]
-        start_pos = fields[10]
-        copter_time = fields[11]
-        time_delta = "{}".format(round(float(copter_time) - time.time(), 3))
-        row = self.model.get_row_index(self.model.get_row_by_attr('copter_id', copter_id))
-        self.signals.update_data_signal.emit(row, 1, git_version, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 2, animation_id, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 3, battery_info, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 4, sys_status, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 5, cal_status, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 6, mode, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 7, selfcheck, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 8, current_pos, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 9, start_pos, ModelDataRole)
-        self.signals.update_data_signal.emit(row, 10, time_delta, ModelDataRole)
+    @pyqtSlot(object, dict)
+    def update_table_data(self, client, telems: dict):
+        cols_dict = {
+            "git_version": 1,
+            "animation_id": 2,
+            "battery": 3,
+            "system_status": 4,
+            "calibration_status": 5,
+            "mode": 6,
+            "selfcheck": 7,
+            "current_position": 8,
+            "start_position": 9,
+            "time": 10,
+        }
+
+        for key, value in telems.items():
+            col = cols_dict.get(key, None)
+            if col is None:
+                logging.error("No column {} present!".format(key))
+                continue
+
+            row_data = self.model.get_row_by_attr("client", client)
+            row_num = self.model.get_row_index(row_data)
+            if row_num is not None:
+                self.signals.update_data_signal.emit(row_num, col, value, Qt.EditRole)
 
     @pyqtSlot(QtCore.QModelIndex)
     def selfcheck_info_dialog(self, index):
         col = index.column()
-        if col == 6:
+        if col == 7:
             data = self.proxy_model.data(index, role=ModelDataRole)
             if data and data != "OK":
                 dialog = QMessageBox()
@@ -226,7 +226,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 dialog.setDetailedText("\n".join(data))
                 dialog.exec()
 
-    def _selfcheck_shortener(self, data):
+    def _selfcheck_shortener(self, data):  # TODO!!!
         shortened = []
         for line in data:
             if len(line) > 89:
@@ -236,16 +236,11 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def remove_selected(self):
         for copter in self.model.user_selected():
-            row_num = self.model.get_row_index(copter)
-            if row_num is not None:
-                copter.client.remove()
+            copter.client.remove()
 
-                if not Server().remove_disconnected:
-                    self.signals.remove_client_signal.emit(row_num)
-                
-                logging.info("Client removed from table!")
-            else:
-                logging.error("Client is not in table!")
+            if not Server().remove_disconnected:
+                self.signals.remove_client_signal.emit(copter)
+            logging.info("Client removed from table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
@@ -255,12 +250,12 @@ class MainWindow(QtWidgets.QMainWindow):
         logging.info('Wait {} seconds to start animation'.format(dt))
         if self.ui.music_checkbox.isChecked():
             music_dt = self.ui.music_delay_spin.value()
-            asyncio.ensure_future(self.play_music_at_time(music_dt+time_now), loop=loop)
+            asyncio.ensure_future(self.play_music_at_time(music_dt + time_now), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
         # self.selfcheck_selected()
         for copter in self.model.user_selected():
-            if all_checks(copter):
-                server.send_starttime(copter.client, dt+time_now)
+            if self.model.checks.all_checks(copter):
+                server.send_starttime(copter.client, dt + time_now)
 
     @pyqtSlot()
     def pause_resume_selected(self):
@@ -290,7 +285,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def test_leds_selected(self):
         for copter in self.model.user_selected():
             copter.client.send_message("led_test")
-    
+
     @pyqtSlot()
     def disarm_all(self):
         Client.broadcast_message("disarm")
@@ -299,9 +294,9 @@ class MainWindow(QtWidgets.QMainWindow):
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
     def takeoff_selected(self, **kwargs):
         for copter in self.model.user_selected():
-            if takeoff_checks(copter):
+            if self.model.checks.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
-                    copter.client.send_message("takeoff_z", {"z":str(self.ui.z_spin.value())})
+                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int
                 else:
                     copter.client.send_message("takeoff")
 
@@ -320,7 +315,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def reboot_selected(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("reboot_fcu")   
+            copter.client.send_message("reboot_fcu")
 
     @pyqtSlot()
     def calibrate_gyro_selected(self):
@@ -332,7 +327,7 @@ class MainWindow(QtWidgets.QMainWindow):
             data = 'CALIBRATING'
             self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
             # Send request
-            client.get_response("calibrate_gyro", self._get_calibration_info, callback_args=(copter_data_row, ))
+            client.get_response("calibrate_gyro", self._get_calibration_info)
 
     @pyqtSlot()
     def calibrate_level_selected(self):
@@ -344,13 +339,15 @@ class MainWindow(QtWidgets.QMainWindow):
             data = 'CALIBRATING'
             self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
             # Send request
-            client.get_response("calibrate_level", self._get_calibration_info, callback_args=(copter_data_row, ))
+            client.get_response("calibrate_level", self._get_calibration_info)
 
-    def _get_calibration_info(self, value, copter_data_row):
+    def _get_calibration_info(self, client, value):
         col = 5
-        row = self.model.get_row_index(copter_data_row)
-        data = str(value)
-        self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
+        row_data = self.model.get_row_by_attr("client", client)
+        row = self.model.get_row_index(row_data)
+        if row is not None:
+            data = str(value)
+            self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
 
     @pyqtSlot()
     def send_animations(self):
@@ -379,7 +376,8 @@ class MainWindow(QtWidgets.QMainWindow):
             for file, name in zip(files, names):
                 for copter in self.model.user_selected():
                     if name == copter.copter_id:
-                        copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
+                        copter.client.send_file(file,
+                                                "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
                 else:
                     logging.info("Filename has no matches with any drone selected")
 
@@ -402,7 +400,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_aruco(self):
-        path = QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Aruco map files (*.txt)")[0]
+        path = \
+        QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Aruco map files (*.txt)")[0]
         if path:
             filename = os.path.basename(path)
             print("Selected file:", path, filename)
@@ -455,7 +454,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def restart_clever(self):
         for copter in self.model.user_selected():
             copter.client.send_message("service_restart", {"name": "clever"})
-    
+
     @pyqtSlot()
     def restart_clever_show(self):
         for copter in self.model.user_selected():
@@ -464,12 +463,12 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def update_client_repo(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("update_repo") 
+            copter.client.send_message("update_repo")
 
     @pyqtSlot()
     def reboot_all_on_selected(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("reboot_all") 
+            copter.client.send_message("reboot_all")
 
     @pyqtSlot()
     def update_start_to_current_position(self):
@@ -501,7 +500,7 @@ class MainWindow(QtWidgets.QMainWindow):
         path = QFileDialog.getOpenFileName(self, "Select music file", filter="Music files (*.mp3 *.wav)")[0]
         if path:
             media = QUrl.fromLocalFile(path)
-            content = QtMultimedia.QMediaContent(media)           
+            content = QtMultimedia.QMediaContent(media)
             self.player.setMedia(content)
             self.ui.action_select_music_file.setText(self.ui.action_select_music_file.text() + " (selected)")
 
@@ -513,9 +512,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
             logging.info("No media file")
             return
-        
+
         if self.player.state() == QtMultimedia.QMediaPlayer.StoppedState or \
-            self.player.state() == QtMultimedia.QMediaPlayer.PausedState:
+                self.player.state() == QtMultimedia.QMediaPlayer.PausedState:
             self.ui.action_play_music.setText("Pause music")
             self.player.play()
         else:
@@ -552,16 +551,16 @@ class MainWindow(QtWidgets.QMainWindow):
         result = -1
         while (result != 0) and (result != 3) and (result != 4):
             # light_green_red(min, max)
-            client_row_mid = int(math.ceil((client_row_max+client_row_min) / 2.0))
+            client_row_mid = int(math.ceil((client_row_max + client_row_min) / 2.0))
             print(client_row_min, client_row_mid, client_row_max)
             for row_num in range(client_row_min, client_row_mid):
-                self.model.data_contents[row_num].client\
+                self.model.data_contents[row_num].client \
                     .send_message("led_fill", {"green": 255})
             for row_num in range(client_row_mid, client_row_max + 1):
                 self.model.data_contents[row_num].client \
                     .send_message("led_fill", {"red": 255})
 
-            Dialog = QtWidgets.QDialog()    
+            Dialog = QtWidgets.QDialog()
             ui = Ui_Dialog()
             ui.setupUi(Dialog)
             Dialog.show()
@@ -574,7 +573,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.model.data_contents[row_num].client \
                             .send_message("led_fill")
                     client_row_max = client_row_mid - 1
-                   
+
                 elif result == 2:
                     for row_num in range(client_row_min, client_row_mid):
                         self.model.data_contents[row_num].client \
@@ -592,18 +591,25 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.model.data_contents[row_num].client \
                     .send_message("disarm")
 
-@messaging.message_callback("telem")
-def get_telem_data(*args, **kwargs):
-    message = kwargs.get("message", None)
-    window.update_table_data(message)
+
+@messaging.message_callback("telemetry")
+def get_telem_data(self, **kwargs):
+    message = kwargs.get("value")
+    window.update_table_data(self, message)
+
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
 
 
 if __name__ == "__main__":
+    sys.excepthook = except_hook  # for debugging (exceptions traceback)
+
     app = QtWidgets.QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    #app.exec_()
+    # app.exec_()
     with loop:
         window = MainWindow()
 
