@@ -105,9 +105,13 @@ venv.bak/
 .vscode/settings.json
 Server/tests.py
 Server/convert_ui.sh
+Server/config/server.ini
+
 Drone/test_animation/
 Drone/animation.csv
 Drone/client_logs
+Drone/config/client.ini
+
 images/
 .vscode/
 \.idea/
