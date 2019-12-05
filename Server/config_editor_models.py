@@ -5,10 +5,19 @@ from copy import deepcopy
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
-from PyQt5.QtGui import QCursor, QStandardItemModel
-from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog, QFileDialog
 
 import config_editor
+
+import sys
+import os, inspect  # Add parent dir to PATH to import messaging_lib
+
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+
+import config
 
 
 def dict_walk(d: dict, keys):
@@ -563,6 +572,27 @@ class ConfigDialog(QtWidgets.QDialog):
                                       )
         return reply == QMessageBox.Yes
 
+    def call_standalone_dialog(self):
+        path = QFileDialog.getOpenFileName(self, "Select configuration or specification file",
+                                           filter="Config and spec files (*.ini)")[0]
+        print(path)
+        if not path:
+            return
+
+        cfg = config.ConfigManager()
+        cfg.load_from_file(path)
+
+        self.setupModel(cfg.full_dict)
+
+        self.show()
+        self.exec()
+
+        print(ui.result())
+        print(ui.model.to_dict())
+        print(ui.model.to_config_dict())
+
+
+
 
 class ConfigTreeWidget(QTreeView):
     def __init__(self):
@@ -726,21 +756,9 @@ class ConfigTreeWidget(QTreeView):
             self.reset_item(child, reset_type)
 
 
-def call_standalone_dialog():
-    pass
+
 
 if __name__ == '__main__':
-    import os, inspect  # Add parent dir to PATH to import messaging_lib
-
-    current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    parent_dir = os.path.dirname(current_dir)
-
-    import config
-
-    import sys
-    sys.path.insert(0, parent_dir)
-
-
     def except_hook(cls, exception, traceback):
         print(cls, exception, traceback)
         sys.__excepthook__(cls, exception, traceback)

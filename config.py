@@ -4,7 +4,11 @@ from configobj import ConfigObj, Section
 from validate import Validator
 
 
+from pathlib import Path
+
+
 def modify_filename(path, pattern):
+    #    name = pattern.format(Path(path).stem)
     old_path, filename = os.path.split(path)
     filename = os.path.splitext(filename)[0]
     newfilename = pattern.format(filename)
@@ -52,29 +56,71 @@ class ConfigManager:
 
         config = ConfigObj(infile=self._extract_values(d), indent_type='',
                            configspec=modify_filename(path, 'spec/configspec_{}.ini'))
-        self._load_validate(config)
-        self.config.filename = path
-        self.config.initial_comment = initial_comment
-        self.config.final_comment = final_comment
+        config.filename = path
+        config.initial_comment = initial_comment
+        config.final_comment = final_comment
 
+        self._load_validate(config)
         self._load_comments(d, self.config)
 
-    def load_from_file(self, path):
-        self.generate_default_config(path)
+    @staticmethod
+    def _config_exists(path):
+        return not((not path.is_file()) or path.suffix != '.ini')
 
-        config = ConfigObj(infile=path, raise_errors=True,
-                           configspec=modify_filename(path, 'spec/configspec_{}.ini'))
+    @staticmethod
+    def _get_spec_path(path):
+        return modify_filename(path, 'spec/configspec_{}.ini')
+
+    def load_from_file(self, path):
+        p = Path(path)
+        if not self._config_exists(p):
+            raise ValueError('Config file do not exist!')
+
+        if p.name.startswith('configspec_'):
+            config_path = p.parents[1].joinpath(p.name.replace('configspec_', ''))
+            if self._config_exists(config_path):
+                return self.load_config_and_spec(config_path)
+
+            if p.parent.name == 'spec':
+                self.generate_default_config(config_path)
+
+            return self.load_only_spec(p)
+
+        else:
+            spec_path = Path(self._get_spec_path(p))
+            if self._config_exists(spec_path):
+                return self.load_config_and_spec(p)
+
+            return self.load_only_config(p)
+
+    def load_config_and_spec(self, path):
+        path = str(path)
+        self.generate_default_config(path)
+        config = ConfigObj(infile=path,
+                           configspec=self._get_spec_path(path))
 
         self._load_validate(config)
 
-    def _load_validate(self, config):
+    def load_only_config(self, path: Path):
+        path = str(path)
+        config = ConfigObj(infile=path)
+        self.set_config(config)
+
+    def load_only_spec(self, path: Path):
+        path = str(path)
+        config = ConfigObj(configspec=path)
+        config.filename = path.parent.joinpath(path.name.replace('configspec_', ''))
+
+        self._load_validate(config, True)
+
+    def _load_validate(self, config, copy=False):
         vdt = Validator()
 
-        test = config.validate(vdt)
+        test = config.validate(vdt, copy=copy)
         if test != True:  # Important syntax, do no change
             raise ValueError('Some values are wrong: {}'.format(test))
 
-        self.config = config
+        self.set_config(config)
 
     def get(self, section, option):
         return self.config[section][option]
@@ -121,7 +167,7 @@ class ConfigManager:
             if not isinstance(result, dict):
                 item_d = {'__option__': True,
                           'value': value,
-                          'default': default_values[key],
+                          'default': default_values.get(key, None),
                           'unchanged': key in defaults,
                           'comments': comments[key],
                           'inline_comment': inline_comments[key],
@@ -148,13 +194,12 @@ class ConfigManager:
         d['final_comment'] = self.config.final_comment
         return d
 
-    @staticmethod
-    def generate_default_config(path):
-        if os.path.isfile(path):
+    @classmethod
+    def generate_default_config(cls, path):
+        if cls._config_exists(path):
             return
-
         vdt = Validator()
-        config = ConfigObj(configspec=modify_filename(path, 'spec/configspec_{}.ini'))
+        config = ConfigObj(configspec=cls._get_spec_path(path))
         config.filename = path
         config.validate(vdt, copy=True)
         config.initial_comment = ('This is generated config_attrs with defaults',
@@ -179,26 +224,29 @@ class ConfigManager:
 if __name__ == '__main__':
     cfg = ConfigManager()
     cfg.load_from_file('Drone/config/client.ini')
-    #print(cfg.config.comments)
-    #print(cfg.server_host)
-    cfg.server_host = '192.168.1.103'
 
-    #print(cfg.get('SERVER', 'host'))
-    cfg.set('SERVER', 'host', '192.168.1.103')
 
-    print(cfg.config.initial_comment, cfg.config.final_comment)
-
-    # print(cfg.config)
-    # print(cfg.default_values)
-    # print(cfg.unchanged_defaults)
-
-    # print(11111)
+    # cfg.load_config_and_spec('Drone/config/client.ini')
+    # #print(cfg.config.comments)
+    # #print(cfg.server_host)
+    # cfg.server_host = '192.168.1.103'
+    #
+    # #print(cfg.get('SERVER', 'host'))
+    # cfg.set('SERVER', 'host', '192.168.1.103')
+    #
+    # print(cfg.config.initial_comment, cfg.config.final_comment)
+    #
+    # # print(cfg.config)
+    # # print(cfg.default_values)
+    # # print(cfg.unchanged_defaults)
+    #
+    # # print(11111)
     import pprint
     pprint.pprint(cfg.full_dict)
-    #print(cfg.full_dict)
-
-    #cfg.load_from_dict(cfg.full_dict, 'Drone/config/client.ini')
-    #print(cfg.config.initial_comment, cfg.config.final_comment)
-    #cfg.write()
-
+    # #print(cfg.full_dict)
+    #
+    # #cfg.load_from_dict(cfg.full_dict, 'Drone/config/client.ini')
+    # #print(cfg.config.initial_comment, cfg.config.final_comment)
+    # #cfg.write()
+    #
 
