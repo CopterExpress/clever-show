@@ -42,6 +42,15 @@ states_colors = {
 StateRole = 999
 TypeRole = 998
 
+
+def convert_type(data):
+    try:
+        data = literal_eval(data) if data else None
+    except (SyntaxError, ValueError):
+        data = str(data)
+    return data
+
+
 class ConfigModelItem:
     def __init__(self, values=(None, None, None, None), item_type='option',
                  state='normal', default=None, parent=None):
@@ -78,7 +87,6 @@ class ConfigModelItem:
         if comments:
             try:
                 raw_spec = comments.split('\n')[-1].split()[1:]
-                print(raw_spec)
                 if raw_spec[0] == '__list__': # and len(raw_spec[1:]) == len(data):
                     return raw_spec[1:]
             except IndexError:
@@ -138,10 +146,7 @@ class ConfigModelItem:
     def set_data(self, data, column):
         old_data = self.data(column)
         if old_data is None:
-            try:
-                data = literal_eval(data) if data else None
-            except (SyntaxError, ValueError):
-                data = str(data)
+            data = convert_type(data)
 
         if data == '<list>':
             data = []
@@ -276,7 +281,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         childItem = index.internalPointer()
         if not isinstance(childItem, ConfigModelItem):
-            print(childItem, index.column()),# index.row(), index.parent().internalPointer())
+            print(childItem, index.column()), # index.row(), index.parent().internalPointer())
             return QtCore.QModelIndex()
         parentItem = childItem.parent()
 
@@ -442,7 +447,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
             item = item.parent()
         return list(reversed(keys[:-1]))
 
-    def dict_setup(self, data: dict, parent=None):
+    def dict_setup(self, data: dict, parent=None, convert_types=False):
         if parent is None:
             parent = self.rootItem
 
@@ -451,9 +456,11 @@ class ConfigModel(QtCore.QAbstractItemModel):
                 item = ConfigModelItem((key,), parent=parent, item_type='section')
                 self.dict_setup(value, parent=item)
             else:
+                if convert_types:
+                    value = convert_type(value)
                 parent.appendChild(ConfigModelItem((key, value, '', '')))
 
-    def config_dict_setup(self, data: dict, parent=None):
+    def config_dict_setup(self, data: dict, convert_types=False, parent=None):
         if parent is None:
             parent = self.rootItem
 
@@ -463,6 +470,9 @@ class ConfigModel(QtCore.QAbstractItemModel):
         for key, item in data.items():
             if item.get('__option__', False):
                 value = item['value']
+                if convert_types:
+                    value = convert_type(value)
+
                 default = item['default']
                 comments = '\n'.join(item['comments']) or ''
                 inline_comment = item['inline_comment'] or ''
@@ -479,7 +489,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
             else:
                 section = ConfigModelItem((key,), parent=parent, item_type='section')
-                self.config_dict_setup(item, parent=section)
+                self.config_dict_setup(item, convert_types=convert_types, parent=section)
 
     def to_dict(self, parent=None) -> dict:
         if parent is None:
@@ -532,67 +542,6 @@ class ConfigModel(QtCore.QAbstractItemModel):
     @property
     def dict(self):
         return self.to_dict()
-
-
-class ConfigDialog(QtWidgets.QDialog):
-    def __init__(self):
-        super(ConfigDialog, self).__init__()
-        self.ui = config_editor.Ui_config_dialog()
-        self.model = ConfigModel(widget=self)
-        self.setupUi()
-
-    def setupModel(self, data, pure_dict=False):
-        if pure_dict:
-            self.model.dict_setup(data)
-        else:
-            self.model.config_dict_setup(data)
-
-        self.ui.config_view.expandAll()
-
-    def setupUi(self):
-        self.ui.setupUi(self)
-
-        self.ui.config_view = ConfigTreeWidget()
-        self.ui.config_view.setObjectName("config_view")
-        self.ui.config_view.setModel(self.model)
-        self.ui.gridLayout.addWidget(self.ui.config_view, 0, 0, 1, 1)
-        self.ui.config_view.expandAll()
-
-        self.ui.do_coloring.stateChanged.connect(self.model.enable_color)
-
-        # self.ui.delete_button.pressed.connect(self.remove_selected)
-
-        # index = self.config_view.selectedIndexes()[0]
-
-    def edit_caution(self):
-        reply = QMessageBox().warning(self, "Editing caution",
-                                      "Are you sure you want to edit section/option name? "
-                                      "Proceed with caution!",
-                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-                                      )
-        return reply == QMessageBox.Yes
-
-    def call_standalone_dialog(self):
-        path = QFileDialog.getOpenFileName(self, "Select configuration or specification file",
-                                           filter="Config and spec files (*.ini)")[0]
-        print(path)
-        if not path:
-            return
-
-        cfg = config.ConfigManager()
-        cfg.load_from_file(path)
-
-        self.setupModel(cfg.full_dict)
-
-        self.show()
-        self.exec()
-
-        print(ui.result())
-        print(ui.model.to_dict())
-        print(ui.model.to_config_dict())
-
-
-
 
 class ConfigTreeWidget(QTreeView):
     def __init__(self):
@@ -686,7 +635,6 @@ class ConfigTreeWidget(QTreeView):
 
     def exclude(self, index):
         item = self.model().nodeFromIndex(index)
-        #i
         if item.state == 'deleted':
             self.model().setData(index, item.default_state, StateRole)
         else:
@@ -756,6 +704,104 @@ class ConfigTreeWidget(QTreeView):
             self.reset_item(child, reset_type)
 
 
+class ConfigDialog(QtWidgets.QDialog):
+    def __init__(self):
+        super(ConfigDialog, self).__init__()
+        self.ui = config_editor.Ui_config_dialog()
+        self.model = ConfigModel(widget=self)
+        self.setupUi()
+
+    def setupModel(self, data, pure_dict=False, convert_types=False):
+        if pure_dict:
+            self.model.dict_setup(data, convert_types=convert_types)
+        else:
+            self.model.config_dict_setup(data, convert_types=convert_types)
+
+        self.ui.config_view.expandAll()
+
+    def setupUi(self):
+        self.ui.setupUi(self)
+
+        self.ui.config_view = ConfigTreeWidget()
+        self.ui.config_view.setObjectName("config_view")
+        self.ui.config_view.setModel(self.model)
+        self.ui.gridLayout.addWidget(self.ui.config_view, 0, 0, 1, 1)
+        self.ui.config_view.expandAll()
+
+        self.ui.do_coloring.stateChanged.connect(self.model.enable_color)
+
+        # self.ui.delete_button.pressed.connect(self.remove_selected)
+
+        # index = self.config_view.selectedIndexes()[0]
+
+    def edit_caution(self):
+        reply = QMessageBox().warning(self, "Editing caution",
+                                      "Are you sure you want to edit section/option name? "
+                                      "Proceed with caution!",
+                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                                      )
+        return reply == QMessageBox.Yes
+
+    # def validate_loop(self):
+
+    def call_standalone_dialog(self):
+        path = QFileDialog.getOpenFileName(self, "Select configuration or specification file",
+                                           filter="Config and spec files (*.ini)")[0]
+        if not path:
+            return False
+
+        cfg = config.ConfigManager()
+        try:
+            cfg.load_from_file(path)
+        except ValueError:  # When file do not exist or not validated
+            return False
+
+        self.setupModel(cfg.full_dict, convert_types=(not cfg.validated))
+
+        self.show()
+        self.exec()
+
+        save = ui.result()
+        if not save:
+            return False
+
+        filename = cfg.config.filename
+        valid_path = path if cfg.config.filename is None else cfg.config.filename
+        valid_path = valid_path if cfg.validated else None
+
+        while True:
+            try:
+                cfg.load_from_dict(ui.model.to_config_dict(), path=valid_path)
+            except config.ValidationError as error:
+                dialog = QMessageBox()
+                dialog.setIcon(QMessageBox.Critical)
+                dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+                dialog.setDefaultButton(QMessageBox.Yes)
+                dialog.setEscapeButton(QMessageBox.Cancel)
+                dialog.setWindowTitle("Validation error!")
+                msg = "\n".join(error.flatten_errors())
+                dialog.setText("Can not validate. Proceed with editing? Errors: \n" + msg)
+                dialog.setDetailedText(msg)
+                reply = dialog.exec()
+
+                if reply == QMessageBox.Cancel:
+                    return False
+
+                self.show()
+                self.exec()
+            else:
+                break
+
+        if filename is None:
+            save_path = QFileDialog.getSaveFileName(self, "Save configuration file",
+                                                    filter="Config files (*.ini)")[0]
+            if not save_path:
+                return False
+        else:
+            save_path = filename
+
+        cfg.config.filename = save_path
+        cfg.write()
 
 
 if __name__ == '__main__':
@@ -767,16 +813,10 @@ if __name__ == '__main__':
 
     app = QtWidgets.QApplication(sys.argv)
 
-    data = {'config_name': {'__option__': True, 'value': 'Copter config', 'default': 'Copter config', 'unchanged': True, 'comments': [], 'inline_comment': None}, 'config_version': {'__option__': True, 'value': 0.0, 'default': 0.0, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'SERVER': {'port': {'__option__': True, 'value': 25000, 'default': 25000, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'host': {'__option__': True, 'value': '192.168.1.103', 'default': '192.168.1.101', 'unchanged': False, 'comments': [], 'inline_comment': None}, 'buffer_size': {'__option__': True, 'value': 1024, 'default': 1024, 'unchanged': False, 'comments': [], 'inline_comment': None}}, 'BROADCAST': {'use': {'__option__': True, 'value': True, 'default': True, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'port': {'__option__': True, 'value': 8181, 'default': 8181, 'unchanged': False, 'comments': [], 'inline_comment': None}}, 'NTP': {'use': {'__option__': True, 'value': False, 'default': False, 'unchanged': False, 'comments': [], 'inline_comment': None}, 'host': {'__option__': True, 'value': 'ntp1.stratum2.ru', 'default': 'ntp1.stratum2.ru', 'unchanged': False, 'comments': [], 'inline_comment': None}, 'port': {'__option__': True, 'value': 123, 'default': 123, 'unchanged': False, 'comments': [], 'inline_comment': None}}, 'PRIVATE': {'id': {'__option__': True, 'value': '/hostname', 'default': '/hostname', 'unchanged': False, 'comments': ['# avialiable options: /hostname ; /spec_default ; /ip ; any string 63 characters lengh'], 'inline_comment': None}, 'offset': {'__option__': True, 'value': [0.0, 0.0, 0.0], 'default': [0.0, 0.0, 0.0], 'unchanged': False, 'comments': ["# Drone's individual offset", '# __list__ X Y Z'], 'inline_comment': None}}, 'initial_comment': ['# This is generated config_attrs with defaults', '# Modify to configure'], 'final_comment': []}
-
     ui = ConfigDialog()
-    ui.setupModel(data)
-    ui.show()
-
-    print(app.exec_())
-
-    print(ui.result())
-    print(ui.model.to_dict())
-    print(ui.model.to_config_dict())
-
-    sys.exit()
+    ui.call_standalone_dialog()
+    # d = {'section': {'opt': 1, "opt222": 'text'}}
+    # ui.setupModel(d, pure_dict=True)
+    # ui.show()
+    # app.exec()
+    # print(ui.model.to_config_dict())
