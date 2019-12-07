@@ -1,10 +1,7 @@
 import os
 
-from configobj import ConfigObj, Section
+from configobj import ConfigObj, Section, flatten_errors
 from validate import Validator
-
-
-from pathlib import Path
 
 
 def modify_filename(path, pattern):
@@ -15,112 +12,39 @@ def modify_filename(path, pattern):
     return os.path.join(old_path, newfilename)
 
 
+def parent_path(path, levels=1):
+    for i in range(levels):
+        path = os.path.abspath(os.path.join(path, os.pardir))
+    return path
+
+
+def parent_dir(path):
+    return os.path.basename(os.path.normpath(path))
+
+
+class ValidationError(ValueError):
+    def __init__(self, message, config, errors):
+        super(ValidationError, self).__init__(message)
+        self.config = config
+        self.errors = errors
+
+    def flatten_errors(self):
+        for entry in flatten_errors(self.config, self.errors):
+            section_list, key, error = entry
+            if key is not None:
+                section_list.append(key)
+            else:
+                section_list.append('[missing section]')
+            section_string = ', '.join(section_list)
+            if error == False:  # Important syntax
+                error = 'Missing value or section.'
+            yield "[{}]: {}".format(section_string, error)
+
+
 class ConfigManager:
     def __init__(self, config=None):
         self.config = ConfigObj() if config is None else config
-
-    def set_config(self, config):
-        self.config = config
-
-    @classmethod
-    def _extract_values(cls, d):
-        result = {}
-        for key, val in d.items():
-            if isinstance(val, dict) and val.get('__option__', False):
-                if not val.get('unchanged', False):
-                    result[key] = val.get('value')
-            else:
-                result[key] = cls._extract_values(val)
-        return result
-
-    @classmethod
-    def _load_comments(cls, d, section):
-        comments = {}
-        inline_comments = {}
-
-        for key, val in d.items():
-            if val.get('__option__', False):
-                comments[key] = val.get('comments', [])
-                inline_comments[key] = val.get('inline_comment', '')
-            else:
-                cls._load_comments(val, section[key])
-                comments[key] = ['']
-                inline_comments[key] = None
-
-        section.comments = comments
-        section.inline_comments = inline_comments
-
-    def load_from_dict(self, d, path):
-        initial_comment = d.pop('initial_comment', [''])
-        final_comment = d.pop('final_comment', [''])
-
-        config = ConfigObj(infile=self._extract_values(d), indent_type='',
-                           configspec=modify_filename(path, 'spec/configspec_{}.ini'))
-        config.filename = path
-        config.initial_comment = initial_comment
-        config.final_comment = final_comment
-
-        self._load_validate(config)
-        self._load_comments(d, self.config)
-
-    @staticmethod
-    def _config_exists(path):
-        return not((not path.is_file()) or path.suffix != '.ini')
-
-    @staticmethod
-    def _get_spec_path(path):
-        return modify_filename(path, 'spec/configspec_{}.ini')
-
-    def load_from_file(self, path):
-        p = Path(path)
-        if not self._config_exists(p):
-            raise ValueError('Config file do not exist!')
-
-        if p.name.startswith('configspec_'):
-            config_path = p.parents[1].joinpath(p.name.replace('configspec_', ''))
-            if self._config_exists(config_path):
-                return self.load_config_and_spec(config_path)
-
-            if p.parent.name == 'spec':
-                self.generate_default_config(config_path)
-
-            return self.load_only_spec(p)
-
-        else:
-            spec_path = Path(self._get_spec_path(p))
-            if self._config_exists(spec_path):
-                return self.load_config_and_spec(p)
-
-            return self.load_only_config(p)
-
-    def load_config_and_spec(self, path):
-        path = str(path)
-        self.generate_default_config(path)
-        config = ConfigObj(infile=path,
-                           configspec=self._get_spec_path(path))
-
-        self._load_validate(config)
-
-    def load_only_config(self, path: Path):
-        path = str(path)
-        config = ConfigObj(infile=path)
-        self.set_config(config)
-
-    def load_only_spec(self, path: Path):
-        path = str(path)
-        config = ConfigObj(configspec=path)
-        config.filename = path.parent.joinpath(path.name.replace('configspec_', ''))
-
-        self._load_validate(config, True)
-
-    def _load_validate(self, config, copy=False):
-        vdt = Validator()
-
-        test = config.validate(vdt, copy=copy)
-        if test != True:  # Important syntax, do no change
-            raise ValueError('Some values are wrong: {}'.format(test))
-
-        self.set_config(config)
+        self.validated = False
 
     def get(self, section, option):
         return self.config[section][option]
@@ -132,6 +56,20 @@ class ConfigManager:
 
     def write(self):
         self.config.write()
+
+    def set_config(self, config):
+        self.config = config
+        self.validated = False
+
+    def validate_config(self, config, copy_defaults=False):
+        vdt = Validator()
+
+        test = config.validate(vdt, copy=copy_defaults, preserve_errors=True)
+        if test != True:  # Important syntax, do no change
+            raise ValidationError('Some values are wrong: {}'.format(test), config, test)
+
+        self.config = config
+        self.validated = True
 
     @classmethod
     def _get_defaults(cls, item, unchanged_only=False):
@@ -156,7 +94,7 @@ class ConfigManager:
         if not isinstance(item, Section):
             return item
 
-        d = {}
+        data = {}
         default_values = item.default_values
         defaults = item.defaults
         comments = item.comments
@@ -172,12 +110,12 @@ class ConfigManager:
                           'comments': comments[key],
                           'inline_comment': inline_comments[key],
                           }
-                d[key] = item_d
+                data[key] = item_d
 
             else:
-                d[key] = result
+                data[key] = result
 
-        return d
+        return data
 
     @property
     def default_values(self):
@@ -194,18 +132,6 @@ class ConfigManager:
         d['final_comment'] = self.config.final_comment
         return d
 
-    @classmethod
-    def generate_default_config(cls, path):
-        if cls._config_exists(path):
-            return
-        vdt = Validator()
-        config = ConfigObj(configspec=cls._get_spec_path(path))
-        config.filename = path
-        config.validate(vdt, copy=True)
-        config.initial_comment = ('This is generated config_attrs with defaults',
-                                  'Modify to configure')
-        config.write()
-
     def __getattr__(self, item):
         try:
             section, option = item.split('_', 1)
@@ -220,10 +146,134 @@ class ConfigManager:
         except (ValueError, KeyError):
             self.__dict__[key] = value
 
+    @staticmethod
+    def _config_exists(path):
+        return os.path.isfile(path) and os.path.splitext(path)[1] == '.ini'
+
+    @staticmethod
+    def _get_spec_path(path):
+        return modify_filename(path, 'spec/configspec_{}.ini')
+
+    @staticmethod
+    def _get_config_path(path):
+        filename = os.path.split(path)[1]
+        return os.path.join(parent_path(path, levels=2),
+                            filename.replace('configspec_', ''))
+
+    def load_from_file(self, path):
+        if not self._config_exists(path):
+            raise ValueError('Config file do not exist!')
+
+        f_path, filename = os.path.split(path)
+        if filename.startswith('configspec_'):
+            config_path = self._get_config_path(path)
+
+            if self._config_exists(config_path):
+                return self.load_config_and_spec(config_path)
+
+            generate_file = parent_dir(f_path) == 'spec'
+            if generate_file:
+                self.generate_default_config(config_path)
+
+            return self.load_only_spec(path, generate_file)
+
+        else:
+            spec_path = self._get_spec_path(path)
+            if self._config_exists(spec_path):
+                return self.load_config_and_spec(path)
+
+            return self.load_only_config(path)
+
+    def load_config_and_spec(self, path):
+        self.generate_default_config(path)
+        config = ConfigObj(infile=path,
+                           configspec=self._get_spec_path(path))
+
+        self.validate_config(config)
+
+    def load_only_config(self, path):
+        config = ConfigObj(infile=path)
+        self.set_config(config)
+
+    def load_only_spec(self, path, generate_filename=True):
+        config = ConfigObj(configspec=path)
+        if generate_filename:
+            config.filename = self._get_config_path(path)
+
+        self.validate_config(config, copy_defaults=True)
+
+    @classmethod
+    def generate_default_config(cls, cfg_path):
+        if cls._config_exists(cfg_path):
+            return False
+
+        vdt = Validator()
+        config = ConfigObj(configspec=cls._get_spec_path(cfg_path))
+        config.filename = cfg_path
+        config.validate(vdt, copy=True)
+        config.initial_comment = ('This is generated config with default values',
+                                  'Modify to configure')
+        config.write()
+        return True
+
+    @classmethod
+    def _extract_values(cls, d):
+        result = {}
+        for key, val in d.items():
+            if isinstance(val, dict) and val.get('__option__', False):
+                if not val.get('unchanged', False):
+                    result[key] = val.get('value')
+            else:
+                result[key] = cls._extract_values(val)
+        return result
+
+    @classmethod
+    def _load_comments(cls, d, section):
+        comments = {}
+        inline_comments = {}
+
+        for key, val in d.items():
+            if val.get('__option__', False):
+                comment = val.get('comments', [])
+                comments[key] = [] if comment == [''] else comment
+                inline_comments[key] = val.get('inline_comment', None)
+            else:
+                cls._load_comments(val, section[key])
+                comments[key] = ['']
+                inline_comments[key] = None
+
+        section.comments = comments
+        section.inline_comments = inline_comments
+
+    def load_from_dict(self, d, path=None):
+        initial_comment = d.pop('initial_comment', [''])
+        final_comment = d.pop('final_comment', [''])
+
+        kwargs = {'infile': self._extract_values(d), 'indent_type': ''}
+        if path is not None:
+            spec_path = self._get_spec_path(path)
+            if not self._config_exists(spec_path):
+                spec_path = path
+            if self._config_exists(spec_path):
+                kwargs.update({'configspec': spec_path})
+
+        config = ConfigObj(**kwargs)
+        config.filename = path
+        config.initial_comment = initial_comment
+        config.final_comment = final_comment
+
+        if path is not None:
+            self.validate_config(config)
+        else:
+            self.set_config(config)
+
+        self._load_comments(d, self.config)
+
 
 if __name__ == '__main__':
     cfg = ConfigManager()
-    cfg.load_from_file('Drone/config/client.ini')
+    #cfg.load_from_file('Drone/config/client.ini')
+    cfg.load_from_file('Drone/config/spec/configspec_client.ini')
 
 
     # cfg.load_config_and_spec('Drone/config/client.ini')
