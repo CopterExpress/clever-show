@@ -7,14 +7,15 @@ import datetime
 import threading
 import selectors
 import collections
-import configparser
 
-import os, inspect  # Add parent dir to PATH to import messaging_lib
+import os, inspect  # Add parent dir to PATH to import messaging_lib and config_lib
 
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
+
 import messaging_lib as messaging
+from config import ConfigManager
 
 random.seed()
 
@@ -41,7 +42,7 @@ ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "val
 
 
 class Server(messaging.Singleton):
-    def __init__(self, server_id=None, config_path="server_config.ini", on_stop=None):
+    def __init__(self, server_id=None, config_path="config/server.ini", on_stop=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
 
@@ -58,9 +59,8 @@ class Server(messaging.Singleton):
         self.ip = messaging.get_ip_address()
 
         # Init configs
+        self.config = ConfigManager()
         self.config_path = config_path
-        self.config = configparser.ConfigParser()
-        self.load_config()
 
         # Init threads
         self.autoconnect_thread = threading.Thread(target=self._client_processor, daemon=True,
@@ -75,49 +75,36 @@ class Server(messaging.Singleton):
                                                 name='IP broadcast listener')
         self.listener_thread_running = threading.Event()
 
-    def load_config(self):
-        self.config.read(self.config_path)
-        self.port = int(self.config['SERVER']['port'])  # TODO try, init def
-        self.BUFFER_SIZE = int(self.config['SERVER']['buffer_size']) # TODO connect to connection manager
+    def start(self):  # do_auto_connect=True, , do_listen_broadcast=False
+        # load config on startup
+        self.config.load_config_and_spec(self.config_path)
 
-        self.remove_disconnected = self.config.getboolean('SERVER', 'remove_disconnected')
-
-        self.use_broadcast = self.config.getboolean('BROADCAST', 'use_broadcast')
-        self.broadcast_port = int(self.config['BROADCAST']['broadcast_port'])
-        self.BROADCAST_DELAY = int(self.config['BROADCAST']['broadcast_delay'])
-
-        self.USE_NTP = self.config.getboolean('NTP', 'use_ntp')
-        self.NTP_HOST = self.config['NTP']['host']
-        self.NTP_PORT = int(self.config['NTP']['port'])
-
-    def start(self, do_ip_broadcast=None):  # do_auto_connect=True, , do_listen_broadcast=False
         self.time_started = time.time()
 
-        if do_ip_broadcast is None:
-            do_ip_broadcast = self.use_broadcast
-
-        logging.info("Starting server with id: {} on {}:{} !".format(self.id, self.ip, self.port))
-        logging.info("Starting server socket!")
-        self.server_socket.bind((self.ip, self.port))
+        logging.info("Starting server with id: {} on {}:{} !".format(self.id, self.ip, self.config.server_port))
+        logging.info("Binding server socket!")
+        self.server_socket.bind((self.ip, self.config.server_port))
 
         logging.info("Starting client processor thread!")
         self.client_processor_thread_running.set()
         self.autoconnect_thread.start()
 
-        if do_ip_broadcast:
+        if self.config.broadcast_send:
             logging.info("Starting broadcast sender thread!")
             self.broadcast_thread_running.set()
             self.broadcast_thread.start()
 
-        logging.info("Starting broadcast listener thread!")
-        self.listener_thread_running.set()
-        self.listener_thread.start()
+        if self.config.broadcast_listen:
+            logging.info("Starting broadcast listener thread!")
+            self.listener_thread_running.set()
+            self.listener_thread.start()
 
     def stop(self):
         logging.info("Stopping server")
         self.client_processor_thread_running.clear()
         self.broadcast_thread_running.clear()
         self.listener_thread_running.clear()
+
         self.server_socket.close()
         self.sel.close()
         logging.info("Server stopped")
@@ -137,8 +124,8 @@ class Server(messaging.Singleton):
         return int.from_bytes(msg[-8:], 'big') / 2 ** 32 - NTP_DELTA
 
     def time_now(self):
-        if self.USE_NTP:
-            timenow = self.get_ntp_time(self.NTP_HOST, self.NTP_PORT)
+        if self.config.ntp_use:
+            timenow = self.get_ntp_time(self.config.ntp_host, self.config.ntp_port)
         else:
             timenow = time.time()
         return timenow
@@ -150,7 +137,7 @@ class Server(messaging.Singleton):
         self.server_socket.setblocking(False)
         self.sel.register(self.server_socket, selectors.EVENT_READ, data=None) #| selectors.EVENT_WRITE
 
-        messaging.NotifierSock().bind((self.ip, self.port))
+        messaging.NotifierSock().bind((self.ip, self.config.server_port))
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select()
@@ -193,18 +180,19 @@ class Server(messaging.Singleton):
     def _ip_broadcast(self):
         logging.info("Broadcast sender thread started!")
         msg = messaging.MessageManager.create_simple_message(
-            "server_ip", {"host": self.ip, "port": str(self.port), "id": self.id, "start_time": str(self.time_started)})
+            "server_ip", {"host": self.ip, "port": str(self.config.server_port), "id": self.id,
+                          "start_time": str(self.time_started)})
+        logging.debug("Formed broadcast message: {}".format(msg))
+
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        logging.info("Formed broadcast message: {}".format(msg))
 
-        time.sleep(self.BROADCAST_DELAY)
         try:
             while self.broadcast_thread_running.is_set():
-                broadcast_sock.sendto(msg, ('255.255.255.255', self.broadcast_port))
+                time.sleep(self.config.broadcast_delay)  # todo make interruptable (from time lib)
+                broadcast_sock.sendto(msg, ('255.255.255.255', self.config.broadcast_port))
                 logging.debug("Broadcast sent")
-                time.sleep(self.BROADCAST_DELAY)
 
         finally:
             broadcast_sock.close()
@@ -215,7 +203,7 @@ class Server(messaging.Singleton):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         try:
-            broadcast_client.bind(("", self.broadcast_port))
+            broadcast_client.bind(("", self.config.broadcast_port))
         except OSError:
             logging.critical("Another server is running on this computer, shutting down!")
             # TODO popup and as function
@@ -227,15 +215,19 @@ class Server(messaging.Singleton):
                 message = messaging.MessageManager()
                 message.income_raw = data
                 message.process_message()
-                if message.content:
-                    if message.content["command"] == "server_ip":
-                        if message.content["args"]["id"] != str(self.id) \
-                                and float(message.content["args"]["start_time"]) <= self.time_started:
+                content = message.content
 
-                            # younger server should shut down
-                            logging.critical("Another server detected over the network, shutting down!")
-                            # TODO popup
-                            self.stop()
+                right_command = (content and content["command"] == "server_ip")
+
+                if right_command:
+                    different_id = content["args"]["id"] != str(self.id)
+                    self_younger = float(message.content["args"]["start_time"]) <= self.time_started
+
+                    if different_id and self_younger:
+                        # younger server should shut down
+                        logging.critical("Another server detected over the network, shutting down!")
+                        # TODO popup
+                        self.stop()
 
                 else:
                     logging.warning("Got wrong broadcast message from {}".format(addr))

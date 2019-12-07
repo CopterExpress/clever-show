@@ -1,10 +1,7 @@
 import sys
 import re
 import math
-import configparser
-import collections
 import indexed
-from server import ConfigOption
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt
@@ -12,9 +9,6 @@ from PyQt5.QtCore import Qt as Qt
 
 ModelDataRole = 998
 ModelStateRole = 999
-
-config = configparser.ConfigParser()
-config.read("server_config.ini")
 
 
 class CopterData:
@@ -94,9 +88,10 @@ def get_position_delta(pos1, pos2):
 class Checks:
     all_checks = {}
     takeoff_checklist = (3, 4, 6, 7, 8)
-    battery_min = config.getfloat('CHECKS', 'battery_percentage_min') 
-    start_pos_delta_max = config.getfloat('CHECKS', 'start_pos_delta_max')
-    time_delta_max = config.getfloat('CHECKS', 'time_delta_max')    
+    battery_min = 50  # config.getfloat('CHECKS', 'battery_percentage_min')
+    start_pos_delta_max = 1  # config.getfloat('CHECKS', 'start_pos_delta_max')
+    time_delta_max = 1  # config.getfloat('CHECKS', 'time_delta_max')
+
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)

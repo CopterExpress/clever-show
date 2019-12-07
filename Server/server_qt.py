@@ -118,7 +118,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row_num = self.model.get_row_index(row_data)
         logging.debug("Removing {}".format(client.copter_id))
         if row_num is not None:
-            if Server().remove_disconnected and (not client.connected):
+            if Server().config.table_remove_disconnected and (not client.connected):
                 client.remove()
                 self.signals.remove_client_signal.emit(row_num)
             else:
@@ -240,7 +240,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if row_num is not None:
                 copter.client.remove()
 
-                if not Server().remove_disconnected:
+                if not Server().config.table_remove_disconnected:
                     self.signals.remove_client_signal.emit(row_num)
                 
                 logging.info("Client removed from table!")
