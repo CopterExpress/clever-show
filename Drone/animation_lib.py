@@ -216,14 +216,10 @@ try:
                 interrupter=interrupt_event):
         if use_leds:
             LedLib.wipe_to(255, 0, 0, interrupter=interrupter)
-        if interrupter.is_set():
-            return
         result = FlightLib.takeoff(height=z, timeout_takeoff=timeout, frame_id=frame_id,
                                 emergency_land=safe_takeoff, interrupter=interrupter)
         if result == 'not armed' or result == 'timeout':
             raise Exception('STOP')  # Raise exception to clear task_manager if copter can't arm
-        if interrupter.is_set():
-            return
         if use_leds:
             LedLib.blink(0, 255, 0, wait=50, interrupter=interrupter)
 
