@@ -217,10 +217,11 @@ class Client(object):
                             if error.errno == errno.EINTR:
                                 raise KeyboardInterrupt
 
-            mapping = self.selector.get_map().values()
-            notifier_key = self.selector.get_key(messaging.NotifierSock().get_sock())
-            notify_only= len(mapping) == 1 and notifier_key in mapping
-            if notify_only or not mapping:
+            mapping = self.selector.get_map()
+            mapping_socks = list(mapping.keys().copy())
+            notifier_sock = messaging.NotifierSock().get_sock()
+            notify_only= len(mapping_socks) == 1 and notifier_sock in mapping_socks
+            if notify_only or not mapping_socks:
                 logger.warning("No active connections left!")
                 return
 
