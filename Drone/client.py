@@ -216,13 +216,15 @@ class Client(object):
                         if isinstance(error, OSError):
                             if error.errno == errno.EINTR:
                                 raise KeyboardInterrupt
-
-            mapping = self.selector.get_map().values()
-            notifier_key = self.selector.get_key(messaging.NotifierSock().get_sock())
-            notify_only= len(mapping) == 1 and notifier_key in mapping
-            if notify_only or not mapping:
-                logger.warning("No active connections left!")
-                return
+            try:
+                mapping = self.selector.get_map().values()
+                notifier_key = self.selector.get_key(messaging.NotifierSock().get_sock())
+                notify_only= len(mapping) == 1 and notifier_key in mapping
+                if notify_only or not mapping:
+                    logger.warning("No active connections left!")
+                    return
+            except (RuntimeError, KeyError) as e:
+                logger.error("Exception {} occured when getting net map!".format(e))
 
 
 @messaging.message_callback("config_write")
