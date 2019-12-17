@@ -253,6 +253,8 @@ def view_battery(value):
 @ModelFormatter.col_format(7, ModelFormatter.VIEW_FORMATTER)
 def view_selfcheck(value):
     if isinstance(value, list):
+        if len(value)==1:
+            return value[0]
         return "ERROR"
     return value
 
@@ -289,7 +291,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
         self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'sensors', 
-                        '  mode  ', 'checks', 'current x y z yaw frame_id', '    start x y z    ', 'dt')
+                        '  mode  ', ' checks ', 'current x y z yaw frame_id', '    start x y z    ', 'dt')
         self.data_contents = []
 
         self.checks = checks
