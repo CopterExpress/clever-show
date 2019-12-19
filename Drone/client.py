@@ -198,7 +198,7 @@ class Client(object):
             #    self._last_ping_time = time.time()
             # logging.debug("tick")
 
-            for key, mask in events:  # TODO add notifier to client!
+            for key, mask in events:
                 connection = key.data
                 if connection is None:
                     pass
@@ -216,14 +216,17 @@ class Client(object):
                         if isinstance(error, OSError):
                             if error.errno == errno.EINTR:
                                 raise KeyboardInterrupt
-
-            mapping = self.selector.get_map()
-            mapping_socks = list(mapping.keys().copy())
-            notifier_sock = messaging.NotifierSock().get_sock()
-            notify_only= len(mapping_socks) == 1 and notifier_sock in mapping_socks
-            if notify_only or not mapping_socks:
-                logger.warning("No active connections left!")
-                return
+            try:
+                mapping_fds = self.selector.get_map().keys() # file descriptors
+                notifier_fd = messaging.NotifierSock().get_sock().fileno()
+            except (KeyError, RuntimeError) as e:
+                logger.error("Exception {} occurred when getting connections map!".format(e))
+                logging.error("Connections changed during getting connections map, passing")
+            else:
+                notify_only= len(mapping_fds) == 1 and notifier_fd in mapping_fds
+                if notify_only or not mapping_fds:
+                    logger.warning("No active connections left!")
+                    return
 
 
 @messaging.message_callback("config_write")
@@ -249,5 +252,6 @@ def _response_time(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     client = Client()
     client.start()
