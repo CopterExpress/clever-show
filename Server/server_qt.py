@@ -18,7 +18,7 @@ from server_gui import Ui_MainWindow
 from server import *
 import messaging_lib as messaging
 from copter_table_models import *
-from emergency import *
+from visual_land import *
 
 import threading
 
@@ -98,12 +98,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect calibrating signal (testing)
         self.model.selected_calibrating_signal.connect(self.ui.check_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.pause_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.stop_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.emergency_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.disarm_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.land_selected_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.land_all_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.visual_land_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.emergency_land_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.disarm_selected_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.disarm_all_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.leds_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.land_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.reboot_fcu.setDisabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
@@ -137,16 +138,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
         self.ui.start_button.clicked.connect(self.send_starttime_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
-        self.ui.stop_button.clicked.connect(self.land_all)
 
-        self.ui.emergency_button.clicked.connect(self.emergency)
-        self.ui.disarm_button.clicked.connect(self.disarm_selected)
+        self.ui.land_selected_button.clicked.connect(self.land_selected)
+        self.ui.land_all_button.clicked.connect(self.land_all)
+
+        self.ui.visual_land_button.clicked.connect(self.visual_land)
+        self.ui.emergency_land_button.clicked.connect(self.emergency_land_selected)
+
+        self.ui.disarm_selected_button.clicked.connect(self.disarm_selected)
         self.ui.disarm_all_button.clicked.connect(self.disarm_all)
 
         self.ui.leds_button.clicked.connect(self.test_leds_selected)
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
         self.ui.flip_button.clicked.connect(self.flip_selected)
-        self.ui.land_button.clicked.connect(self.land_selected)
 
         self.ui.reboot_fcu.clicked.connect(self.reboot_selected)
         self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
@@ -272,23 +276,82 @@ class MainWindow(QtWidgets.QMainWindow):
             copter.client.send_message('resume', {"time": server.time_now() + time_gap})
         self.ui.pause_button.setText('Pause')
 
+
+    @pyqtSlot()
+    def land_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("land")
+
     @pyqtSlot()
     def land_all(self):
         Client.broadcast_message("land")
 
     @pyqtSlot()
+    def visual_land(self):
+        client_row_min = 0
+        client_row_max = self.model.rowCount() - 1
+        result = -1
+        while (result != 0) and (result != 3) and (result != 4):
+            # light_green_red(min, max)
+            client_row_mid = int(math.ceil((client_row_max + client_row_min) / 2.0))
+            print(client_row_min, client_row_mid, client_row_max)
+            for row_num in range(client_row_min, client_row_mid):
+                self.model.data_contents[row_num].client \
+                    .send_message("led_fill", {"green": 255})
+            for row_num in range(client_row_mid, client_row_max + 1):
+                self.model.data_contents[row_num].client \
+                    .send_message("led_fill", {"red": 255})
+
+            Dialog = QtWidgets.QDialog()
+            ui = Ui_Dialog()
+            ui.setupUi(Dialog)
+            Dialog.show()
+            result = Dialog.exec()
+            print("Dialog result: {}".format(result))
+
+            if client_row_max != client_row_min:
+                if result == 1:
+                    for row_num in range(client_row_mid, client_row_max + 1):
+                        self.model.data_contents[row_num].client \
+                            .send_message("led_fill")
+                    client_row_max = client_row_mid - 1
+
+                elif result == 2:
+                    for row_num in range(client_row_min, client_row_mid):
+                        self.model.data_contents[row_num].client \
+                            .send_message("led_fill")
+                    client_row_min = client_row_mid
+
+        if result == 0:
+            Client.broadcast_message("led_fill")
+        elif result == 3:
+            for row_num in range(client_row_min, client_row_max + 1):
+                self.model.data_contents[row_num].client \
+                    .send_message("land")
+        elif result == 4:
+            for row_num in range(client_row_min, client_row_max + 1):
+                self.model.data_contents[row_num].client \
+                    .send_message("disarm")
+
+    @pyqtSlot()
+    def emergency_land_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("emergency_land")
+
+    @pyqtSlot()
     def disarm_selected(self):
         for copter in self.model.user_selected():
             copter.client.send_message("disarm")
+    
+    @pyqtSlot()
+    def disarm_all(self):
+        Client.broadcast_message("disarm")
+
 
     @pyqtSlot()
     def test_leds_selected(self):
         for copter in self.model.user_selected():
             copter.client.send_message("led_test")
-
-    @pyqtSlot()
-    def disarm_all(self):
-        Client.broadcast_message("disarm")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
@@ -306,11 +369,6 @@ class MainWindow(QtWidgets.QMainWindow):
         for copter in self.model.user_selected():
             if flip_checks(copter):
                 copter.client.send_message("flip")
-
-    @pyqtSlot()
-    def land_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("land")
 
     @pyqtSlot()
     def reboot_selected(self):
@@ -544,59 +602,11 @@ class MainWindow(QtWidgets.QMainWindow):
         logging.info("Playing music")
         self.player.play()
 
-    @pyqtSlot()
-    def emergency(self):
-        client_row_min = 0
-        client_row_max = self.model.rowCount() - 1
-        result = -1
-        while (result != 0) and (result != 3) and (result != 4):
-            # light_green_red(min, max)
-            client_row_mid = int(math.ceil((client_row_max + client_row_min) / 2.0))
-            print(client_row_min, client_row_mid, client_row_max)
-            for row_num in range(client_row_min, client_row_mid):
-                self.model.data_contents[row_num].client \
-                    .send_message("led_fill", {"green": 255})
-            for row_num in range(client_row_mid, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("led_fill", {"red": 255})
-
-            Dialog = QtWidgets.QDialog()
-            ui = Ui_Dialog()
-            ui.setupUi(Dialog)
-            Dialog.show()
-            result = Dialog.exec()
-            print("Dialog result: {}".format(result))
-
-            if client_row_max != client_row_min:
-                if result == 1:
-                    for row_num in range(client_row_mid, client_row_max + 1):
-                        self.model.data_contents[row_num].client \
-                            .send_message("led_fill")
-                    client_row_max = client_row_mid - 1
-
-                elif result == 2:
-                    for row_num in range(client_row_min, client_row_mid):
-                        self.model.data_contents[row_num].client \
-                            .send_message("led_fill")
-                    client_row_min = client_row_mid
-
-        if result == 0:
-            Client.broadcast_message("led_fill")
-        elif result == 3:
-            for row_num in range(client_row_min, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("land")
-        elif result == 4:
-            for row_num in range(client_row_min, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("disarm")
-
 
 @messaging.message_callback("telemetry")
 def get_telem_data(self, **kwargs):
     message = kwargs.get("value")
     window.update_table_data(self, message)
-
 
 def except_hook(cls, exception, traceback):
     sys.__excepthook__(cls, exception, traceback)
