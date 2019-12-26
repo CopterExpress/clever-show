@@ -426,7 +426,7 @@ class ConnectionManager(object):
 
     def _write(self):
         try:
-            sent = self.socket.send(self._send_buffer)
+            sent = self.socket.send(self._send_buffer[:4096])  # TODO buffer size config
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
@@ -436,7 +436,7 @@ class ConnectionManager(object):
 
             raise error
         else:
-            logger.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
+            logger.debug("Sent message to {}: {} of {}".format(self.addr, sent, self._send_buffer[:sent],))
             self._send_buffer = self._send_buffer[sent:]
 
     def _send(self, data):
