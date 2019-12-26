@@ -10,7 +10,7 @@ sudo apt install docker.io
 
 ## Локальная сборка с изменением настроек Клевера
 
-* Замените файлы настроек Клевера (launch файлы и карту) в [папке](../builder/clever-config) `builder/clever-config` в директории с исходным кодом CleverSwarm.
+* Замените файлы настроек Клевера (launch файлы и карту) в [папке](../builder/clever-config) `builder/clever-config` в директории с исходным кодом clever-show.
 * Соберите свой образ с помощью docker:
 ```bash
 cd source-dir
