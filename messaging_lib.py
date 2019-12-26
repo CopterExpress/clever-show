@@ -436,8 +436,10 @@ class ConnectionManager(object):
 
             raise error
         else:
-            logger.debug("Sent message to {}: {} of {}".format(self.addr, sent, self._send_buffer[:sent],))
             self._send_buffer = self._send_buffer[sent:]
+            left = len(self._send_buffer)
+            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))#, self._send_buffer[:sent],))
+
 
     def _send(self, data):
         with self._send_lock:

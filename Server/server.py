@@ -337,7 +337,7 @@ class Client(messaging.ConnectionManager):
     @requires_connect
     def _send(self, data):
         super(Client, self)._send(data)
-        logging.debug("Queued data to send: {}".format(data))
+        logging.debug("Queued data to send (first 256 bytes): {}".format(data[:256]))
 
     def send_config_options(self, *options: ConfigOption, reload_config=True):
         logging.info("Sending config options: {} to {}".format(options, self.addr))
