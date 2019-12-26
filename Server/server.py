@@ -180,6 +180,7 @@ class Server(messaging.Singleton):
 
         if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
+            client.buffer_size = self.BUFFER_SIZE
             logging.info("New client")
         else:
             client = Client.clients[addr[0]]

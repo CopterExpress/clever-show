@@ -207,7 +207,7 @@ class ConnectionManager(object):
     messages_callbacks = {}
     requests_callbacks = {}
 
-    def __init__(self, whoami = "computer"):
+    def __init__(self, whoami="computer"):
         self.selector = None
         self.socket = None
         self.addr = None
@@ -227,7 +227,7 @@ class ConnectionManager(object):
         self._request_lock = threading.Lock()
         self._close_lock = threading.Lock()
 
-        self.BUFFER_SIZE = 1024
+        self.buffer_size = 1024
         self.resume_queue = False
         self.resend_requests = True
 
@@ -333,7 +333,7 @@ class ConnectionManager(object):
 
     def _read(self):
         try:
-            data = self.socket.recv(self.BUFFER_SIZE)
+            data = self.socket.recv(self.buffer_size)
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
@@ -426,7 +426,7 @@ class ConnectionManager(object):
 
     def _write(self):
         try:
-            sent = self.socket.send(self._send_buffer[:4096])  # TODO buffer size config
+            sent = self.socket.send(self._send_buffer[:self.buffer_size])
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
