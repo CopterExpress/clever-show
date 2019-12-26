@@ -15,7 +15,6 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 import messaging_lib as messaging
-import timing_lib as timing
 from config import ConfigManager
 
 random.seed()

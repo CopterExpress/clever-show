@@ -27,7 +27,6 @@ from server import Server, Client
 import messaging_lib as messaging
 
 import copter_table_models as table
-from timing_lib import precise_sleep
 from copter_table import CopterTableWidget
 from emergency import *
 
