@@ -340,7 +340,7 @@ class ConnectionManager(object):
         else:
             if data:
                 self._recv_buffer += data
-                logger.debug("Received {} from {}".format(data, self.addr))
+                logger.debug("Received {} bytes from {}".format(len(data), self.addr))
             else:
                 logger.warning("Connection to {} lost!".format(self.addr))
 
