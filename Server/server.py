@@ -15,6 +15,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 import messaging_lib as messaging
+import timing_lib as timing
 from config import ConfigManager
 
 random.seed()
@@ -190,7 +191,6 @@ class Server(messaging.Singleton):
 
         try:
             while self.broadcast_thread_running.is_set():
-                time.sleep(self.config.broadcast_delay)  # todo make interruptable (from time lib)
                 broadcast_sock.sendto(msg, ('255.255.255.255', self.config.broadcast_port))
                 logging.debug("Broadcast sent")
 

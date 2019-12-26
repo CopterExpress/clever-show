@@ -38,6 +38,7 @@ country=GB
 network={
     ssid="$1"
     psk="$2"
+    scan_ssid=1    
 }
 EOF
 
@@ -71,8 +72,9 @@ EOF
 # change server ip in client_config
 sed -i "0,/^host/s/\(^h.*\)/host = $4/" client_config.ini
 
-# enable clever show service
+# enable clever show service and visual_pose_watchdog service
 systemctl enable clever-show.service
+systemctl enable visual_pose_watchdog.service
 
 # restart clever
 reboot
