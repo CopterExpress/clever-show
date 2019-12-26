@@ -1,25 +1,13 @@
-# blender-csv-animation
-A Blender extension that export paths of objects in blender animation to a csv files
+# Blender animation export add-on
 
-## CSV file format
-First row is the animation filename.
-Every next row of the file contains following information about an object:
-- frame number,
-- x coordinate,
-- y coordinate,
-- z coordinate,
-- rotaion around z-axis angle (yaw for copter),
-- rgb.
+The add-on for Blender is designed to convert the flight animation of copters drawn in Blender into flight paths for each copter, taking into account the color of objects at each given time.
 
-## How to use it
-Clone or download this repository
-```bash
-git clone https://github.com/artem30801/CleverSwarm.git
-```
-Open Blender and install the addon:
-1) Open User Prerences windows using main menu or shortcut (Ctrl + Alt + U): Files - User Preferences
-2) Under Add-ons tab click Install Add-on from File...
-3) Choose addon.py file from the directory of this repository
-4) Enable the Add-on
+Export result is a folder with .csv files where each line  in file represents a sequence with comma delimiter:
 
-Use [official docs](https://docs.blender.org/manual/en/latest/preferences/addons.html) for getting additional information
+* `x, y, z` coordinates of an object in meters
+* `yaw` of an object in radians
+* `red, green, blue` values of the color of an object, each is integer from 0 to 255
+
+Documentation is located here:
+* English
+* [Russian](../docs/ru/blender-addon.md)

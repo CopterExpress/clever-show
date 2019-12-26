@@ -207,7 +207,7 @@ class ConnectionManager(object):
     messages_callbacks = {}
     requests_callbacks = {}
 
-    def __init__(self, whoami = "computer"):
+    def __init__(self, whoami="computer"):
         self.selector = None
         self.socket = None
         self.addr = None
@@ -227,7 +227,7 @@ class ConnectionManager(object):
         self._request_lock = threading.Lock()
         self._close_lock = threading.Lock()
 
-        self.BUFFER_SIZE = 1024
+        self.buffer_size = 1024
         self.resume_queue = False
         self.resend_requests = True
 
@@ -333,14 +333,14 @@ class ConnectionManager(object):
 
     def _read(self):
         try:
-            data = self.socket.recv(self.BUFFER_SIZE)
+            data = self.socket.recv(self.buffer_size)
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         else:
             if data:
                 self._recv_buffer += data
-                logger.debug("Received {} from {}".format(data, self.addr))
+                logger.debug("Received {} bytes from {}".format(len(data), self.addr))
             else:
                 logger.warning("Connection to {} lost!".format(self.addr))
 
@@ -426,7 +426,7 @@ class ConnectionManager(object):
 
     def _write(self):
         try:
-            sent = self.socket.send(self._send_buffer)
+            sent = self.socket.send(self._send_buffer[:self.buffer_size])
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
@@ -436,8 +436,10 @@ class ConnectionManager(object):
 
             raise error
         else:
-            logger.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
             self._send_buffer = self._send_buffer[sent:]
+            left = len(self._send_buffer)
+            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))#, self._send_buffer[:sent],))
+
 
     def _send(self, data):
         with self._send_lock:

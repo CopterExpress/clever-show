@@ -221,7 +221,7 @@ class Client(object):
                 notifier_fd = messaging.NotifierSock().get_sock().fileno()
             except (KeyError, RuntimeError) as e:
                 logger.error("Exception {} occurred when getting connections map!".format(e))
-                logging.error("Connections changed during getting connections map, passing")
+                logger.error("Connections changed during getting connections map, passing")
             else:
                 notify_only= len(mapping_fds) == 1 and notifier_fd in mapping_fds
                 if notify_only or not mapping_fds:

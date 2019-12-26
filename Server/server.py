@@ -180,6 +180,7 @@ class Server(messaging.Singleton):
 
         if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
             client = Client(addr[0])
+            client.buffer_size = self.BUFFER_SIZE
             logging.info("New client")
         else:
             client = Client.clients[addr[0]]
@@ -336,7 +337,7 @@ class Client(messaging.ConnectionManager):
     @requires_connect
     def _send(self, data):
         super(Client, self)._send(data)
-        logging.debug("Queued data to send: {}".format(data))
+        logging.debug("Queued data to send (first 256 bytes): {}".format(data[:256]))
 
     def send_config_options(self, *options: ConfigOption, reload_config=True):
         logging.info("Sending config options: {} to {}".format(options, self.addr))
