@@ -5,10 +5,9 @@ from validate import Validator
 
 
 def modify_filename(path, pattern):
-    #    name = pattern.format(Path(path).stem)
     old_path, filename = os.path.split(path)
-    filename = os.path.splitext(filename)[0]
-    newfilename = pattern.format(filename)
+    filename, ext = os.path.splitext(filename)
+    newfilename = pattern.format(filename) + ext
     return os.path.join(old_path, newfilename)
 
 
@@ -152,7 +151,7 @@ class ConfigManager:
 
     @staticmethod
     def _get_spec_path(path):
-        return modify_filename(path, 'spec/configspec_{}.ini')
+        return modify_filename(path, 'spec/configspec_{}')
 
     @staticmethod
     def _get_config_path(path):
