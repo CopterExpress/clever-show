@@ -543,6 +543,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
     def dict(self):
         return self.to_dict()
 
+
 class ConfigTreeWidget(QTreeView):
     def __init__(self):
         QTreeView.__init__(self)
