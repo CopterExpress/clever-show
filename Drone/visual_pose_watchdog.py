@@ -1,23 +1,27 @@
 import rospy
 import sys
 import time
+import math
 import logging
+import threading
 import ConfigParser
 from clever.srv import SetAttitude
 from sensor_msgs.msg import Range
-from mavros_msgs.msg import State
+from mavros_msgs.msg import State, PositionTarget
 from mavros_msgs.srv import SetMode, CommandBool
 from std_msgs.msg import Bool
+from std_srvs.srv import Trigger, TriggerResponse
 from geometry_msgs.msg import PoseStamped
 
 config = ConfigParser.ConfigParser()
 config.read("client_config.ini")
 
 visual_pose_timeout = config.getfloat('VISUAL_POSE_WATCHDOG', 'timeout')
+pos_delta_max = config.getfloat('VISUAL_POSE_WATCHDOG', 'pos_delta_max')
 timeout_action = config.get('VISUAL_POSE_WATCHDOG', 'action')
 emergency_land_thrust = config.getfloat('VISUAL_POSE_WATCHDOG', 'emergency_land_thrust')
 emergency_land_decrease_thrust_after = config.getfloat('VISUAL_POSE_WATCHDOG', 'emergency_land_decrease_thrust_after')
-timeout_to_disarm_after_watchdog_action = config.getfloat('VISUAL_POSE_WATCHDOG', 'timeout_to_disarm_after_watchdog_action')
+timeout_to_disarm = config.getfloat('VISUAL_POSE_WATCHDOG', 'timeout_to_disarm')
 
 logging.basicConfig(  # TODO all prints as logs
    level=logging.DEBUG, # INFO
@@ -33,7 +37,7 @@ formatter = logging.Formatter("%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s]
 handler.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
@@ -46,18 +50,72 @@ mode = ''
 laser_range = 10
 emergency = False
 
+local_pose = None
+setpoint_raw = None
+setpoint_position = None
+setpoint_pose = None
+
+offboard_start_time = None
+offboard_disarmed_timeout = 3.
+
+emergency_land_called = False
+
 rospy.init_node('visual_pose_watchdog')
 logger.info('visual_pose_watchdog inited')
 logger.info('timeout = {} | timeout_action = {}'.format(visual_pose_timeout, timeout_action))
-logger.info('timeout_to_disarm_after_watchdog_action = {}'.format(timeout_to_disarm_after_watchdog_action))
+logger.info('timeout_to_disarm = {}'.format(timeout_to_disarm))
 if timeout_action == 'emergency_land':
     logger.info('emergency_land_thrust: {}'.format(emergency_land_thrust))
 
 rate = rospy.Rate(10)
 
+def get_distance(x1, y1, z1, x2, y2, z2):
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2)
+
+def get_pos_delta(PoseStamped1, PoseStamped2):
+    if PoseStamped1 is None or PoseStamped2 is None:
+        return float('nan')
+    pos1 = PoseStamped1.pose.position
+    pos2 = PoseStamped2.pose.position
+    return get_distance(pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z)
+
+def get_time_delta(PoseStamped1, PoseStamped2):
+    if PoseStamped1 is None or PoseStamped2 is None:
+        return float('nan')
+    time1 = PoseStamped1.header.stamp.to_sec()
+    time2 = PoseStamped2.header.stamp.to_sec()
+    return time1 - time2
+
 def visual_pose_callback(data):
     global visual_pose_last_timestamp
     visual_pose_last_timestamp = data.header.stamp.to_sec()
+
+def local_pose_callback(data):
+    global local_pose
+    local_pose = data
+
+def setpoint_raw_callback(data):
+    global setpoint_raw, setpoint_position, setpoint_pose
+    setpoint_raw_pose = PoseStamped()
+    setpoint_raw_pose.header = data.header
+    setpoint_raw_pose.pose.position = data.position
+    setpoint_raw = setpoint_raw_pose
+    setpoint_pose = get_current_setpoint_pose(setpoint_raw, setpoint_position)
+
+def setpoint_position_callback(data):
+    global setpoint_raw, setpoint_position, setpoint_pose
+    setpoint_position = data
+    setpoint_pose = get_current_setpoint_pose(setpoint_raw, setpoint_position)
+
+def get_current_setpoint_pose(_setpoint_raw, _setpoint_position):
+    if _setpoint_position is None and _setpoint_raw is None:
+        return None
+    elif _setpoint_position is not None and _setpoint_raw is None:
+        return _setpoint_position
+    elif _setpoint_raw is not None and _setpoint_position is None:
+        return _setpoint_raw
+    else:
+        return _setpoint_raw if _setpoint_raw.header.stamp > _setpoint_position.header.stamp else _setpoint_position
 
 def state_callback(data):
     global armed, mode
@@ -68,71 +126,129 @@ def laser_callback(data):
     global laser_range
     laser_range = data.range
 
+def emergency_land(disarm_if_timeout = True):
+    global emergency_land_thrust, laser_range 
+    current_thrust = emergency_land_thrust
+    action_timestamp = time.time()
+    while armed:
+        logger.debug("Emergency land | range: {:.2f} | thrust: {:.2f}".format(laser_range, current_thrust))
+        if current_thrust >= 0.03:
+            try:
+                set_attitude(thrust = current_thrust, yaw = 0, frame_id = 'body', auto_arm = True)
+            except rospy.ServiceException as e:
+                logger.info(e) 
+        delta = time.time() - action_timestamp
+        if delta > timeout_to_disarm and disarm_if_timeout:
+            try:
+                arming(False)
+            except rospy.ServiceException as e:
+                logger.info(e)  
+        if (laser_range < 0.1 or delta > emergency_land_decrease_thrust_after) and current_thrust >= 0.:
+            current_thrust -= 0.02
+            if current_thrust <= 0.03:
+                current_thrust = 0
+                try:
+                    arming(False)
+                except rospy.ServiceException as e:
+                    logger.info(e) 
+        rate.sleep()
+
+def emergency_land_service(request):
+    global emergency_land_called, armed
+    responce = TriggerResponse()
+    if armed:
+        responce.success = True
+        responce.message = "Start emergency landing"
+        emergency_land_called = True
+    else:
+        responce.success = False
+        responce.message = "Copter is disarmed, no need for emergency landing!"
+        emergency_land_called = False
+    return responce  
+
 def watchdog_callback(event):
-    global visual_pose_last_timestamp, armed, mode, timeout_action, laser_range, emergency
-    logger.debug("armed: {} | mode: {} | delta: {} | action: {} | range: {}".format(armed, mode, abs(time.time() - visual_pose_last_timestamp), timeout_action, laser_range))
-    if abs(time.time() - visual_pose_last_timestamp) > visual_pose_timeout:
+    global visual_pose_last_timestamp, armed, mode, timeout_action, laser_range, emergency, local_pose, setpoint_pose, offboard_start_time, emergency_land_called
+    pos_delta = get_pos_delta(local_pose, setpoint_pose)
+    pos_dt = get_time_delta(local_pose, setpoint_pose)
+    logger.debug("armed: {} | mode: {} | viz_dt: {:.2f} | pos_delta: {:.2f} | pos_dt: {:.2f} | action: {} | range: {:.2f}".format(
+                    armed, mode, abs(time.time() - visual_pose_last_timestamp), pos_delta, pos_dt, timeout_action, laser_range))
+    if mode == 'OFFBOARD':
+        if offboard_start_time is None:
+            offboard_start_time = time.time()
         if armed:
-            if timeout_action in ['land', 'emergency_land', 'disarm']:
-                emergency = True
-            if timeout_action == 'land':
-                logger.info('Visual pose data is too old, copter is armed, landing...')
-                while mode != "AUTO.LAND":
-                    try:
-                        set_mode(custom_mode='AUTO.LAND')
-                    except rospy.ServiceException as e:
-                        logger.info(e)
-                    rate.sleep()
-                logger.info('Land mode is set')
+            visual_pose_dt = abs(time.time() - visual_pose_last_timestamp)
+            if visual_pose_dt > visual_pose_timeout or pos_delta > pos_delta_max:
                 action_timestamp = time.time()
-                while armed:
-                    if time.time() - action_timestamp > timeout_to_disarm_after_watchdog_action:
+                if timeout_action in ['land', 'emergency_land', 'disarm']:
+                    emergency = True
+                if timeout_action == 'land':
+                    logger.info('Visual pose data is too old, copter is armed, landing...')
+                    while mode != "AUTO.LAND":
+                        try:
+                            set_mode(custom_mode='AUTO.LAND')
+                        except rospy.ServiceException as e:
+                            logger.info(e)
+                        if time.time() - action_timestamp > timeout_to_disarm:
+                            break
+                        rate.sleep()
+                    else:
+                        logger.info('Land mode is set')
+                    while armed:
+                        if time.time() - action_timestamp > timeout_to_disarm:
+                            try:
+                                arming(False)
+                            except rospy.ServiceException as e:
+                                logger.info(e)   
+                        rate.sleep()
+                elif timeout_action == 'disarm':
+                    logger.info('Visual pose data is too old, copter is armed, disarming...')
+                    while armed:
                         try:
                             arming(False)
                         except rospy.ServiceException as e:
                             logger.info(e)   
-                    rate.sleep()
-            elif timeout_action == 'disarm':
-                logger.info('Visual pose data is too old, copter is armed, disarming...')
-                while armed:
-                    try:
-                        arming(False)
-                    except rospy.ServiceException as e:
-                        logger.info(e)   
-                    rate.sleep() 
-            elif timeout_action == 'emergency_land':
-                logger.info('Visual pose data is too old, copter is armed, emergency landing...')
-                action_timestamp = time.time()
-                current_thrust = emergency_land_thrust
-                while armed:
-                    logger.debug("Emergency land | range: {} | thrust: {}".format(laser_range, current_thrust))
-                    try:
-                        set_attitude(thrust = current_thrust, yaw = 0, frame_id = 'body')
-                    except rospy.ServiceException as e:
-                        logger.info(e) 
-                    delta = time.time() - action_timestamp
-                    if delta > timeout_to_disarm_after_watchdog_action:
-                        try:
-                            arming(False)
-                        except rospy.ServiceException as e:
-                            logger.info(e)  
-                    if (laser_range < 0.1 or delta > emergency_land_decrease_thrust_after) and current_thrust > 0.:
-                        current_thrust -= 0.02
-                        if current_thrust < 0:
-                            current_thrust = 0  
-                    rate.sleep()
-            logger.info('Disarmed') 
-            emergency = False                
+                        rate.sleep() 
+                elif timeout_action == 'emergency_land':
+                    if visual_pose_dt > visual_pose_timeout:
+                        logger.info('Visual pose data is too old, copter is armed, emergency landing...')
+                    if pos_delta > pos_delta_max:
+                        logger.info('Position delta is {} m, copter is armed, emergency landing...'.format(pos_delta))
+                    emergency_land()
+                logger.info('Disarmed') 
+                emergency = False
+            elif emergency_land_called:
+                emergency = True
+                logger.info('/emergency_land service was called, start emergency landing...')
+                emergency_land()
+                logger.info('Disarmed')
+                emergency = False
+                emergency_land_called = False
         else:
+            if time.time() - offboard_start_time > offboard_disarmed_timeout:
+                try:
+                    set_mode(custom_mode='AUTO.LAND')
+                except rospy.ServiceException as e:
+                    logger.info(e)
+    else:
+        offboard_start_time = None
+        if abs(time.time() - visual_pose_last_timestamp) > visual_pose_timeout:
             logger.info('Visual pose data is too old')
 
 rospy.Subscriber('/mavros/vision_pose/pose', PoseStamped, visual_pose_callback)
+
+rospy.Subscriber('/mavros/local_position/pose', PoseStamped, local_pose_callback)
+
+rospy.Subscriber('/mavros/setpoint_position/local', PoseStamped, setpoint_position_callback)
+
+rospy.Subscriber('/mavros/setpoint_raw/local', PositionTarget, setpoint_raw_callback)
 
 rospy.Subscriber('/mavros/state', State, state_callback)
 
 rospy.Subscriber('/mavros/distance_sensor/rangefinder', Range, laser_callback)
 
 emergency_pub = rospy.Publisher('/emergency', Bool, queue_size=10)
+
+rospy.Service('emergency_land', Trigger, emergency_land_service)
 
 rospy.Timer(rospy.Duration(0.5), watchdog_callback)
 
@@ -141,4 +257,3 @@ while not rospy.is_shutdown():
     emergency_msg.data = emergency
     emergency_pub.publish(emergency_msg)
     rate.sleep()
-    
