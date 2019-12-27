@@ -76,7 +76,6 @@ class CopterClient(client.Client):
         self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
         self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
         self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
-        self.LAND_POS_DELTA = self.config.getfloat('TELEMETRY', 'land_if_pos_delta_bigger_than')
         self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
         self.FRAME_FLIPPED_HEIGHT = 0.
         self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
@@ -112,7 +111,7 @@ class CopterClient(client.Client):
         except ConfigParser.Error:
             rospy.logerror("No floor frame!")
             self.FLOOR_FRAME_EXISTS = False
-        self.RESTART_DHCPCD = self.config.getboolean('PRIVATE', 'restart_dhcpcd')
+        self.RESTART_AFTER_RENAME = self.config.getboolean('PRIVATE', 'restart_after_rename')
 
     def on_broadcast_bind(self):
         configure_chrony_ip(self.server_host)
@@ -279,7 +278,7 @@ def _response_id(*args, **kwargs):
             cfg = client.ConfigOption("PRIVATE", "id", new_id)
             client.active_client.write_config(True, cfg)
             if new_id != '/hostname':
-                if client.active_client.RESTART_DHCPCD:
+                if client.active_client.RESTART_AFTER_RENAME:
                     hostname = client.active_client.client_id
                     configure_hostname(hostname)
                     configure_hosts(hostname)
@@ -307,6 +306,7 @@ def _response_selfcheck(*args, **kwargs):
 
 @messaging.request_callback("telemetry")
 def _response_telemetry(*args, **kwargs):
+    telemetry.update()
     return telemetry.create_msg_contents()
 
 
@@ -531,6 +531,11 @@ def _command_land(*args, **kwargs):
                           )
 
 
+@messaging.message_callback("emergency_land")
+def _emergency_land(*args, **kwargs):
+    logger.info(FlightLib.emergency_land().message)
+
+
 @messaging.message_callback("disarm")
 def _command_disarm(*args, **kwargs):
     task_manager.reset()
@@ -682,6 +687,7 @@ class Telemetry:
         self._interruption_counter = 0
         self._max_interruptions = 2
         self._tasks_cleared = False
+        self.ros_telemetry = None
 
         for key, value in self.params_default_dict.items():
             setattr(self, key, value)
@@ -722,6 +728,9 @@ class Telemetry:
 
     @classmethod
     def get_battery(cls, ros_telemetry):
+        if ros_telemetry is None:
+            return float(nan), float(nan)
+
         battery_v = ros_telemetry.voltage
 
         batt_empty_param = get_param('BAT_V_EMPTY')
@@ -754,20 +763,15 @@ class Telemetry:
             return x, y, z, math.degrees(ros_telemetry.yaw), client.active_client.FRAME_ID
         return 'NO_POS'
 
-    def update_telemetry(self):
-        self.animation_id = animation.get_id()
-        self.git_version = self.get_git_version()
+    def update_telemetry_fast(self):
         self.start_position = self.get_start_position()        
         try:
-            ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
-            if ros_telemetry.connected:
-                self.battery = self.get_battery(ros_telemetry)
-                self.armed = ros_telemetry.armed
-                self.calibration_status = get_calibration_status()
-                self.system_status = get_sys_status()
-                self.mode = ros_telemetry.mode
+            self.ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.FRAME_ID)
+            if self.ros_telemetry.connected:
+                self.armed = self.ros_telemetry.armed
+                self.mode = self.ros_telemetry.mode
                 self.selfcheck = self.get_selfcheck()
-                self.current_position = self.get_position(ros_telemetry)
+                self.current_position = self.get_position(self.ros_telemetry)
             else:
                 self.reset_telemetry_values()
         except rospy.ServiceException:
@@ -778,6 +782,18 @@ class Telemetry:
         except rospy.TransportException as e:
             rospy.logdebug(e)
         self.time = time.time()
+        self.round_telemetry()
+
+    def update_telemetry_slow(self):
+        self.animation_id = animation.get_id()
+        self.git_version = self.get_git_version()
+        self.calibration_status = get_calibration_status()
+        self.system_status = get_sys_status()
+        self.battery = self.get_battery(self.ros_telemetry)
+
+    def update(self):
+        self.update_telemetry_fast()
+        self.update_telemetry_slow()
 
     def round_telemetry(self):
         round_list = ["battery", "start_position", "current_position"]
@@ -793,7 +809,7 @@ class Telemetry:
         self.selfcheck = ['NO_FCU']
         self.current_position = 'NO_POS'
 
-    def check_failsafe(self):
+    def check_failsafe_and_interruption(self):
         global emergency
         # check current state
         state = [self.mode, self.armed, task_manager.get_last_task_name()]
@@ -826,12 +842,6 @@ class Telemetry:
         else:
             self._tasks_cleared = False
         self._last_state = state
-        # check position delta
-        if not emergency:
-            delta = FlightLib.get_delta()
-            if delta > client.active_client.LAND_POS_DELTA:
-                logger.info("Delta: {}".format(delta))
-                _command_land()
 
     def transmit_message(self):
         try:
@@ -862,25 +872,32 @@ class Telemetry:
         rate = rospy.Rate(freq)
         while not rospy.is_shutdown():
 
-            self.update_telemetry()
-            self.round_telemetry()
-            self.check_failsafe()
+            self.update_telemetry_fast()
+            self.check_failsafe_and_interruption()
 
             if client.active_client.TELEM_TRANSMIT and client.active_client.connected:
                 self.transmit_message()
             
             if client.active_client.LOG_CPU_AND_MEMORY:
                 self.log_cpu_and_memory()
-            
+
+            rate.sleep()
+
+    def _slow_update_loop(self):
+        rate = rospy.Rate(1)
+        while not rospy.is_shutdown():
+            self.update_telemetry_slow()
             rate.sleep()
 
     def start_loop(self):
         if client.active_client.TELEM_FREQ > 0:
             telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
                                                 args=(client.active_client.TELEM_FREQ,))  # TODO MOVE? Daemon?
+            slow_telemetry_thread = threading.Thread(target=self._slow_update_loop, name="Slow telemetry getting thread")
+            slow_telemetry_thread.start()
             telemetry_thread.start()
         else:
-            logger.info("Don't create telemetry loop because of zero or negative telemetry frequency")
+            logger.info("Telemetry loop is not created because of zero or negative telemetry frequency")
 
     def create_msg_contents(self, keys=None):  # keys: set or list
         if keys is None:

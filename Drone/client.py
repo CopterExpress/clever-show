@@ -60,8 +60,6 @@ class Client(object):
         self.NTP_HOST = self.config.get('NTP', 'host')
         self.NTP_PORT = self.config.getint('NTP', 'port')
 
-        self.files_directory = self.config.get('FILETRANSFER', 'files_directory') # not used?!
-
         self.client_id = self.config.get('PRIVATE', 'id')
         if self.client_id == '/default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)

@@ -21,6 +21,7 @@ set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
 get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 landing = rospy.ServiceProxy('/land', Trigger)
+emergency_land = rospy.ServiceProxy('/emergency_land', Trigger)
 
 services_list = ['/navigate', '/set_position', '/set_rates', '/mavros/set_mode', 
                 '/get_telemetry', '/mavros/cmd/arming', '/land', '/mavros/param/get']
