@@ -269,7 +269,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.send_to_selected("pause")
             self.ui.pause_button.setText('Resume')
         else:
-            time_gap = 0.1
+            time_gap = 0.1  # TODO config? automatic delay detection?
             self.send_to_selected("resume", {"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
@@ -330,9 +330,10 @@ class MainWindow(QtWidgets.QMainWindow):
             data = str(value)
             self.signals.update_data_signal.emit(row, col, data, table.ModelDataRole)
 
-    def _send_files(self, files, copters=None, client_path="/", client_filename="", match_id=False, callback=None):
+    def _send_files(self, files, copters=None, client_path="", client_filename="", match_id=False, callback=None):
         if copters is None:
             copters = self.model.user_selected()
+        copters = list(copters)
 
         for num, file in enumerate(files):
             filepath, filename = os.path.split(file)
@@ -340,15 +341,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if match_id:
                 name = os.path.splitext(filename)[0]
-                to_send = filter(lambda copter: bool(re.fullmatch(name, copter.copter_id)), copters)  # copter.copter_id == name
+                to_send = [copter for copter in copters if re.fullmatch(name, copter.copter_id)]
             else:
                 to_send = copters
 
-            to_send = list(to_send)
             if not to_send:
-                logging.warning("No copters to send file {} to".format(filename))
+                logging.warning(f"No copters to send file {filename} to")
                 continue
 
+            logging.info(f"Sending file {filename} to clients: {to_send}")
             filename = client_filename.format(num, filename) or filename
 
             for copter in to_send:
@@ -356,15 +357,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 if callback is not None:
                     callback(copter)
 
-    def send_files(self, prompt, ext_filter, copters=None, client_path="/", client_filename="", match_id=False,
+    def send_files(self, prompt, ext_filter, copters=None, client_path="", client_filename="", match_id=False,
                    callback=None):
-        files = QFileDialog.getOpenFileName(self, prompt, filter=ext_filter)
+        files = QFileDialog.getOpenFileNames(self, prompt, filter=ext_filter)[0]
         if not files:
             return
 
         self._send_files(files, copters, client_path, client_filename, match_id, callback)
 
-    def send_directory_files(self, prompt, extensions=(), copters=None, client_path="/", client_filename="",
+    def send_directory_files(self, prompt, extensions=(), copters=None, client_path="", client_filename="",
                              match_id=False, callback=None):
         path = QFileDialog.getExistingDirectory(self, prompt)
 
@@ -373,17 +374,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if extensions:
             extensions = ['/*'+ext for ext in extensions]
-            patterns = [os.path.join(path, ext) for ext in extensions]
+            patterns = [path + ext for ext in extensions]
         else:
             patterns = [path+'/*.*']
-
         files = multi_glob(*patterns)
         self._send_files(files, copters, client_path, client_filename, match_id, callback)
 
     @pyqtSlot()
     def send_any_files(self):
-        files = QFileDialog.getOpenFileName(self, "Select any files")
-        if not files:
+        file = QFileDialog.getOpenFileName(self, "Select any file")[0]
+        if not file:
             return
 
         c_path, ok = QInputDialog.getText(self, "Enter path (and name) to send on client", "Destination:",
@@ -392,22 +392,13 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         c_filename, c_filepath = os.path.split(c_path)
+        files = [file]
         self._send_files(files, client_path=c_filepath, client_filename=c_filename)
 
     @pyqtSlot()
     def send_animations(self):
-        path = str(QFileDialog.getExistingDirectory(self, "Select Animation Directory"))
-
-        if path:
-            print("Selected directory:", path)
-            files = [file for file in glob.glob(path + '/*.csv')]
-            names = [os.path.basename(file).split(".")[0] for file in files]
-            for file, name in zip(files, names):
-                for copter in self.model.user_selected():
-                    if name == copter.copter_id:
-                        copter.client.send_file(file, "animation.csv")  # TODO config
-                else:
-                    logging.info("Filename has no matches with any drone selected")
+        self.send_directory_files("Select Animation Directory", ('.csv', '.txt'), match_id=True,
+                                  client_path="", client_filename="animation.csv")
 
     @pyqtSlot()
     def send_calibrations(self):

@@ -75,7 +75,8 @@ class Server(messaging.Singleton):
 
         self.time_started = time.time()
 
-        logging.info("Starting server with id: {} on {}:{} !".format(self.id, self.ip, self.config.server_port))
+        logging.info("Starting server with id: {} on {}:{} ({})!".format(self.id, self.ip, self.config.server_port,
+                                                                         socket.gethostname()))
         logging.info("Binding server socket!")
         self.server_socket.bind((self.ip, self.config.server_port))
 
