@@ -121,7 +121,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
         self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
-        self.ui.action_send_any_file.triggered.connect(self.send_any_files)
+        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
             partial(self.send_to_selected, "service_restart", {"name": "clever"}))
@@ -358,8 +358,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     callback(copter)
 
     def send_files(self, prompt, ext_filter, copters=None, client_path="", client_filename="", match_id=False,
-                   callback=None):
-        files = QFileDialog.getOpenFileNames(self, prompt, filter=ext_filter)[0]
+                   onefile=False, callback=None):
+        if onefile:
+            file = QFileDialog.getOpenFileName(self, prompt, filter=ext_filter)[0]
+            files = [file] if file else []
+        else:
+            files = QFileDialog.getOpenFileNames(self, prompt, filter=ext_filter)[0]
+
         if not files:
             return
 
@@ -381,7 +386,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._send_files(files, copters, client_path, client_filename, match_id, callback)
 
     @pyqtSlot()
-    def send_any_files(self):
+    def send_any_file(self):
         file = QFileDialog.getOpenFileName(self, "Select any file")[0]
         if not file:
             return
@@ -397,25 +402,42 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_animations(self):
-        self.send_directory_files("Select Animation Directory", ('.csv', '.txt'), match_id=True,
+        self.send_directory_files("Select directory with animations", ('.csv', '.txt'), match_id=True,
                                   client_path="", client_filename="animation.csv")
 
     @pyqtSlot()
     def send_calibrations(self):
-        path = str(QFileDialog.getExistingDirectory(self, "Select directory with calibration files"))
+        self.send_directory_files("Select directory with calibrations", ('.yaml', ), match_id=True,
+                                  client_path="/home/pi/catkin_ws/src/clever/clever/camera_info/",
+                                  client_filename="calibration.yaml")  # TODO callback to reload clever?
 
-        if path:
-            print("Selected directory:", path)
-            files = [file for file in glob.glob(path + '/*.yaml')]
-            names = [os.path.basename(file).split(".")[0] for file in files]
-            # print(files)
-            for file, name in zip(files, names):
-                for copter in self.model.user_selected():
-                    if name == copter.copter_id:
-                        copter.client.send_file(file,
-                                                "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
-                else:
-                    logging.info("Filename has no matches with any drone selected")
+        # from os.path import expanduser # TODO on client
+        # home = expanduser("~") -> "~catkin_ws/src/clever/clever/camera_info/"
+
+    @pyqtSlot()
+    def send_aruco(self):
+        def callback(copter):
+            copter.client.send_message("service_restart", {"name": "clever"})
+
+        self.send_files("Select aruco map configuration file", "Aruco map files (*.txt)", onefile=True,
+                        client_path="/home/pi/catkin_ws/src/clever/aruco_pose/map/",
+                        client_filename="animation_map.txt", callback=callback)
+
+    @pyqtSlot()
+    def send_launch(self):
+        self.send_directory_files("Select directory with calibrations", ('.yaml', ), match_id=False,
+                                  client_path='"/home/pi/catkin_ws/src/clever/clever/launch/')  # TODO clever restart callback?
+
+    @pyqtSlot()
+    def send_fcu_parameters(self):
+        def request_callback(copter, value):
+            logging.info("Send parameters to {} success: {}".format(copter.client.copter_id, value))
+
+        def callback(copter):
+            copter.client.get_response("load_params", request_callback)
+
+        self.send_files("Select px4 param file", "px4 params (*.params)", onefile=True,
+                        client_filename="temp.params", callback=callback)
 
     @pyqtSlot()
     def send_configurations(self):
@@ -433,52 +455,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
             for copter in self.model.user_selected():
                 copter.client.send_config_options(*options)
-
-    @pyqtSlot()
-    def send_aruco(self):
-        path = \
-        QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Aruco map files (*.txt)")[0]
-        if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
-            for copter in self.model.user_selected():
-                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
-                copter.client.send_message("service_restart", {"name": "clever"})
-
-    @pyqtSlot()
-    def send_launch(self):
-        path = str(QFileDialog.getExistingDirectory(self, "Select directory with launch files"))
-        if path:
-            print("Selected directory:", path)
-            files = [file for file in glob.glob(path + '/*.launch')]
-            for copter in self.model.user_selected():
-                for file in files:
-                    filename = os.path.basename(file)
-                    copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
-
-    @pyqtSlot()
-    def send_fcu_parameters(self):
-        path = QFileDialog.getOpenFileName(self, "Select px4 param file", filter="px4 params (*.params)")[0]
-        if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
-            for copter in self.model.user_selected():
-                copter.client.send_file(path, "temp.params")
-                copter.client.get_response("load_params", self._print_send_fcu_params_result, callback_args=(copter, ))
-
-    def _print_send_fcu_params_result(self, value, copter):
-        logging.info("Send parameters to {} success: {}".format(copter.client.copter_id, value))
-
-    @pyqtSlot()
-    def send_any_file(self):
-        path = QFileDialog.getOpenFileName(self, "Select file")[0]
-        if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
-            text, okPressed = QInputDialog.getText(self, "Enter path to send on copter","Destination:", QLineEdit.Normal, "/home/pi/")
-            if okPressed and text != '':
-                for copter in self.model.user_selected():
-                    copter.client.send_file(path, text+'/'+filename)
 
     @pyqtSlot()
     def send_any_command(self):
