@@ -729,7 +729,7 @@ class Telemetry:
     @classmethod
     def get_battery(cls, ros_telemetry):
         if ros_telemetry is None:
-            return float(nan), float(nan)
+            return float('nan'), float('nan')
 
         battery_v = ros_telemetry.voltage
 
@@ -787,8 +787,16 @@ class Telemetry:
     def update_telemetry_slow(self):
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
-        self.calibration_status = get_calibration_status()
-        self.system_status = get_sys_status()
+        try:
+            self.calibration_status = get_calibration_status()
+            self.system_status = get_sys_status()
+        except rospy.ServiceException:
+            rospy.logdebug("Some service is unavailable")
+            self.selfcheck = ["WAIT_ROS"]
+        except AttributeError as e:
+            rospy.logdebug(e)
+        except rospy.TransportException as e:
+            rospy.logdebug(e)
         self.battery = self.get_battery(self.ros_telemetry)
 
     def update(self):
