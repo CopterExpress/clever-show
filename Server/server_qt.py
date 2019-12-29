@@ -121,7 +121,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
         self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
-        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
+        self.ui.action_send_any_file.triggered.connect(self.send_any_files)
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
             partial(self.send_to_selected, "service_restart", {"name": "clever"}))
@@ -185,21 +185,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_to_selected(self, *args, **kwargs):
-        self.iterate_selected(lambda copter: copter.client.send_message(*args, **kwargs))
+        return list(self.iterate_selected(lambda copter: copter.client.send_message(*args, **kwargs)))
 
     def new_client_connected(self, client: Client):
         logging.debug("Added client {}".format(client))
         self.ui.copter_table.add_client(copter_id=client.copter_id, client=client)
 
     def client_connection_changed(self, client: Client):
-        logging.debug("Connection {} changed {}".format(client, client.connected), )
+        logging.debug("Connection {} changed {}".format(client, client.connected))
         row_data = self.model.get_row_by_attr("client", client)
 
         if row_data is None:
             logging.error("No row for client presented")
             return
 
-        if Server().config.table_remove_disconnected and (not client.connected):
+        if self.server.config.table_remove_disconnected and (not client.connected):
             client.remove()
             self.ui.copter_table.remove_client_data(row_data)
             logging.debug("Removing from table")
@@ -245,7 +245,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def remove_selected(self):
         for copter in self.model.user_selected():
             copter.client.remove()
-            if not Server().config.table_remove_disconnected:
+            if not self.server.config.table_remove_disconnected:
                 self.ui.copter_table.remove_client_data(copter)
             logging.info("Client removed from table!")
 
@@ -336,7 +336,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         for num, file in enumerate(files):
             filepath, filename = os.path.split(file)
-            logging.info("Preparing file for sending: {} {}", filepath, filename)
+            logging.info("Preparing file for sending: {} {}".format(filepath, filename))
 
             if match_id:
                 name = os.path.splitext(filename)[0]
@@ -346,7 +346,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             to_send = list(to_send)
             if not to_send:
-                logging.warning("No copters to send file {} to", filename)
+                logging.warning("No copters to send file {} to".format(filename))
                 continue
 
             filename = client_filename.format(num, filename) or filename
@@ -354,7 +354,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for copter in to_send:
                 copter.client.send_file(file, os.path.join(client_path, filename))
                 if callback is not None:
-                    callback()
+                    callback(copter)
 
     def send_files(self, prompt, ext_filter, copters=None, client_path="/", client_filename="", match_id=False,
                    callback=None):
@@ -382,12 +382,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_any_files(self):
-        copter_path, ok = QInputDialog.getText(self, "Enter path to send on client", "Destination:", QLineEdit.Normal,
-                                               "/home/pi/")
-        copter_path, ok = QInputDialog.getText(self, "Enter path to send on client", "Destination:", QLineEdit.Normal,
-                                               "/home/pi/")
+        files = QFileDialog.getOpenFileName(self, "Select any files")
+        if not files:
+            return
+
+        c_path, ok = QInputDialog.getText(self, "Enter path (and name) to send on client", "Destination:",
+                                          QLineEdit.Normal, "/home/pi/")   # TODO config?
         if not ok:
             return
+
+        c_filename, c_filepath = os.path.split(c_path)
+        self._send_files(files, client_path=c_filepath, client_filename=c_filename)
 
     @pyqtSlot()
     def send_animations(self):
@@ -656,7 +661,7 @@ if __name__ == "__main__":
         server.start()
 
         window.show()
-        window.send_directory_files("lol")
+       # window.send_directory_files("lol")
         splash.close()
 
         loop.run_forever()

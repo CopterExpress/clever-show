@@ -9,7 +9,7 @@ import copter_table_models as table
 
 
 class CopterTableWidget(QTableView):
-    def __init__(self, model, data_model=table.CopterData):
+    def __init__(self, model, data_model=table.StatedCopterData):
         QTableView.__init__(self)
 
         self.model = model
@@ -46,13 +46,16 @@ class CopterTableWidget(QTableView):
         if col == 7:
             data = self.proxy_model.data(index, role=table.ModelDataRole)
             if data and data != "OK":
-                dialog = QMessageBox()
-                dialog.setIcon(QMessageBox.NoIcon)
-                dialog.setStandardButtons(QMessageBox.Ok)
-                dialog.setWindowTitle("Selfcheck info")
-                dialog.setText("\n".join(data[:10]))
-                dialog.setDetailedText("\n".join(data))
-                dialog.exec()
+                self._show_info("Selfcheck info", data)
+
+    def _show_info(self, title, data):
+        dialog = QMessageBox()
+        dialog.setIcon(QMessageBox.NoIcon)
+        dialog.setStandardButtons(QMessageBox.Ok)
+        dialog.setWindowTitle(title)
+        dialog.setText("\n".join(data[:10]))
+        dialog.setDetailedText("\n".join(data))
+        dialog.exec()
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
     #     shortened = []
