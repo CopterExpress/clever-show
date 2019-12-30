@@ -29,6 +29,8 @@ import messaging_lib as messaging
 import copter_table_models as table
 from copter_table import CopterTableWidget
 from emergency import *
+#from emergency import *
+#  TODO uncomment
 
 
 def multi_glob(*patterns):
