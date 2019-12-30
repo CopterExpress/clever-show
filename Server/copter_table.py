@@ -1,13 +1,10 @@
-import logging
-
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt as Qt
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtGui import QCursor, QStandardItem
-from PyQt5.QtWidgets import QTableView, QMessageBox, QMenu, QAction, QCheckBox, QWidgetAction, QListView, QListWidget, \
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QTableView, QMessageBox, QMenu, QAction, QWidgetAction, QListWidget, \
     QAbstractItemView, QListWidgetItem
 
-from server import Client
 import copter_table_models as table
 
 
@@ -27,10 +24,9 @@ class CopterTableWidget(QTableView):
         # Initiate table and table self.model
         self.setModel(self.proxy_model)
 
-        self.horizontalHeader().setSectionsMovable(True)
         header = self.horizontalHeader()
+        header.setSectionsMovable(True)
         header.setContextMenuPolicy(Qt.CustomContextMenu)
-        #header.setContextMenuPolicy(CustomContextMenu)
         header.customContextMenuRequested.connect(self.showHeaderMenu)
 
         # self.horizontalHeader().contextMenuEvent = self.headercontextMenuEvent
@@ -68,63 +64,21 @@ class CopterTableWidget(QTableView):
         dialog.setDetailedText("\n".join(data))
         dialog.exec()
 
-    # action = QAction(name, menu, checkable=True, checked=True)
-    def showHeaderMenu1(self, event):
-        menu = QMenu(self)
-        names = []
-        for column in range(self.proxy_model.columnCount()):
-            name = self.proxy_model.headerData(column, Qt.Horizontal).strip()
-            names.append(name)
-        #l = max(map(len, names))
-        for name in names:
-            # name = "{0:<{1}}|".format(name, l)
-            box = QCheckBox(menu)
-            action = QWidgetAction(menu)
-            box.setText(name)
-            action.setDefaultWidget(box)
-            menu.addAction(action)
-            #act = menu.addAction(name.strip())
-        menu.exec_(QCursor.pos())
-
     def showHeaderMenu(self, event):
         menu = QMenu(self)
-        names = []
-        for column in range(self.proxy_model.columnCount()):
-            name = self.proxy_model.headerData(column, Qt.Horizontal).strip()
-            names.append(name)
-        #l = max(map(len, names))
-
-        box = QListWidget(menu)
-        action = QWidgetAction(menu)
-        #box.setText(name)
-        # model = QtGui.QStandardItemModel()
-        # box.setModel(model)
-        box.setDragDropMode(QAbstractItemView.InternalMove)
-        box.setDefaultDropAction(Qt.MoveAction)
-        # #box.setMovement(QListView.Snap)
-        # box.setDragDropOverwriteMode(False)
-
-        for name in names:
-            item = QListWidgetItem(name, box)
-            item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsSelectable)
-            item.setCheckState(Qt.Checked)
-            #item = box.addItem(name)#, checkable=True, checked=True)
-            print(item)
-            #item.setCheckable(True)
-            #box.model().appendRow(item)
-
-        box.setFixedHeight((box.geometry().height()-6)*len(names))
+        header_view = HeaderListWidget(menu, self)
+        header_view.setFixedHeight((header_view.geometry().height()-6)*len(header_view.names))
         #box.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        action.setDefaultWidget(box)
+        action = QWidgetAction(menu)
+        action.setDefaultWidget(header_view)
         menu.addAction(action)
-        #act = menu.addAction(name.strip())
         menu.exec_(QCursor.pos())
 
     def contextMenuEvent(self, event):
         menu = QMenu(self)
 
-        menu.addAction("LOl")
-        menu.exec_(QCursor.pos())
+        menu.addAction("action")
+        # menu.exec_(QCursor.pos())
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
     #     shortened = []
@@ -132,3 +86,35 @@ class CopterTableWidget(QTableView):
     #         if len(line) > 89:
     #             pass
     #     return shortened
+
+
+class HeaderListWidget(QListWidget):
+    def __init__(self, parent, source: CopterTableWidget):
+        super().__init__(parent)
+        self.source_widget = source
+        self.source_model = source.proxy_model
+
+        self.setDragDropMode(QAbstractItemView.InternalMove)
+        self.setDefaultDropAction(Qt.MoveAction)
+
+        self.names = list(self.get_names())
+        self.populate_items()
+        self.itemChanged.connect(self.on_itemChanged)
+
+    def get_names(self):
+        for column in range(self.source_model.columnCount()):
+            yield self.source_model.headerData(column, Qt.Horizontal).strip()
+
+    def populate_items(self):
+        for column, name in enumerate(self.names):
+            hidden = self.source_widget.isColumnHidden(column)
+            flags = Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
+            state = Qt.Unchecked if hidden else Qt.Checked
+
+            item = QListWidgetItem(name, self)
+            item.setFlags(flags)
+            item.setCheckState(state)
+
+    @pyqtSlot(QListWidgetItem)
+    def on_itemChanged(self, item):
+        self.source_widget.setColumnHidden(self.names.index(item.text()), not bool(item.checkState()))
