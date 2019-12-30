@@ -1,34 +1,31 @@
 import os
 import re
+import sys
 import glob
 import math
 import time
 import logging
 import asyncio
-import threading
-import functools
 import itertools
-from functools import partial
+from functools import partial, wraps
 
-from PyQt5 import QtWidgets, QtMultimedia
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject, QUrl
+from PyQt5 import QtWidgets, QtMultimedia, QtCore
+from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtCore import Qt, pyqtSlot, QUrl
 
-from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QWidget, QInputDialog, QLineEdit, QStatusBar, \
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QInputDialog, QLineEdit, QStatusBar, \
     QSplashScreen, QProgressBar
-from quamash import QEventLoop, QThreadExecutor
+from quamash import QEventLoop
 
 # Importing gui form
 from server_gui import Ui_MainWindow
 
-import config
-
-from server import Server, Client
+from server import Server, Client, now
 import messaging_lib as messaging
+import config as cfg
 
 import copter_table_models as table
 from copter_table import CopterTableWidget
-from emergency import *
 #from emergency import *
 #  TODO uncomment
 
@@ -39,7 +36,7 @@ def multi_glob(*patterns):
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
-        @functools.wraps(f)
+        @wraps(f)
         def wrapper(*args, **kwargs):
             reply = QMessageBox.question(
                 args[0], label,
@@ -64,7 +61,7 @@ class ExitMsgbox(logging.Handler):
     def _emit(self, record):
         # window.close()
         QMessageBox.warning(None, "Critical error in {}: {}". format(record.name, record.threadName), record.msg)
-        QtWidgets.QApplication.quit()
+        QApplication.quit()
         sys.exit(record.msg)
 
 
@@ -120,7 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
-        self.ui.action_send_configurations.triggered.connect(self.send_configurations)
+        self.ui.action_send_configurations.triggered.connect(self.send_config)
         self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
         self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
@@ -302,7 +299,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 copter.client.send_message("flip")
 
     @pyqtSlot()
-    def calibrate_gyro_selected(self):
+    def calibrate_gyro_selected(self):  # TODO merge commands
         for copter_data_row in self.model.user_selected():
             client = copter_data_row.client
             # Update calibration status
@@ -381,10 +378,10 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         if extensions:
-            extensions = ['/*'+ext for ext in extensions]
-            patterns = [path + ext for ext in extensions]
+            patterns = [path + '/*' + ext for ext in extensions]
         else:
             patterns = [path+'/*.*']
+
         files = multi_glob(*patterns)
         self._send_files(files, copters, client_path, client_filename, match_id, callback)
 
@@ -443,21 +440,33 @@ class MainWindow(QtWidgets.QMainWindow):
                         client_filename="temp.params", callback=callback)
 
     @pyqtSlot()
-    def send_configurations(self):
+    def send_config(self):
         path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt .cfg)")[0]
-        if path:
-            print("Selected file:", path)
-            sendable_config = configparser.ConfigParser()  # TODO
-            sendable_config.read(path)
-            options = []
-            for section in sendable_config.sections():
-                for option in dict(sendable_config.items(section)):
-                    value = sendable_config[section][option]
-                    logging.debug("Got item from config: {} {} {}".format(section, option, value))
-                    options.append(ConfigOption(section, option, value))
+        if not path:
+            return
 
-            for copter in self.model.user_selected():
-                copter.client.send_config_options(*options)
+        config = cfg.ConfigManager()
+        config.load_only_config(path)
+        data = config.full_dict
+        logging.info(f"Loaded config from {path}")
+
+        copters = self.model.user_selected()
+        for copter in copters:
+            copter.client.send_message("config", {"config": data, })
+
+        # if path:
+        #     print("Selected file:", path)
+        #     sendable_config = configparser.ConfigParser()  # TODO
+        #     sendable_config.read(path)
+        #     options = []
+        #     for section in sendable_config.sections():
+        #         for option in dict(sendable_config.items(section)):
+        #             value = sendable_config[section][option]
+        #             logging.debug("Got item from config: {} {} {}".format(section, option, value))
+        #             options.append(ConfigOption(section, option, value))
+        #
+        #     for copter in self.model.user_selected():
+        #         copter.client.send_config_options(*options)
 
     @pyqtSlot()
     def send_any_command(self):
@@ -597,7 +606,7 @@ if __name__ == "__main__":
     
     sys.excepthook = except_hook  # for debugging (exceptions traceback)
 
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     splash_pix = QPixmap('icons/coex_splash.jpg')
 
     splash = QSplashScreen(splash_pix)
@@ -611,7 +620,7 @@ if __name__ == "__main__":
     splash.show()
     # time.sleep(3)
 
-    app_icon = QtGui.QIcon()
+    app_icon = QIcon()
     app_icon.addFile('icons/image.ico', QtCore.QSize(256, 256))
     app.setWindowIcon(app_icon)
 
