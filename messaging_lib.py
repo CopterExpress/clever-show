@@ -204,7 +204,7 @@ class ConnectionManager(object):
     messages_callbacks = {}
     requests_callbacks = {}
 
-    def __init__(self, whoami = "computer"):
+    def __init__(self, whoami="computer"):
         self.selector = None
         self.socket = None
         self.addr = None
@@ -224,7 +224,7 @@ class ConnectionManager(object):
         self._request_lock = threading.Lock()
         self._close_lock = threading.Lock()
 
-        self.BUFFER_SIZE = 1024
+        self.buffer_size = 1024
         self.resume_queue = False
         self.resend_requests = True
 
@@ -330,14 +330,14 @@ class ConnectionManager(object):
 
     def _read(self):
         try:
-            data = self.socket.recv(self.BUFFER_SIZE)
+            data = self.socket.recv(self.buffer_size)
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         else:
             if data:
                 self._recv_buffer += data
-                logger.debug("Received {} from {}".format(data, self.addr))
+                logger.debug("Received {} bytes from {}".format(len(data), self.addr))
             else:
                 logger.warning("Connection to {} lost!".format(self.addr))
 
@@ -423,7 +423,7 @@ class ConnectionManager(object):
 
     def _write(self):
         try:
-            sent = self.socket.send(self._send_buffer)
+            sent = self.socket.send(self._send_buffer[:self.buffer_size])
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
@@ -433,8 +433,10 @@ class ConnectionManager(object):
 
             raise error
         else:
-            logger.debug("Sent {} to {}".format(self._send_buffer[:sent], self.addr))
             self._send_buffer = self._send_buffer[sent:]
+            left = len(self._send_buffer)
+            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))#, self._send_buffer[:sent],))
+
 
     def _send(self, data):
         with self._send_lock:
@@ -512,17 +514,10 @@ class NotifierSock(Singleton):
         self._server_socket.listen(1)
         self._sending_sock.connect(('127.0.0.1', port))
         self._receiving_sock, _ = self._server_socket.accept()
-        logger.info("Notify socket connected")
+        logger.info("Notify socket: connected")
 
         selector.register(self._receiving_sock, selectors.EVENT_READ, data=self)
-        logger.info("Notify socket registered in selector")
-
-    def close(self):
-        if self._server_socket is not None:
-            self._server_socket.close()
-        if self._receiving_sock is not None:
-            self._receiving_sock.close()
-        logger.info("Notify socket closed")
+        logger.info("Notify socket: selector registered")
 
     def get_sock(self):
         return self._receiving_sock
@@ -531,13 +526,13 @@ class NotifierSock(Singleton):
         with self._send_lock:
             if self._receiving_sock is not None:
                 self._sending_sock.sendall(bytes(1))
-                logger.debug("Notify socket notified")
+                logger.debug("Notify socket: notified")
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ and self._receiving_sock is not None:
             try:
                 self._receiving_sock.recv(1024)
-                logger.debug("Notify socket received")
+                logger.debug("Notify socket: received")
             except io.BlockingIOError:
                 pass
             except Exception as e:

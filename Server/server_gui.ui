@@ -71,11 +71,31 @@
         <item>
          <layout class="QFormLayout" name="formLayout">
           <property name="labelAlignment">
-           <set>Qt::AlignCenter</set>
+           <set>Qt::AlignHCenter|Qt::AlignTop</set>
           </property>
           <property name="formAlignment">
-           <set>Qt::AlignCenter</set>
+           <set>Qt::AlignHCenter|Qt::AlignTop</set>
           </property>
+          <item row="2" column="0">
+           <widget class="QLabel" name="start_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="text">
+             <string>  Start after</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="start_delay_spin">
+            <property name="suffix">
+             <string> s</string>
+            </property>
+           </widget>
+          </item>
           <item row="3" column="0">
            <widget class="QLabel" name="music_text">
             <property name="layoutDirection">
@@ -96,6 +116,16 @@
             </property>
             <property name="maximum">
              <double>1000.000000000000000</double>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="music_play_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="text">
+             <string>  Play music</string>
             </property>
            </widget>
           </item>
@@ -127,36 +157,6 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
-           <widget class="QLabel" name="music_play_text">
-            <property name="layoutDirection">
-             <enum>Qt::RightToLeft</enum>
-            </property>
-            <property name="text">
-             <string>  Play music</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSpinBox" name="start_delay_spin">
-            <property name="suffix">
-             <string> s</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="start_text">
-            <property name="layoutDirection">
-             <enum>Qt::RightToLeft</enum>
-            </property>
-            <property name="text">
-             <string>  Start after</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
          </layout>
         </item>
         <item>
@@ -168,24 +168,23 @@
         </item>
         <item>
          <layout class="QFormLayout" name="formLayout_2">
-          <property name="formAlignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          <property name="labelAlignment">
+           <set>Qt::AlignCenter</set>
           </property>
-          <item row="10" column="1">
-           <widget class="QPushButton" name="stop_button">
+          <property name="formAlignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <item row="0" column="1">
+           <widget class="QPushButton" name="check_button">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
             <property name="text">
-             <string>Stop and land all</string>
+             <string>Preflight check</string>
             </property>
            </widget>
           </item>
-          <item row="9" column="1">
-           <widget class="QPushButton" name="pause_button">
-            <property name="text">
-             <string>Pause</string>
-            </property>
-           </widget>
-          </item>
-          <item row="8" column="1">
+          <item row="1" column="1">
            <widget class="QPushButton" name="start_button">
             <property name="enabled">
              <bool>true</bool>
@@ -198,13 +197,75 @@
             </property>
            </widget>
           </item>
-          <item row="7" column="1">
-           <widget class="QPushButton" name="check_button">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="pause_button">
             <property name="text">
-             <string>Preflight check</string>
+             <string>Pause</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="Line" name="line_5">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_5">
+          <property name="labelAlignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="formAlignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="land_selected_button">
+            <property name="text">
+             <string>Land selected</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="land_all_button">
+            <property name="text">
+             <string>Land ALL</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="Line" name="line_6">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_7">
+          <property name="formAlignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="visual_land_button">
+            <property name="text">
+             <string>Visual land</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QPushButton" name="emergency_land_button">
+            <property name="text">
+             <string>Emergency land</string>
             </property>
            </widget>
           </item>
@@ -219,8 +280,11 @@
         </item>
         <item>
          <layout class="QFormLayout" name="formLayout_3">
+          <property name="labelAlignment">
+           <set>Qt::AlignCenter</set>
+          </property>
           <property name="formAlignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           <set>Qt::AlignCenter</set>
           </property>
           <property name="verticalSpacing">
            <number>6</number>
@@ -233,16 +297,9 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QPushButton" name="disarm_button">
+           <widget class="QPushButton" name="disarm_selected_button">
             <property name="text">
              <string>Disarm selected</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="emergency_button">
-            <property name="text">
-             <string>Emergency land</string>
             </property>
            </widget>
           </item>
@@ -257,16 +314,12 @@
         </item>
         <item>
          <layout class="QFormLayout" name="formLayout_4">
-          <property name="formAlignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          <property name="labelAlignment">
+           <set>Qt::AlignCenter</set>
           </property>
-          <item row="8" column="1">
-           <widget class="QPushButton" name="land_button">
-            <property name="text">
-             <string>Land</string>
-            </property>
-           </widget>
-          </item>
+          <property name="formAlignment">
+           <set>Qt::AlignCenter</set>
+          </property>
           <item row="7" column="1">
            <widget class="QPushButton" name="flip_button">
             <property name="text">
@@ -341,8 +394,11 @@
         </item>
         <item>
          <layout class="QFormLayout" name="formLayout_6">
+          <property name="labelAlignment">
+           <set>Qt::AlignCenter</set>
+          </property>
           <property name="formAlignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           <set>Qt::AlignBottom|Qt::AlignHCenter</set>
           </property>
           <item row="0" column="1">
            <widget class="QPushButton" name="reboot_fcu">
@@ -379,7 +435,7 @@
      <x>0</x>
      <y>0</y>
      <width>1360</width>
-     <height>25</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">

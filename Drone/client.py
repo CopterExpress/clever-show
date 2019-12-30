@@ -61,8 +61,6 @@ class Client(object):
         self.NTP_HOST = self.config.get('NTP', 'host')
         self.NTP_PORT = self.config.getint('NTP', 'port')
 
-        self.files_directory = self.config.get('FILETRANSFER', 'files_directory') # not used?!
-
         self.client_id = self.config.get('PRIVATE', 'id')
         if self.client_id == '/default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
@@ -199,7 +197,7 @@ class Client(object):
             #    self._last_ping_time = time.time()
             # logging.debug("tick")
 
-            for key, mask in events:  # TODO add notifier to client!
+            for key, mask in events:
                 connection = key.data
                 if connection is None:
                     pass
@@ -218,14 +216,16 @@ class Client(object):
                             if error.errno == errno.EINTR:
                                 raise KeyboardInterrupt
             try:
-                mapping = self.selector.get_map().values()
-                notifier_key = self.selector.get_key(messaging.NotifierSock().get_sock())
-                notify_only= len(mapping) == 1 and notifier_key in mapping
-                if notify_only or not mapping:
+                mapping_fds = self.selector.get_map().keys() # file descriptors
+                notifier_fd = messaging.NotifierSock().get_sock().fileno()
+            except (KeyError, RuntimeError) as e:
+                logger.error("Exception {} occurred when getting connections map!".format(e))
+                logger.error("Connections changed during getting connections map, passing")
+            else:
+                notify_only= len(mapping_fds) == 1 and notifier_fd in mapping_fds
+                if notify_only or not mapping_fds:
                     logger.warning("No active connections left!")
                     return
-            except (RuntimeError, KeyError) as e:
-                logger.error("Exception {} occured when getting net map!".format(e))
 
 
 @messaging.message_callback("config_write")

@@ -16,8 +16,8 @@ bl_info = {
     "location": "File > Export > CSV Drone Swarm Animation Exporter (.csv)",
     "description": "Export > CSV Drone Swarm Animation Exporter (.csv)",
     "warning": "",
-    "wiki_url": "https://github.com/artem30801/blender-csv-animation/blob/master/README.md",
-    "tracker_url": "https://github.com/artem30801/blender-csv-animation/issues",
+    "wiki_url": "https://github.com/CopterExpress/clever-show/blob/master/blender-addon/README.md",
+    "tracker_url": "https://github.com/CopterExpress/clever-show/issues",
     "category": "Import-Export"
 }
 

@@ -101,6 +101,95 @@ def check_start_pos_status(item):
 def check_time_delta(item):
     return abs(item) < ModelChecks.time_delta_max
 
+battery_min = config.getfloat('CHECKS', 'battery_percentage_min') 
+start_pos_delta_max = config.getfloat('CHECKS', 'start_pos_delta_max')
+time_delta_max = config.getfloat('CHECKS', 'time_delta_max')   
+
+class ModelChecks:
+    checks_dict = {}
+    takeoff_checklist = (3, 4, 6, 7, 8)
+
+    @classmethod
+    def col_check(cls, col):
+        def inner(f):
+            def wrapper(item):
+                if item is not None:
+                    return f(item)
+                return None
+
+            cls.checks_dict[col] = wrapper
+            return wrapper
+
+        return inner
+
+    @classmethod
+    def all_checks(cls, copter_item):
+        for col, check in cls.checks_dict.items():
+            if not check(copter_item[col]):
+                return False
+        return True
+
+    @classmethod
+    def takeoff_checks(cls, copter_item):
+        for col in cls.takeoff_checklist:
+            if not cls.checks_dict[col](copter_item[col]):
+                return False
+        return True
+
+
+@ModelChecks.col_check(1)
+def check_ver(item):
+    return True  # TODO git version!
+
+
+@ModelChecks.col_check(2)
+def check_anim(item):
+    return str(item) != 'No animation'
+
+
+@ModelChecks.col_check(3)
+def check_bat(item):
+    if item == "NO_INFO":
+        return False
+    return item[1]*100 > battery_min
+
+
+@ModelChecks.col_check(4)
+def check_sys_status(item):
+    return item == "STANDBY"
+
+
+@ModelChecks.col_check(5)
+def check_cal_status(item):
+    return item == "OK"
+
+
+@ModelChecks.col_check(6)
+def check_mode(item):
+    return (item != "NO_FCU") and not ("CMODE" in item)
+
+
+@ModelChecks.col_check(7)
+def check_selfcheck(item):
+    return item == "OK"
+
+
+@ModelChecks.col_check(8)
+def check_pos_status(item):
+    if item == 'NO_POS':
+        return False
+    return not math.isnan(item[0])
+
+
+@ModelChecks.col_check(9)
+def check_start_pos_status(item):
+    return item != 'NO_POS'
+
+
+@ModelChecks.col_check(10)
+def check_time_delta(item):
+    return abs(item) < time_delta_max
+
 
 class CopterData:
     class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('anim_id', None),

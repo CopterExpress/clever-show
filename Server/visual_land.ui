@@ -11,12 +11,10 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Visual land</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QDialog{
-background-color: #fffdd0;
-}</string>
+   <string notr="true"/>
   </property>
   <widget class="QPushButton" name="two_button">
    <property name="geometry">
@@ -48,20 +46,25 @@ background-color: red;
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>90</x>
+     <x>60</x>
      <y>30</y>
-     <width>561</width>
+     <width>631</width>
      <height>51</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <pointsize>16</pointsize>
+     <pointsize>20</pointsize>
     </font>
    </property>
+   <property name="layoutDirection">
+    <enum>Qt::LeftToRight</enum>
+   </property>
    <property name="text">
-    <string>
-Select a group in which the drone does not work correctly</string>
+    <string>Select the group with the defective copter</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
    </property>
   </widget>
   <widget class="QPushButton" name="one_button">
@@ -84,7 +87,7 @@ Select a group in which the drone does not work correctly</string>
 color: white;
 font-weight: 600;
 font-size: 25pt;
-background-color: RGB(118, 255, 122);
+background-color: green;
 }</string>
    </property>
    <property name="text">

@@ -98,7 +98,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
         self.ui.start_button.clicked.connect(self.send_start_time_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
-        self.ui.stop_button.clicked.connect(self.land_all)
 
         self.ui.emergency_button.clicked.connect(self.emergency)
         self.ui.disarm_button.clicked.connect(partial(self.send_to_selected, "disarm"))
@@ -273,6 +272,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.send_to_selected("resume", {"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
+
+    @pyqtSlot()
+    def land_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("land")
+
     @pyqtSlot()
     def land_all(self):
         Client.broadcast_message("land")
@@ -280,6 +285,12 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def disarm_all(self):
         Client.broadcast_message("disarm")
+
+
+    @pyqtSlot()
+    def test_leds_selected(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("led_test")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
