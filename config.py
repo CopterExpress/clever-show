@@ -71,24 +71,6 @@ class ConfigManager:
         self.validated = True
 
     @classmethod
-    def _get_defaults(cls, item, unchanged_only=False):
-        if isinstance(item, Section):
-            default_values = item.default_values.copy()
-
-            if unchanged_only:
-                default_list = item.defaults.copy()
-                defaults = {key: default_values[key] for key in default_list if key in default_values}
-            else:
-                defaults = default_values
-
-            for key, value in item.items():
-                result = cls._get_defaults(value, unchanged_only=unchanged_only)
-                if result is not None:
-                    defaults[key] = result
-
-            return defaults if defaults else None
-
-    @classmethod
     def _full_dict(cls, item):
         if not isinstance(item, Section):
             return item
@@ -115,14 +97,6 @@ class ConfigManager:
                 data[key] = result
 
         return data
-
-    @property
-    def default_values(self):
-        return self._get_defaults(self.config) or {}
-
-    @property
-    def unchanged_defaults(self):
-        return self._get_defaults(self.config, unchanged_only=True) or {}
 
     @property
     def full_dict(self):
@@ -219,10 +193,12 @@ class ConfigManager:
     def _extract_values(cls, d):
         result = {}
         for key, val in d.items():
-            if isinstance(val, dict) and val.get('__option__', False):
+            if not isinstance(val, dict):  # Pure dict option
+                result[key] = val
+            elif val.get('__option__', False): # Full-dict option with params
                 if not val.get('unchanged', False):
                     result[key] = val.get('value')
-            else:
+            else:  # Section
                 result[key] = cls._extract_values(val)
         return result
 
@@ -232,11 +208,14 @@ class ConfigManager:
         inline_comments = {}
 
         for key, val in d.items():
-            if val.get('__option__', False):
+            if not isinstance(val, dict):  # Pure dict option
+                comments[key] = []
+                inline_comments[key] = None
+            elif val.get('__option__', False):  # Full-dict option with params
                 comment = val.get('comments', [])
                 comments[key] = [] if comment == [''] else comment
                 inline_comments[key] = val.get('inline_comment', None)
-            else:
+            else:  # Section
                 cls._load_comments(val, section[key])
                 comments[key] = ['']
                 inline_comments[key] = None
@@ -268,6 +247,9 @@ class ConfigManager:
 
         self._load_comments(d, self.config)
 
+    def merge(self, config):
+        self.config.merge(config.config)
+
 
 if __name__ == '__main__':
     cfg = ConfigManager()
@@ -292,6 +274,12 @@ if __name__ == '__main__':
     # # print(11111)
     import pprint
     pprint.pprint(cfg.full_dict)
+    cfg2 = ConfigManager()
+    cfg2.load_from_dict({"PRIVATE": {"id": 123132}})
+    pprint.pprint(cfg2.full_dict)
+    cfg.merge(cfg2)
+    pprint.pprint(cfg.full_dict)
+
     # #print(cfg.full_dict)
     #
     # #cfg.load_from_dict(cfg.full_dict, 'Drone/config/client.ini')
