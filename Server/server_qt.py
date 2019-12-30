@@ -74,6 +74,7 @@ class ServerQt(Server):
         table.ModelChecks.time_delta_max = self.config.checks_time_delta_max
 
 
+# noinspection PyCallByClass,PyArgumentList
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, server):
         super(MainWindow, self).__init__()
@@ -460,17 +461,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def send_any_command(self):
         text, okPressed = QInputDialog.getText(self, "Enter command to send on copter",
                                                "Command:", QLineEdit.Normal, "")
-        if okPressed and text != '':
+        if okPressed and text:
             self.send_to_selected("execute", {"command": text})
 
     @pyqtSlot()
     def select_music_file(self):
         path = QFileDialog.getOpenFileName(self, "Select music file", filter="Music files (*.mp3 *.wav)")[0]
-        if path:
-            media = QUrl.fromLocalFile(path)
-            content = QtMultimedia.QMediaContent(media)
-            self.player.setMedia(content)
-            self.ui.action_select_music_file.setText(self.ui.action_select_music_file.text() + " (selected)")
+        if not path:
+            return
+
+        media = QUrl.fromLocalFile(path)
+        content = QtMultimedia.QMediaContent(media)
+        self.player.setMedia(content)
+        self.ui.action_select_music_file.setText(self.ui.action_select_music_file.text() + " (selected)")
 
     @pyqtSlot()
     def play_music(self):

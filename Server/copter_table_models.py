@@ -212,7 +212,7 @@ class ModelFormatter:
 
 @ModelFormatter.col_format(0, ModelFormatter.PLACE_FORMATTER)
 def place_id(value):
-    value = value.stip()
+    value = value.strip()
     # check user hostname spelling http://man7.org/linux/man-pages/man7/hostname.7.html
     # '-' (hyphen) not first; latin letters/numbers/hyphens; length form 1 to 63
     # or matches command pattern
@@ -276,6 +276,7 @@ def place_time_delta(value):
 @ModelFormatter.col_format(10, ModelFormatter.VIEW_FORMATTER)
 def view_time_delta(value):
     return "{:.3f}".format(value)  
+
 
 class CopterDataModel(QtCore.QAbstractTableModel):
     selected_ready_signal = QtCore.pyqtSignal(bool)
@@ -460,6 +461,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         if row is not None:
             self.removeRows(row)
 
+
 def flip_checks(copter_item):
     for col in ModelChecks.takeoff_checklist:
         if col != 4 or col != 7:
@@ -497,7 +499,6 @@ class CopterProxyModel(QtCore.QSortFilterProxyModel):
         rightData = self.sourceModel().data(right)
 
         return self.human_sort_prepare(leftData) < self.human_sort_prepare(rightData)
-
 
 class SignalManager(QtCore.QObject):
     update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant, QtCore.QVariant)
