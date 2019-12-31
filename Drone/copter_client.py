@@ -790,6 +790,7 @@ class Telemetry:
         try:
             self.calibration_status = get_calibration_status()
             self.system_status = get_sys_status()
+            self.battery = self.get_battery(self.ros_telemetry)
         except rospy.ServiceException:
             rospy.logdebug("Some service is unavailable")
             self.selfcheck = ["WAIT_ROS"]
@@ -797,7 +798,6 @@ class Telemetry:
             rospy.logdebug(e)
         except rospy.TransportException as e:
             rospy.logdebug(e)
-        self.battery = self.get_battery(self.ros_telemetry)
 
     def update(self):
         self.update_telemetry_fast()

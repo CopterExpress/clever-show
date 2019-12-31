@@ -199,15 +199,19 @@ class Server(messaging.Singleton):
         logging.info("Formed broadcast message: {}".format(msg))
 
         time.sleep(self.BROADCAST_DELAY)
-        try:
-            while self.broadcast_thread_running.is_set():
+        
+        while self.broadcast_thread_running.is_set():
+            try:
                 broadcast_sock.sendto(msg, ('255.255.255.255', self.broadcast_port))
+            except OSError as e:
+                logging.error("Exception occured while broadcasting: {}".format(e))
+            except Exception as e:
+                broadcast_sock.close()
+                logging.info("Broadcast sender thread stopped, socked closed!")
+            else:
                 logging.debug("Broadcast sent")
+            finally:
                 time.sleep(self.BROADCAST_DELAY)
-
-        finally:
-            broadcast_sock.close()
-            logging.info("Broadcast sender thread stopped, socked closed!")
 
     def _broadcast_listen(self):
         logging.info("Broadcast listener thread started!")

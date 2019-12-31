@@ -254,7 +254,8 @@ def view_battery(value):
 def view_selfcheck(value):
     if isinstance(value, list):
         if len(value)==1:
-            return value[0]
+            if len(value[0]) <= 8:
+                return value[0]
         return "ERROR"
     return value
 
