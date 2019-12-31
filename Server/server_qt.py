@@ -18,7 +18,7 @@ from server_gui import Ui_MainWindow
 from server import *
 import messaging_lib as messaging
 from copter_table_models import *
-from visual_land import *
+from visual_land_dialog import VisualLandDialog
 
 import threading
 
@@ -285,53 +285,6 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def land_all(self):
         Client.broadcast_message("land")
-
-    @pyqtSlot()
-    def visual_land(self):
-        client_row_min = 0
-        client_row_max = self.model.rowCount() - 1
-        result = -1
-        while (result != 0) and (result != 3) and (result != 4):
-            # light_green_red(min, max)
-            client_row_mid = int(math.ceil((client_row_max + client_row_min) / 2.0))
-            print(client_row_min, client_row_mid, client_row_max)
-            for row_num in range(client_row_min, client_row_mid):
-                self.model.data_contents[row_num].client \
-                    .send_message("led_fill", {"green": 255})
-            for row_num in range(client_row_mid, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("led_fill", {"red": 255})
-
-            Dialog = QtWidgets.QDialog()
-            ui = Ui_Dialog()
-            ui.setupUi(Dialog)
-            Dialog.show()
-            result = Dialog.exec()
-            print("Dialog result: {}".format(result))
-
-            if client_row_max != client_row_min:
-                if result == 1:
-                    for row_num in range(client_row_mid, client_row_max + 1):
-                        self.model.data_contents[row_num].client \
-                            .send_message("led_fill")
-                    client_row_max = client_row_mid - 1
-
-                elif result == 2:
-                    for row_num in range(client_row_min, client_row_mid):
-                        self.model.data_contents[row_num].client \
-                            .send_message("led_fill")
-                    client_row_min = client_row_mid
-
-        if result == 0:
-            Client.broadcast_message("led_fill")
-        elif result == 3:
-            for row_num in range(client_row_min, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("land")
-        elif result == 4:
-            for row_num in range(client_row_min, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("disarm")
 
     @pyqtSlot()
     def emergency_land_selected(self):
@@ -601,6 +554,11 @@ class MainWindow(QtWidgets.QMainWindow):
         yield from asyncio.sleep(t - time.time())
         logging.info("Playing music")
         self.player.play()
+
+    @pyqtSlot()
+    def visual_land(self):
+        dialog = VisualLandDialog(self.model)
+        dialog.start()
 
 
 @messaging.message_callback("telemetry")
