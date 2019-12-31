@@ -16,9 +16,9 @@ Create animation in Blender, convert it to drone paths, set up the drones and ru
 
 ## This software includes
 
-* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) with autonomous flight module, animation player module and client application for remote synchronized control of drones
+* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) for remote synchronized control of drones with emergency drone protection module
 * [Server side](https://github.com/CopterExpress/clever-show/tree/master/Server) for making the drone show with ability of tuning drones, animation and music
-* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for animation export to drone paths
+* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for exporting animation to drone paths
 * [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
 
 ## Documentation
