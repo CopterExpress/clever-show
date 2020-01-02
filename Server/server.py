@@ -205,10 +205,6 @@ class Server(messaging.Singleton):
             logging.error(f"Unexpected error {e}!")
             raise
 
-        finally:
-            broadcast_sock.close()
-            logging.info("Broadcast sender thread stopped, socked closed!")
-
     def _broadcast_listen(self):
         logging.info("Broadcast listener thread started!")
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

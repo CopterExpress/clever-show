@@ -21,13 +21,14 @@ from quamash import QEventLoop
 from server_gui import Ui_MainWindow
 
 from server import Server, Client, now
+
 import messaging_lib as messaging
 import config as cfg
 
 import copter_table_models as table
 from copter_table import CopterTableWidget
-#from emergency import *
-#  TODO uncomment
+from visual_land_dialog import VisualLandDialog
+
 
 
 def multi_glob(*patterns):
@@ -272,7 +273,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.send_to_selected("resume", {"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
-
     @pyqtSlot()
     def land_selected(self):
         for copter in self.model.user_selected():
@@ -285,7 +285,6 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def disarm_all(self):
         Client.broadcast_message("disarm")
-
 
     @pyqtSlot()
     def test_leds_selected(self):
@@ -538,51 +537,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.play()
 
     @pyqtSlot()
-    def emergency(self):  # TODO refactor for the sake of god
-        client_row_min = 0
-        client_row_max = self.model.rowCount() - 1
-        result = -1
-        while (result != 0) and (result != 3) and (result != 4):
-            # light_green_red(min, max)
-            client_row_mid = int(math.ceil((client_row_max + client_row_min) / 2.0))
-            print(client_row_min, client_row_mid, client_row_max)
-            for row_num in range(client_row_min, client_row_mid):
-                self.model.data_contents[row_num].client \
-                    .send_message("led_fill", {"green": 255})
-            for row_num in range(client_row_mid, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("led_fill", {"red": 255})
-
-            Dialog = QtWidgets.QDialog()
-            ui = Ui_Dialog()
-            ui.setupUi(Dialog)
-            Dialog.show()
-            result = Dialog.exec()
-            print("Dialog result: {}".format(result))
-
-            if client_row_max != client_row_min:
-                if result == 1:
-                    for row_num in range(client_row_mid, client_row_max + 1):
-                        self.model.data_contents[row_num].client \
-                            .send_message("led_fill")
-                    client_row_max = client_row_mid - 1
-
-                elif result == 2:
-                    for row_num in range(client_row_min, client_row_mid):
-                        self.model.data_contents[row_num].client \
-                            .send_message("led_fill")
-                    client_row_min = client_row_mid
-
-        if result == 0:
-            Client.broadcast_message("led_fill")
-        elif result == 3:
-            for row_num in range(client_row_min, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("land")
-        elif result == 4:
-            for row_num in range(client_row_min, client_row_max + 1):
-                self.model.data_contents[row_num].client \
-                    .send_message("disarm")
+    def visual_land(self):
+        dialog = VisualLandDialog(self.model)
+        dialog.start()
 
 
 @messaging.message_callback("telemetry")

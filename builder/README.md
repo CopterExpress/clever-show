@@ -21,8 +21,8 @@ cd source-dir
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5
 ```
 
-The image will be located in `images` directory in the clever-show source code directory.
+The image will be located in `images` directory in the root of clever-show source code directory.
 
-Article about building custom image is located here:
+Full documentation about building custom image is located here:
 * English
 * [Russian](../docs/ru/image-building.md)

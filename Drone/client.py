@@ -115,7 +115,7 @@ class Client(object):
             logger.critical("Caught interrupt, exiting!")
             self.selector.close()
 
-    def _reconnect(self, timeout=3.0, attempt_limit=5):
+    def _reconnect(self, timeout=2.0, attempt_limit=3):
         logger.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
         attempt_count = 0
         while not self.connected:
@@ -153,7 +153,7 @@ class Client(object):
         self.selector.register(self.client_socket, events, data=self.server_connection)
         self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
 
-    def broadcast_bind(self, timeout=3.0, attempt_limit=5):
+    def broadcast_bind(self, timeout=2.0, attempt_limit=3):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         broadcast_client.bind(("", self.broadcast_port))

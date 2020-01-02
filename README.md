@@ -2,7 +2,9 @@
 
 [Русская версия](README_RU.md)
 
-Software for making the drone show controlled by Raspberry Pi and COEX [Clever](https://github.com/CopterExpress/clever) package. 
+Software for making the drone show controlled by Raspberry Pi, PX4 and COEX [Clever](https://github.com/CopterExpress/clever) package.
+
+Create animation in Blender, convert it to drone paths, set up the drones and run your own show!
 
 [![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
 
@@ -14,9 +16,9 @@ Software for making the drone show controlled by Raspberry Pi and COEX [Clever](
 
 ## This software includes
 
-* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) with autonomous flight module, animation player module and client application for remote synchronized control of drones
+* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) for remote synchronized control of drones with emergency drone protection module
 * [Server side](https://github.com/CopterExpress/clever-show/tree/master/Server) for making the drone show with ability of tuning drones, animation and music
-* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for animation export to drone paths
+* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for exporting animation to drone paths
 * [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
 
 ## Documentation
