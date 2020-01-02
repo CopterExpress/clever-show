@@ -5,7 +5,6 @@ import json
 import socket
 import struct
 import random
-import inspect
 import logging
 import threading
 import collections
@@ -33,9 +32,6 @@ class PendingRequest(Namespace): pass
 
 
 logger = logging.getLogger(__name__)
-
-
-# logger = logging_lib.Logger(_logger, True)
 
 
 def get_ip_address():
@@ -506,6 +502,7 @@ class NotifierSock(Singleton):
         self._send_lock = threading.Lock()
 
         self._receiving_sock = None
+        self._selector = None
 
     def init(self, selector, port=26000):
         port += random.randint(0, 100)  # local testing fix
@@ -517,6 +514,7 @@ class NotifierSock(Singleton):
         logger.info("Notify socket: connected")
 
         selector.register(self._receiving_sock, selectors.EVENT_READ, data=self)
+        self._selector = selector
         logger.info("Notify socket: selector registered")
 
     def get_sock(self):
@@ -524,9 +522,10 @@ class NotifierSock(Singleton):
 
     def notify(self):
         with self._send_lock:
-            if self._receiving_sock is not None:
-                self._sending_sock.sendall(bytes(1))
-                logger.debug("Notify socket: notified")
+            if self._receiving_sock is None:
+                return
+            self._sending_sock.sendall(bytes(1))
+            logger.debug("Notify socket: notified")
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ and self._receiving_sock is not None:
@@ -536,4 +535,15 @@ class NotifierSock(Singleton):
             except io.BlockingIOError:
                 pass
             except Exception as e:
-                print(e)
+                logger.error(e)
+
+    def close(self):
+        try:
+            self._selector.unregister(self._receiving_sock)
+            self._server_socket.close()
+            self._sending_sock.close()
+            self._receiving_sock.close()
+
+        except OSError as e:
+            pass
+

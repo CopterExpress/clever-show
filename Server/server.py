@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import socket
@@ -8,7 +9,7 @@ import threading
 import selectors
 import collections
 
-import os, inspect  # Add parent dir to PATH to import messaging_lib and config_lib
+import inspect  # Add parent dir to PATH to import messaging_lib and config_lib
 
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
@@ -140,14 +141,11 @@ class Server(messaging.Singleton):
 
         self.server_socket.listen()
         self.server_socket.setblocking(False)
-        self.sel.register(self.server_socket, selectors.EVENT_READ, data=None) #| selectors.EVENT_WRITE
+        self.sel.register(self.server_socket, selectors.EVENT_READ, data=None)
 
         while self.client_processor_thread_running.is_set():
             events = self.sel.select(timeout=1)
-            #logging.error('tick')
             for key, mask in events:
-                # logging.error(mask)
-                # logging.error(str(key.data))
                 client = key.data
                 if client is None:
                     self._connect_client(key.fileobj)
@@ -197,8 +195,15 @@ class Server(messaging.Singleton):
         try:
             while self.broadcast_thread_running.is_set():
                 self.broadcast_thread_interrupt.wait(timeout=self.config.broadcast_delay)
-                broadcast_sock.sendto(msg, ('255.255.255.255', self.config.broadcast_port))
-                logging.debug("Broadcast sent")
+                try:
+                    broadcast_sock.sendto(msg, ('255.255.255.255', self.config.broadcast_port))
+                except OSError as e:
+                    logging.error(f"Cannot send broadcast due error {e}")
+                else:
+                    logging.debug("Broadcast sent")
+        except Exception as e:
+            logging.error(f"Unexpected error {e}!")
+            raise
 
         finally:
             broadcast_sock.close()
@@ -208,6 +213,7 @@ class Server(messaging.Singleton):
         logging.info("Broadcast listener thread started!")
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # broadcast_client.settimeout(1)
         try:
             broadcast_client.bind(("", self.config.broadcast_port))
         except OSError:
@@ -216,7 +222,12 @@ class Server(messaging.Singleton):
 
         try:
             while self.listener_thread_running.is_set():
-                data, addr = broadcast_client.recvfrom(1024)  # TODO nonblock
+                try:
+                    data, addr = broadcast_client.recvfrom(1024)  # TODO nonblock
+                except OSError:
+                    logging.error(f"Cannot receive broadcast due error {e}")
+                    continue
+
                 message = messaging.MessageManager()
                 message.income_raw = data
                 message.process_message()
@@ -234,12 +245,16 @@ class Server(messaging.Singleton):
 
                 else:
                     logging.warning("Got wrong broadcast message from {}".format(addr))
+
+        except Exception as e:
+            logging.error(f"Unexpected error {e}!")
+            raise
+
         finally:
             broadcast_client.close()
             logging.info("Broadcast listener thread stopped, socked closed!")
 
     def send_starttime(self, copter, start_time):
-        print('start_time: {}'.format(start_time))
         copter.send_message("start", {"time": str(start_time)})
 
 
@@ -247,8 +262,7 @@ def requires_connect(f):
     def wrapper(*args, **kwargs):
         if args[0].connected:
             return f(*args, **kwargs)
-        else:
-            logging.warning("Function requires client to be connected!")
+        logging.warning("Function requires client to be connected!")
 
     return wrapper
 
@@ -257,8 +271,7 @@ def requires_any_connected(f):
     def wrapper(*args, **kwargs):
         if Client.clients:
             return f(*args, **kwargs)
-        else:
-            logging.warning("No clients were connected!")
+        logging.warning("No clients were connected!")
 
     return wrapper
 
@@ -334,15 +347,6 @@ class Client(messaging.ConnectionManager):
     def _send(self, data):
         super()._send(data)
         logging.debug("Queued data to send (first 256 bytes): {}".format(data[:256]))
-
-    def send_config_options(self, *options: ConfigOption, reload_config=True):
-        logging.info("Sending config options: {} to {}".format(options, self.addr))
-        sending_options = [{'section': option.section, 'option': option.option, 'value': option.value}
-                           for option in options]
-        print(sending_options)
-        self.send_message(
-            'config_write', {"options": sending_options, "reload": reload_config}
-        )
 
     @staticmethod
     @requires_any_connected

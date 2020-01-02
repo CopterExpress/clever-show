@@ -101,9 +101,6 @@ def check_start_pos_status(item):
 def check_time_delta(item):
     return abs(item) < ModelChecks.time_delta_max
 
-battery_min = config.getfloat('CHECKS', 'battery_percentage_min') 
-start_pos_delta_max = config.getfloat('CHECKS', 'start_pos_delta_max')
-time_delta_max = config.getfloat('CHECKS', 'time_delta_max')   
 
 class ModelChecks:
     checks_dict = {}
@@ -151,7 +148,7 @@ def check_anim(item):
 def check_bat(item):
     if item == "NO_INFO":
         return False
-    return item[1]*100 > battery_min
+    return item[1]*100 > ModelChecks.battery_min
 
 
 @ModelChecks.col_check(4)
@@ -188,7 +185,7 @@ def check_start_pos_status(item):
 
 @ModelChecks.col_check(10)
 def check_time_delta(item):
-    return abs(item) < time_delta_max
+    return abs(item) < ModelChecks.time_delta_max
 
 
 class CopterData:
