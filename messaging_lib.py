@@ -544,6 +544,6 @@ class NotifierSock(Singleton):
             self._sending_sock.close()
             self._receiving_sock.close()
 
-        except OSError as e:
+        except (OSError, KeyError) as e:
             pass
 

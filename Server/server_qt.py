@@ -2,7 +2,6 @@ import os
 import re
 import sys
 import glob
-import math
 import time
 import logging
 import asyncio
@@ -28,7 +27,6 @@ import config as cfg
 import copter_table_models as table
 from copter_table import CopterTableWidget
 from visual_land_dialog import VisualLandDialog
-
 
 
 def multi_glob(*patterns):
@@ -100,21 +98,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.clicked.connect(self.send_start_time_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
 
-        self.ui.emergency_button.clicked.connect(self.emergency)
-        self.ui.disarm_button.clicked.connect(partial(self.send_to_selected, "disarm"))
-        self.ui.disarm_all_button.clicked.connect(self.disarm_all)
-
+        self.ui.land_all_button.clicked.connect(partial(Client.broadcast, "land"))
+        self.ui.land_selected_button.clicked.connect(partial(self.send_to_selected, "land"))
+        self.ui.disarm_all_button.clicked.connect(partial(Client.broadcast, "disarm"))
+        self.ui.disarm_selected_button.clicked.connect(partial(self.send_to_selected, "disarm"))
+        self.ui.visual_land_button.clicked.connect(self.visual_land)
+        self.ui.emergency_land_button.clicked.connect(partial(self.send_to_selected, "emergency_land"))
         self.ui.leds_button.clicked.connect(partial(self.send_to_selected, "led_test"))
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
         self.ui.flip_button.clicked.connect(self.flip_selected)
-        self.ui.land_button.clicked.connect(partial(self.send_to_selected, "land"))
-
         self.ui.reboot_fcu.clicked.connect(partial(self.send_to_selected, "reboot_fcu"))
         self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
         self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
-
         self.ui.action_remove_row.triggered.connect(self.remove_selected)
-
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
         self.ui.action_send_configurations.triggered.connect(self.send_config)
@@ -138,6 +134,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
 
+        self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
+
         self.init_table()
 
         # Set most safety-important buttons disabled
@@ -146,20 +144,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.flip_button.setEnabled(False)
 
     def init_table(self):
-        # remove standard table widget
+        # Remove standard table widget
         self.ui.horizontalLayout.removeWidget(self.ui.tableView)
         self.ui.tableView.close()
-
-        # init our custom widget
+        # Init our custom widget
         self.ui.copter_table = CopterTableWidget(self.model)
         self.ui.copter_table.setObjectName("copter_table")
-
-        # add to layout
-        self.ui.horizontalLayout.addWidget(self.ui.copter_table, 0)
+        # Insert to layout at right
+        self.ui.horizontalLayout.insertWidget(0, self.ui.copter_table, 0)
 
     def init_model(self):
-        # self.model.on_id_changed = self.set_copter_id
-
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
         self.model.selected_takeoff_ready_signal.connect(self.ui.takeoff_button.setEnabled)
@@ -167,17 +161,17 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect calibrating signal (testing)
         self.model.selected_calibrating_signal.connect(self.ui.check_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.pause_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.stop_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.emergency_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.disarm_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.land_all_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.land_selected_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.disarm_selected_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.disarm_all_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.visual_land_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.emergency_land_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.leds_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.land_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.reboot_fcu.setDisabled)
+
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
-
-        self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
 
     def iterate_selected(self, f, *args, **kwargs):
         for copter in self.model.user_selected():
@@ -211,9 +205,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def selfcheck_selected(self):
-        for copter_data_row in self.model.user_selected():
-            client = copter_data_row.client
-            client.get_response("telemetry", self.update_table_data)
+        for copter in self.model.user_selected():
+            copter.client.get_response("telemetry", self.update_table_data)
 
     @pyqtSlot(object, dict)
     def update_table_data(self, client, telems: dict):
@@ -272,24 +265,6 @@ class MainWindow(QtWidgets.QMainWindow):
             time_gap = 0.1  # TODO config? automatic delay detection?
             self.send_to_selected("resume", {"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
-
-    @pyqtSlot()
-    def land_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("land")
-
-    @pyqtSlot()
-    def land_all(self):
-        Client.broadcast_message("land")
-
-    @pyqtSlot()
-    def disarm_all(self):
-        Client.broadcast_message("disarm")
-
-    @pyqtSlot()
-    def test_leds_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("led_test")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
@@ -451,6 +426,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_config(self):
+        mode, ok = QInputDialog.getItem(self, "Select config sending mode", "Mode:",
+                                        ("Modify", "Rewrite"), 0, False)
+        if not ok or not mode:
+            return
+
         path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt .cfg)")[0]
         if not path:
             return
@@ -462,27 +442,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         copters = self.model.user_selected()
         for copter in copters:
-            copter.client.send_message("config", {"config": data, })
-
-        # if path:
-        #     print("Selected file:", path)
-        #     sendable_config = configparser.ConfigParser()  # TODO
-        #     sendable_config.read(path)
-        #     options = []
-        #     for section in sendable_config.sections():
-        #         for option in dict(sendable_config.items(section)):
-        #             value = sendable_config[section][option]
-        #             logging.debug("Got item from config: {} {} {}".format(section, option, value))
-        #             options.append(ConfigOption(section, option, value))
-        #
-        #     for copter in self.model.user_selected():
-        #         copter.client.send_config_options(*options)
+            copter.client.send_message("config", {"config": data, "mode": mode})
 
     @pyqtSlot()
     def send_any_command(self):
-        text, okPressed = QInputDialog.getText(self, "Enter command to send on copter",
-                                               "Command:", QLineEdit.Normal, "")
-        if okPressed and text:
+        text, ok = QInputDialog.getText(self, "Enter command to send on copter",
+                                        "Command:", QLineEdit.Normal, "")
+        if ok and text:
             self.send_to_selected("execute", {"command": text})
 
     @pyqtSlot()
@@ -610,7 +576,6 @@ if __name__ == "__main__":
         server.start()
 
         window.show()
-       # window.send_directory_files("lol")
         splash.close()
 
         loop.run_forever()

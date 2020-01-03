@@ -501,12 +501,14 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             self.data_contents[row].states.checked = value
         elif role == Qt.EditRole:  # For user/outer actions with data, place modifiers applied
             formatted_value = self.formatter.format_place(col, value)
-            if formatted_value is not None:  # todo use new := syntax
-                self.data_contents[row][col] = formatted_value
+            if formatted_value is None:  # todo use new := syntax
+                return False
 
-                if col == 0:
-                    self.data_contents[row].client.send_message("id", {"new_id": formatted_value})
-                    self.data_contents[row].client.remove()
+            self.data_contents[row][col] = formatted_value
+
+            if col == 0:
+                self.data_contents[row].client.send_message("id", {"new_id": formatted_value})
+                self.data_contents[row].client.remove()  # TODO change
 
         elif role == ModelDataRole:  # For inner setting\editing of data
             self.data_contents[row][col] = value
