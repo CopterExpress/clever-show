@@ -431,7 +431,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not ok or not mode:
             return
 
-        path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt .cfg)")[0]
+        path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt *.cfg)")[0]
         if not path:
             return
 
