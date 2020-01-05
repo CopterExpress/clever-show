@@ -1,4 +1,5 @@
 import os
+import copy
 import collections
 
 from configobj import ConfigObj, Section, flatten_errors
@@ -249,8 +250,13 @@ class ConfigManager:
 
         self._load_comments(d, self.config)
 
-    def merge(self, config):
-        self.config.merge(config.config)
+    def merge(self, config, validate=True):
+        current = copy.deepcopy(self.config)
+        current.merge(config.config)
+        if validate:
+            self.validate_config(current)
+        else:
+            self.set_config(current)
 
 
 if __name__ == '__main__':
