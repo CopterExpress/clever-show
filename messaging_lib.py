@@ -342,7 +342,8 @@ class ConnectionManager(object):
     def process_received(self, income_message):
         message_type = income_message.jsonheader["message-type"]
         logger.debug(
-            "Received message! Header: {}, content: {}".format(income_message.jsonheader, income_message.content))
+            "Received message! Header: {}, content: {}".format(
+                income_message.jsonheader, income_message.content[:256]))
 
         if message_type == "message":
             self._process_message(income_message)
@@ -356,10 +357,12 @@ class ConnectionManager(object):
     def _process_message(self, message):
         command = message.content["command"]
         args = message.content["args"]
-        try:
-            self.messages_callbacks[command](self, **args)
-        except KeyError:
+        callback = self.messages_callbacks.get(command, None)
+        if callback is None:
             logger.warning("Command {} does not exist!".format(command))
+            return
+        try:
+            callback(self, **args)
         except Exception as error:
             logger.error("Error during command {} execution: {}".format(command, error))
 
@@ -367,10 +370,12 @@ class ConnectionManager(object):
         command = message.content["requested_value"]
         request_id = message.content["request_id"]
         args = message.content["args"]
-        try:
-            value = self.requests_callbacks[command](self, **args)
-        except KeyError:
+        callback = self.requests_callbacks.get(command, None)
+        if callback is None:
             logger.warning("Request {} does not exist!".format(command))
+            return
+        try:
+            value = callback(self, **args)
         except Exception as error:  # TODO send response error\cancel
             logger.error("Error during request {} processing: {}".format(command, error))
         else:
@@ -431,8 +436,7 @@ class ConnectionManager(object):
         else:
             self._send_buffer = self._send_buffer[sent:]
             left = len(self._send_buffer)
-            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))#, self._send_buffer[:sent],))
-
+            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))
 
     def _send(self, data):
         with self._send_lock:
