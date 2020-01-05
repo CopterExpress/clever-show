@@ -60,7 +60,7 @@ class Server(messaging.Singleton):
 
         self.broadcast_thread = threading.Thread(target=self._ip_broadcast, daemon=True,
                                                  name='IP broadcast sender')
-        self.broadcast_thread_running = threading.Event()  # TOOD replace by interrupt
+        self.broadcast_thread_running = threading.Event()  # TODO replace by interrupt
         self.broadcast_thread_interrupt = threading.Event()
 
         self.listener_thread = threading.Thread(target=self._broadcast_listen, daemon=True,

@@ -543,7 +543,5 @@ class NotifierSock(Singleton):
             self._server_socket.close()
             self._sending_sock.close()
             self._receiving_sock.close()
-
-        except (OSError, KeyError) as e:
-            pass
-
+        except (OSError, KeyError) as error:
+            logger.error("Error during unregistring notifier socket: {}".format(error))

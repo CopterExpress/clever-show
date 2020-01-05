@@ -442,7 +442,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         copters = self.model.user_selected()
         for copter in copters:
-            copter.client.send_message("config", {"config": data, "mode": mode})
+            copter.client.send_message("config", {"config": data, "mode": mode.lower()})
 
     @pyqtSlot()
     def send_any_command(self):
