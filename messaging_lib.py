@@ -341,9 +341,9 @@ class ConnectionManager(object):
 
     def process_received(self, income_message):
         message_type = income_message.jsonheader["message-type"]
+        content = income_message.content if message_type != "filetransfer" else income_message.content[:256]
         logger.debug(
-            "Received message! Header: {}, content: {}".format(
-                income_message.jsonheader, income_message.content[:256]))
+            "Received message! Header: {}, content: {}".format(income_message.jsonheader, content))
 
         if message_type == "message":
             self._process_message(income_message)
