@@ -29,6 +29,9 @@ class ValidationError(ValueError):
         self.config = config
         self.errors = errors
 
+    def __str__(self):
+        return "{} - {}".format(self.args[0], " ".join(self.flatten_errors()))
+
     def flatten_errors(self):
         for entry in flatten_errors(self.config, self.errors):
             section_list, key, error = entry
@@ -68,7 +71,7 @@ class ConfigManager:
 
         test = config.validate(vdt, copy=copy_defaults, preserve_errors=True)
         if test != True:  # Important syntax, do no change
-            raise ValidationError('Some config values are wrong: {}'.format(test), config, test)
+            raise ValidationError('Some config values are wrong', config, test)
 
         self.config = config
         self.validated = True
@@ -91,8 +94,8 @@ class ConfigManager:
                           'value': value,
                           'default': default_values.get(key, None),
                           'unchanged': key in defaults,
-                          'comments': comments[key],
-                          'inline_comment': inline_comments[key],
+                          'comments': comments.get(key, []),
+                          'inline_comment': inline_comments.get(key, None),
                           }
                 data[key] = item_d
 
@@ -207,8 +210,8 @@ class ConfigManager:
 
     @classmethod
     def _load_comments(cls, d, section):
-        comments = {}
-        inline_comments = {}
+        comments = section.comments
+        inline_comments = section.inline_comments
 
         for key, val in d.items():
             if not isinstance(val, dict):  # Pure dict option
@@ -283,7 +286,8 @@ if __name__ == '__main__':
     import pprint
     pprint.pprint(cfg.full_dict)
     cfg2 = ConfigManager()
-    cfg2.load_from_dict({"PRIVATE": {"id": 123132}})
+    cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, path='Drone/config/spec/configspec_client.ini')
+    #cfg2.load_from_dict({"PRIVATE": {"id": 123132}})
     pprint.pprint(cfg2.full_dict)
     cfg.merge(cfg2)
     pprint.pprint(cfg.full_dict)

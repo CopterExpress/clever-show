@@ -52,6 +52,8 @@ class Client(object):
         elif config_id == '/ip':
             self.client_id = messaging.get_ip_address()
 
+        logger.info("Config loaded")
+
     @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
         NTP_PACKET_FORMAT = "!12I"
@@ -199,7 +201,6 @@ class Client(object):
 
 @messaging.message_callback("config")
 def _command_config_write(*args, **kwargs):
-    print(kwargs)
     mode = kwargs.get("mode", "modify")
     # exceptions would be risen in case of incorrect config
     if mode == "rewrite":
@@ -211,6 +212,7 @@ def _command_config_write(*args, **kwargs):
 
     active_client.config.write()
     active_client.load_config()
+    logger.info("Config successfully updated from command")
 
 
 @messaging.request_callback("id")
