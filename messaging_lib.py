@@ -71,7 +71,7 @@ class MessageManager:
     @staticmethod
     def _json_decode(json_bytes, encoding="utf-8"):
         with io.TextIOWrapper(io.BytesIO(json_bytes), encoding=encoding, newline="") as tiow:
-            obj = json.load(tiow)
+            obj = json.load(tiow, object_pairs_hook=collections.OrderedDict)
         return obj
 
     @classmethod

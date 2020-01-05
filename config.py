@@ -1,4 +1,5 @@
 import os
+import collections
 
 from configobj import ConfigObj, Section, flatten_errors
 from validate import Validator
@@ -60,12 +61,13 @@ class ConfigManager:
         self.config = config
         self.validated = False
 
-    def validate_config(self, config, copy_defaults=False):
+    def validate_config(self, config=None, copy_defaults=False):
+        config = config or self.config
         vdt = Validator()
 
         test = config.validate(vdt, copy=copy_defaults, preserve_errors=True)
         if test != True:  # Important syntax, do no change
-            raise ValidationError('Some values are wrong: {}'.format(test), config, test)
+            raise ValidationError('Some config values are wrong: {}'.format(test), config, test)
 
         self.config = config
         self.validated = True
@@ -75,7 +77,7 @@ class ConfigManager:
         if not isinstance(item, Section):
             return item
 
-        data = {}
+        data = collections.OrderedDict()
         default_values = item.default_values
         defaults = item.defaults
         comments = item.comments
@@ -191,11 +193,11 @@ class ConfigManager:
 
     @classmethod
     def _extract_values(cls, d):
-        result = {}
+        result = collections.OrderedDict()
         for key, val in d.items():
             if not isinstance(val, dict):  # Pure dict option
                 result[key] = val
-            elif val.get('__option__', False): # Full-dict option with params
+            elif val.get('__option__', False):  # Full-dict option with params
                 if not val.get('unchanged', False):
                     result[key] = val.get('value')
             else:  # Section
