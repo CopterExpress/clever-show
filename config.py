@@ -257,24 +257,25 @@ class ConfigManager:
         section.comments = comments
         section.inline_comments = inline_comments
 
-    def load_from_dict(self, d, path=None):
+    def load_from_dict(self, d, configspec=None):
         initial_comment = d.pop('initial_comment', [''])
         final_comment = d.pop('final_comment', [''])
 
         kwargs = {'infile': self._extract_values(d), 'indent_type': ''}
-        if path is not None:
-            spec_path = self._get_spec_path(path)
-            if not self._config_exists(spec_path):
-                spec_path = path
-            if self._config_exists(spec_path):
-                kwargs.update({'configspec': spec_path})
+        if isinstance(configspec, dict):
+            kwargs.update({'configspec': configspec})
+        elif isinstance(configspec, str):
+            if not self._config_exists(configspec):
+                configspec = self._get_spec_path(configspec)
+            if self._config_exists(configspec):
+                kwargs.update({'configspec': configspec})
 
         config = ConfigObj(**kwargs)
-        config.filename = path
+        config.filename = configspec if isinstance(configspec, str) else None
         config.initial_comment = initial_comment
         config.final_comment = final_comment
 
-        if path is not None:
+        if configspec is not None:
             self.validate_config(config)
         else:
             self.set_config(config)
@@ -313,14 +314,16 @@ if __name__ == '__main__':
     #
     # # print(11111)
     import pprint
-    pprint.pprint(cfg.full_dict)
+    #pprint.pprint(cfg.full_dict)
     cfg2 = ConfigManager()
-    cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, path='Drone/config/spec/configspec_client.ini')
+    cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='Drone/config/spec/configspec_client.ini')
     #cfg2.load_from_dict({"PRIVATE": {"id": 123132}})
     #pprint.pprint(cfg2.full_dict)
     cfg.merge(cfg2)
     #pprint.pprint(cfg.full_dict)
     print(cfg.config)
+    print(dict(cfg.config.configspec))
+    #print(dict(ConfigManager(cfg.config.configspec).config))
 
     # #print(cfg.full_dict)
     #
