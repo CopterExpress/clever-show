@@ -20,16 +20,6 @@ sys.path.insert(0, parent_dir)
 import config
 
 
-def dict_walk(d: dict, keys):
-    current = d
-    for key in keys:
-        try:
-            current = current[key]
-        except KeyError:
-            return None
-    return current
-
-
 states_colors = {
     'normal': Qt.white,
     'unchanged': Qt.darkGray,
@@ -437,16 +427,6 @@ class ConfigModel(QtCore.QAbstractItemModel):
     def update_all(self):
         self.dataChanged.emit(QtCore.QModelIndex(), QtCore.QModelIndex())
 
-    @staticmethod
-    def get_key_sequence(index):  # yet unused
-        item = index.internalPointer()
-        keys = []
-        while item is not None:
-            key = item.data(0)
-            keys.append(key)
-            item = item.parent()
-        return list(reversed(keys[:-1]))
-
     def dict_setup(self, data: dict, parent=None, convert_types=False):
         if parent is None:
             parent = self.rootItem
@@ -672,7 +652,7 @@ class ConfigTreeWidget(QTreeView):
         # parent.internalPointer().set_state('edited')
         self.expandAll()
 
-    def reset_item(self, index, reset_type): # todo try deepcopy
+    def reset_item(self, index, reset_type):
         item = index.internalPointer()
         model = self.model()
         itemdataindex = model.modifyCol(index, 1)
