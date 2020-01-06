@@ -539,7 +539,6 @@ class ConfigTreeWidget(QTreeView):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
-
         self.setAnimated(True)
 
     def open_menu(self, point):
@@ -723,7 +722,24 @@ class ConfigDialog(QtWidgets.QDialog):
                                       )
         return reply == QMessageBox.Yes
 
-    # def validate_loop(self):
+    def run(self):
+        self.show()
+        self.exec()
+
+    def _validate_loop(self, cfg, configspec=None):  # modifies cfg object
+        while True:
+            try:
+                cfg.load_from_dict(ui.model.to_config_dict(), configspec=configspec)
+            except config.ValidationError as error:
+                msg = "Can not validate. Proceed with editing? Errors: \n" + "\n".join(error.flatten_errors())
+                reply = QMessageBox.warning(self, "Validation error!", msg, QMessageBox.Yes | QMessageBox.Cancel)
+
+                if reply == QMessageBox.Cancel:
+                    return False
+
+                self.run()
+            else:
+                return True
 
     def call_standalone_dialog(self):
         path = QFileDialog.getOpenFileName(self, "Select configuration or specification file",
@@ -734,44 +750,23 @@ class ConfigDialog(QtWidgets.QDialog):
         cfg = config.ConfigManager()
         try:
             cfg.load_from_file(path)
-        except ValueError:  # When file do not exist or not validated
+        except ValueError as error:  # When file do not exist or not validated properly
+            QMessageBox.warning(self, "Error while opening file!",
+                                "Config cannot be opened or validated: {}".format(error))
             return False
 
         self.setupModel(cfg.full_dict, convert_types=(not cfg.validated))
 
-        self.show()
-        self.exec()
-
-        save = ui.result()
-        if not save:
+        self.run()
+        if not self.result():
             return False
 
         filename = cfg.config.filename
-        valid_path = path if cfg.config.filename is None else cfg.config.filename
-        valid_path = valid_path if cfg.validated else None
+        validation_path = path if cfg.config.filename is None else cfg.config.filename
+        validation_path = validation_path if cfg.validated else None
 
-        while True:
-            try:
-                cfg.load_from_dict(ui.model.to_config_dict(), path=valid_path)
-            except config.ValidationError as error:
-                dialog = QMessageBox()
-                dialog.setIcon(QMessageBox.Critical)
-                dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-                dialog.setDefaultButton(QMessageBox.Yes)
-                dialog.setEscapeButton(QMessageBox.Cancel)
-                dialog.setWindowTitle("Validation error!")
-                msg = "\n".join(error.flatten_errors())
-                dialog.setText("Can not validate. Proceed with editing? Errors: \n" + msg)
-                dialog.setDetailedText(msg)
-                reply = dialog.exec()
-
-                if reply == QMessageBox.Cancel:
-                    return False
-
-                self.show()
-                self.exec()
-            else:
-                break
+        if not self._validate_loop(cfg, validation_path) or not self.result():
+            return False
 
         if filename is None:
             save_path = QFileDialog.getSaveFileName(self, "Save configuration file",
