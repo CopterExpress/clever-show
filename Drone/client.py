@@ -204,16 +204,21 @@ def _command_config_write(*args, **kwargs):
     mode = kwargs.get("mode", "modify")
     # exceptions would be risen in case of incorrect config
     if mode == "rewrite":
-        active_client.config.load_from_dict(kwargs["config"], path=active_client.config_path)  # with validation
+        active_client.config.load_from_dict(kwargs["config"], configspec=active_client.config_path)  # with validation
     elif mode == "modify":
         new_config = ConfigManager()
         new_config.load_from_dict(kwargs["config"])
         active_client.config.merge(new_config, validate=True)
 
     active_client.config.write()
-    active_client.load_config()
     logger.info("Config successfully updated from command")
+    active_client.load_config()
 
+@messaging.request_callback("config")
+def _response_config(*args, **kwargs):
+    response = {"config": active_client.config.fulldict,
+                "configspec": dict(active_client.config.configspec)}
+    return response
 
 @messaging.request_callback("id")
 def _response_id(*args, **kwargs):
