@@ -66,14 +66,11 @@ class ConfigManager:
             current = current[key]
         return current
 
-    def set_chain(self, value, *keys, write=False):  # will  create new sections!
+    def set_chain(self, value, *keys):  # will  create new sections!
         current = self.config
         for key in keys[:-1]:
             current = current.setdefault(key, {})
         current[keys[-1]] = value
-
-        if write:
-            self.write()
 
     def write(self):
         self.config.write()
