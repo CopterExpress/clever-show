@@ -50,6 +50,8 @@ class ConfigManager:
         self.config = ConfigObj() if config is None else config
         self.validated = False
 
+        self._name_dict = {}
+
     def get(self, section, option):
         return self.config[section][option]
 
@@ -58,11 +60,27 @@ class ConfigManager:
         if write:
             self.write()
 
+    def get_chain(self, *keys):
+        current = self.config
+        for key in keys:
+            current = current[key]
+        return current
+
+    def set_chain(self, value, *keys, write=False):  # will  create new sections!
+        current = self.config
+        for key in keys[:-1]:
+            current = current.setdefault(key, {})
+        current[keys[-1]] = value
+
+        if write:
+            self.write()
+
     def write(self):
         self.config.write()
 
     def set_config(self, config):
         self.config = config
+        self._name_dict = self.flatten_keys(config)
         self.validated = False
 
     def validate_config(self, config=None, copy_defaults=False):
@@ -73,7 +91,7 @@ class ConfigManager:
         if test != True:  # Important syntax, do no change
             raise ValidationError('Some config values are wrong', config, test)
 
-        self.config = config
+        self.set_config(config)
         self.validated = True
 
     @classmethod
@@ -111,17 +129,30 @@ class ConfigManager:
         d['final_comment'] = self.config.final_comment
         return d
 
+    @classmethod
+    def flatten_keys(cls, d, parent_keys=(), sep='_'):
+        items = {}
+        for key, value in d.items():
+            keys = parent_keys + (key,)
+            if isinstance(value, dict):
+                items.update(cls.flatten_keys(value, keys, sep=sep))
+            else:
+                formatted_keys = [key.lower().strip().replace(' ', sep) for key in keys]
+                formatted_key = sep.join(formatted_keys)
+                items.update({formatted_key: keys})
+        return dict(items)
+
     def __getattr__(self, item):
         try:
-            section, option = item.split('_', 1)
-            return self.config[section.upper()][option.lower()]
+            keys = self.__dict__['_name_dict'][item]
+            return self.get_chain(*keys)
         except (ValueError, KeyError):
             return self.__dict__[item]
 
     def __setattr__(self, key, value):
         try:
-            section, option = key.split('_', 1)
-            self.config[section.upper()][option.lower()] = value
+            keys = self.__dict__['_name_dict'][key]
+            self.set_chain(value, *keys)
         except (ValueError, KeyError):
             self.__dict__[key] = value
 
@@ -273,8 +304,9 @@ if __name__ == '__main__':
     # #print(cfg.server_host)
     # cfg.server_host = '192.168.1.103'
     #
-    # #print(cfg.get('SERVER', 'host'))
+    # print(cfg.get('SERVER', 'host'))
     # cfg.set('SERVER', 'host', '192.168.1.103')
+    # print(cfg.get('SERVER', 'host'))
     #
     # print(cfg.config.initial_comment, cfg.config.final_comment)
     #
@@ -288,9 +320,10 @@ if __name__ == '__main__':
     cfg2 = ConfigManager()
     cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, path='Drone/config/spec/configspec_client.ini')
     #cfg2.load_from_dict({"PRIVATE": {"id": 123132}})
-    pprint.pprint(cfg2.full_dict)
+    #pprint.pprint(cfg2.full_dict)
     cfg.merge(cfg2)
-    pprint.pprint(cfg.full_dict)
+    #pprint.pprint(cfg.full_dict)
+    print(cfg.config)
 
     # #print(cfg.full_dict)
     #
