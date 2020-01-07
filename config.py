@@ -265,10 +265,11 @@ class ConfigManager:
         if isinstance(configspec, dict):
             kwargs.update({'configspec': configspec})
         elif isinstance(configspec, str):
-            if not self._config_exists(configspec):
-                configspec = self._get_spec_path(configspec)
-            if self._config_exists(configspec):
-                kwargs.update({'configspec': configspec})
+            spec_path = self._get_spec_path(configspec)  # check for /spec, then for config
+            if not self._config_exists(spec_path):
+                spec_path = configspec
+            if self._config_exists(spec_path):
+                kwargs.update({'configspec': spec_path})
 
         config = ConfigObj(**kwargs)
         config.filename = configspec if isinstance(configspec, str) else None
@@ -321,7 +322,7 @@ if __name__ == '__main__':
     #pprint.pprint(cfg2.full_dict)
     cfg.merge(cfg2)
     #pprint.pprint(cfg.full_dict)
-    print(cfg.config)
+    print(cfg.full_dict)
     print(dict(cfg.config.configspec))
     #print(dict(ConfigManager(cfg.config.configspec).config))
 
