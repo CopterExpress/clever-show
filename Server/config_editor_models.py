@@ -746,6 +746,19 @@ class ConfigDialog(QtWidgets.QDialog):
             else:
                 return True
 
+    def call_copter_dialog(self, client, value):
+        config_dict, spec_dict = value["config"], value["configspec"]
+        cfg = config.ConfigManager()
+        cfg.load_from_dict(config_dict, spec_dict)
+
+        self.setupModel(config_dict)
+        if not self.validation_loop(cfg, spec_dict):
+            return False
+
+        edited_dict = self.model.to_config_dict()
+        client.send_message("config", {"config": edited_dict, "mode": "rewrite"})
+        return True
+
     def call_standalone_dialog(self):
         path = QFileDialog.getOpenFileName(self, "Select configuration or specification file",
                                            filter="Config and spec files (*.ini)")[0]

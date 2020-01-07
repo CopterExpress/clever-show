@@ -1,3 +1,5 @@
+from functools import partial
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt as Qt
 from PyQt5.QtCore import pyqtSlot
@@ -5,13 +7,17 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QTableView, QMessageBox, QMenu, QAction, QWidgetAction, QListWidget, \
     QAbstractItemView, QListWidgetItem
 
+from config_editor_models import ConfigDialog
 import copter_table_models as table
 
 
 class CopterTableWidget(QTableView):
-    def __init__(self, model, data_model=table.StatedCopterData):
+    config_dialog_signal = QtCore.pyqtSignal(object, object)
+
+    def __init__(self, model, window, data_model=table.StatedCopterData):
         QTableView.__init__(self)
 
+        self._window = window
         self.model = model
         self._data_model = data_model
 
@@ -29,6 +35,10 @@ class CopterTableWidget(QTableView):
         header.setContextMenuPolicy(Qt.CustomContextMenu)
         header.customContextMenuRequested.connect(self.showHeaderMenu)
 
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.open_menu)
+
+        self.signal_connection = None
         # self.horizontalHeader().contextMenuEvent = self.headercontextMenuEvent
 
         # Adjust properties
@@ -74,11 +84,30 @@ class CopterTableWidget(QTableView):
         menu.addAction(action)
         menu.exec_(QCursor.pos())
 
-    def contextMenuEvent(self, event):
+    @pyqtSlot(QtCore.QPoint)
+    def open_menu(self, point):
         menu = QMenu(self)
+        index = self.indexAt(point)
+        item = self.model.get_row_data(index)
+        # print(item, index.row(), index.column())
 
-        menu.addAction("action")
-        # menu.exec_(QCursor.pos())
+        edit_config = QAction("Edit config")
+        edit_config.triggered.connect(partial(self.edit_config, item))
+        menu.addAction(edit_config)
+
+        if item is None:
+            edit_config.setDisabled(True)
+
+        menu.exec_(QCursor.pos())
+
+    @pyqtSlot()
+    def edit_config(self, copter):
+        if self.signal_connection is not None:
+            self.config_dialog_signal.disconnect(self.signal_connection)
+
+        call = ConfigDialog(self._window).call_copter_dialog
+        self.signal_connection = self.config_dialog_signal.connect(call)
+        copter.client.get_response("config", self.config_dialog_signal.emit)
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
     #     shortened = []

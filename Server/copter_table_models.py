@@ -422,6 +422,17 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         contents = contents or self.data_contents
         return filter(calibration_ready_check, contents)
 
+    def get_row_data(self, index):
+        row = index.row()
+        if row == -1:
+            return None
+        try:
+            data = self.data_contents[row]
+        except IndexError:
+            return None
+        else:
+            return data
+
     def get_row_index(self, row_data):
         try:
             index = self.data_contents.index(row_data)
