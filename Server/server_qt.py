@@ -27,6 +27,7 @@ import config as cfg
 import copter_table_models as table
 from copter_table import CopterTableWidget
 from visual_land_dialog import VisualLandDialog
+from config_editor_models import ConfigDialog
 
 
 def multi_glob(*patterns):
@@ -90,6 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.setStatusBar(self.statusBar)
         # self.statusBar.showMessage("Hey", 2000)
 
+        self.register_callbacks()
         self.player = QtMultimedia.QMediaPlayer()
 
     def init_ui(self):
@@ -148,7 +150,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.horizontalLayout.removeWidget(self.ui.tableView)
         self.ui.tableView.close()
         # Init our custom widget
-        self.ui.copter_table = CopterTableWidget(self.model)
+        self.ui.copter_table = CopterTableWidget(self.model, self)
         self.ui.copter_table.setObjectName("copter_table")
         # Insert to layout at right
         self.ui.horizontalLayout.insertWidget(0, self.ui.copter_table, 0)
@@ -507,11 +509,10 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = VisualLandDialog(self.model)
         dialog.start()
 
-
-@messaging.message_callback("telemetry")
-def get_telem_data(self, **kwargs):
-    message = kwargs.get("value")
-    window.update_table_data(self, message)
+    def register_callbacks(self):
+        @messaging.message_callback("telemetry")
+        def get_telem_data(client, value, **kwargs):
+            self.update_table_data(client, value)
 
 
 def except_hook(cls, exception, traceback):
