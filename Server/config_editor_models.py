@@ -1,10 +1,11 @@
 import pickle
+import logging
 from ast import literal_eval
 from functools import partial
 from copy import deepcopy
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt as Qt
+from PyQt5.QtCore import Qt as Qt, pyqtSlot
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog, QFileDialog
 
@@ -685,8 +686,8 @@ class ConfigTreeWidget(QTreeView):
 
 
 class ConfigDialog(QtWidgets.QDialog):
-    def __init__(self):
-        super(ConfigDialog, self).__init__()
+    def __init__(self, parent=None):
+        super(ConfigDialog, self).__init__(parent)
         self.ui = config_editor.Ui_config_dialog()
         self.model = ConfigModel(widget=self)
         self.setupUi()
@@ -722,14 +723,19 @@ class ConfigDialog(QtWidgets.QDialog):
                                       )
         return reply == QMessageBox.Yes
 
+    @pyqtSlot()
     def run(self):
         self.show()
         self.exec()
+        return self.result()
 
-    def _validate_loop(self, cfg, configspec=None):  # modifies cfg object
+    def validation_loop(self, cfg, configspec=None):  # modifies cfg object
         while True:
+            if not self.run():
+                return False
+
             try:
-                cfg.load_from_dict(ui.model.to_config_dict(), configspec=configspec)
+                cfg.load_from_dict(self.model.to_config_dict(), configspec=configspec)
             except config.ValidationError as error:
                 msg = "Can not validate. Proceed with editing? Errors: \n" + "\n".join(error.flatten_errors())
                 reply = QMessageBox.warning(self, "Validation error!", msg, QMessageBox.Yes | QMessageBox.Cancel)
@@ -737,7 +743,6 @@ class ConfigDialog(QtWidgets.QDialog):
                 if reply == QMessageBox.Cancel:
                     return False
 
-                self.run()
             else:
                 return True
 
@@ -757,15 +762,11 @@ class ConfigDialog(QtWidgets.QDialog):
 
         self.setupModel(cfg.full_dict, convert_types=(not cfg.validated))
 
-        self.run()
-        if not self.result():
-            return False
-
         filename = cfg.config.filename
         validation_path = path if cfg.config.filename is None else cfg.config.filename
         validation_path = validation_path if cfg.validated else None
 
-        if not self._validate_loop(cfg, validation_path) or not self.result():
+        if not self.validation_loop(cfg, validation_path):
             return False
 
         if filename is None:
