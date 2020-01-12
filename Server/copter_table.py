@@ -32,19 +32,18 @@ class CopterTableWidget(QTableView):
         self.setModel(self.proxy_model)
 
         self.columns = [header.strip() for header in self.model.headers]
-        self.current_columns = deepcopy(self.columns)
+        self.current_columns = self.columns[:]
 
         header = self.horizontalHeader()
-        header.sectionMoved.connect(self.moved)
         header.setSectionsMovable(True)
+        header.sectionMoved.connect(self.moved)
         header.setContextMenuPolicy(Qt.CustomContextMenu)
         header.customContextMenuRequested.connect(self.showHeaderMenu)
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_menu)
 
-        self.signal_connection = None
-        # self.horizontalHeader().contextMenuEvent = self.headercontextMenuEvent
+        self._signal_connection = None
 
         # Adjust properties
         self.resizeColumnsToContents()
@@ -52,9 +51,17 @@ class CopterTableWidget(QTableView):
         self.doubleClicked.connect(self.on_double_click)
 
     def moved(self, logical_index, old_index, new_index):
-        # print(logical_index, old_index, new_index)
         name = self.current_columns.pop(old_index)
         self.current_columns.insert(new_index, name)
+
+    def load_column_order(self, order):
+        if set(order) != set(self.current_columns):
+            raise ValueError
+
+        for index_to, item in enumerate(order):
+            index_from = self.current_columns.index(item)
+            if index_to != index_from:
+                self.horizontalHeader().moveSection(index_from, index_to)
 
     # Some fancy wrappers to simplify syntax
     def add_client(self, **kwargs):
@@ -86,7 +93,7 @@ class CopterTableWidget(QTableView):
     def showHeaderMenu(self, event):
         menu = QMenu(self)
         header_view = HeaderListWidget(menu, self)
-        header_view.setFixedHeight((header_view.geometry().height()-2) * len(header_view.original_names))
+        header_view.setFixedHeight((header_view.geometry().height()-2) * len(header_view.columns))
         #box.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         action = QWidgetAction(menu)
         action.setDefaultWidget(header_view)
@@ -111,11 +118,11 @@ class CopterTableWidget(QTableView):
 
     @pyqtSlot()
     def edit_config(self, copter):
-        if self.signal_connection is not None:
-            self.config_dialog_signal.disconnect(self.signal_connection)
+        if self._signal_connection is not None:
+            self.config_dialog_signal.disconnect(self._signal_connection)
 
         call = ConfigDialog(self._window).call_copter_dialog
-        self.signal_connection = self.config_dialog_signal.connect(call)
+        self._signal_connection = self.config_dialog_signal.connect(call)
         copter.client.get_response("config", self.config_dialog_signal.emit)
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
@@ -135,17 +142,13 @@ class HeaderListWidget(QListWidget):
         self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
 
-        self.names = source.current_columns
-        self.original_names = source.columns  # list(deepcopy(parent.names))#list(self.get_names())
+        self.current_columns = source.current_columns
+        self.columns = source.columns
         self.populate_items()
         self.itemChanged.connect(self.on_itemChanged)
 
-    # def get_names(self):
-    #     for column in range(self.source_model.columnCount()):
-    #         yield self.source_model.headerData(column, Qt.Horizontal).strip()
-
     def populate_items(self):
-        for column, name in enumerate(self.names):
+        for column, name in enumerate(self.current_columns):
             hidden = self.source_widget.isColumnHidden(column)
             flags = Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
             state = Qt.Unchecked if hidden else Qt.Checked
@@ -156,18 +159,9 @@ class HeaderListWidget(QListWidget):
 
     def dropEvent(self, event: QtGui.QDropEvent):
         super().dropEvent(event)
-
-        old_names = self.names[:]
-        print(old_names)
-        names = [self.item(i).text() for i in range(self.count())]
-        #print(names)
-        self.names[:] = names  # don't breaking the link
-        print(self.source_widget.current_columns)
-
-        # print(self.indexAt(event.pos()).row())
-        #event.accept()
-
+        column_order = [self.item(i).text() for i in range(self.count())]
+        self.source_widget.load_column_order(column_order)
 
     @pyqtSlot(QListWidgetItem)
     def on_itemChanged(self, item):
-        self.source_widget.setColumnHidden(self.original_names.index(item.text()), not bool(item.checkState()))
+        self.source_widget.setColumnHidden(self.columns.index(item.text()), not bool(item.checkState()))
