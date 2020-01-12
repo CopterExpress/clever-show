@@ -1,4 +1,5 @@
 from functools import partial
+from copy import deepcopy
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt as Qt
@@ -30,7 +31,11 @@ class CopterTableWidget(QTableView):
         # Initiate table and table self.model
         self.setModel(self.proxy_model)
 
+        self.columns = [header.strip() for header in self.model.headers]
+        self.current_columns = deepcopy(self.columns)
+
         header = self.horizontalHeader()
+        header.sectionMoved.connect(self.moved)
         header.setSectionsMovable(True)
         header.setContextMenuPolicy(Qt.CustomContextMenu)
         header.customContextMenuRequested.connect(self.showHeaderMenu)
@@ -46,8 +51,12 @@ class CopterTableWidget(QTableView):
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.doubleClicked.connect(self.on_double_click)
 
-    # Some fancy wrappers to simplify syntax
+    def moved(self, logical_index, old_index, new_index):
+        # print(logical_index, old_index, new_index)
+        name = self.current_columns.pop(old_index)
+        self.current_columns.insert(new_index, name)
 
+    # Some fancy wrappers to simplify syntax
     def add_client(self, **kwargs):
         self.signals.add_client_signal.emit(self._data_model(**kwargs))
 
@@ -77,7 +86,7 @@ class CopterTableWidget(QTableView):
     def showHeaderMenu(self, event):
         menu = QMenu(self)
         header_view = HeaderListWidget(menu, self)
-        header_view.setFixedHeight((header_view.geometry().height()-6)*len(header_view.names))
+        header_view.setFixedHeight((header_view.geometry().height()-2) * len(header_view.original_names))
         #box.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         action = QWidgetAction(menu)
         action.setDefaultWidget(header_view)
@@ -126,13 +135,14 @@ class HeaderListWidget(QListWidget):
         self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
 
-        self.names = list(self.get_names())
+        self.names = source.current_columns
+        self.original_names = source.columns  # list(deepcopy(parent.names))#list(self.get_names())
         self.populate_items()
         self.itemChanged.connect(self.on_itemChanged)
 
-    def get_names(self):
-        for column in range(self.source_model.columnCount()):
-            yield self.source_model.headerData(column, Qt.Horizontal).strip()
+    # def get_names(self):
+    #     for column in range(self.source_model.columnCount()):
+    #         yield self.source_model.headerData(column, Qt.Horizontal).strip()
 
     def populate_items(self):
         for column, name in enumerate(self.names):
@@ -144,6 +154,20 @@ class HeaderListWidget(QListWidget):
             item.setFlags(flags)
             item.setCheckState(state)
 
+    def dropEvent(self, event: QtGui.QDropEvent):
+        super().dropEvent(event)
+
+        old_names = self.names[:]
+        print(old_names)
+        names = [self.item(i).text() for i in range(self.count())]
+        #print(names)
+        self.names[:] = names  # don't breaking the link
+        print(self.source_widget.current_columns)
+
+        # print(self.indexAt(event.pos()).row())
+        #event.accept()
+
+
     @pyqtSlot(QListWidgetItem)
     def on_itemChanged(self, item):
-        self.source_widget.setColumnHidden(self.names.index(item.text()), not bool(item.checkState()))
+        self.source_widget.setColumnHidden(self.original_names.index(item.text()), not bool(item.checkState()))
