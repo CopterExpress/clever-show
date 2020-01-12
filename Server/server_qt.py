@@ -150,7 +150,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.horizontalLayout.removeWidget(self.ui.tableView)
         self.ui.tableView.close()
         # Init our custom widget
-        self.ui.copter_table = CopterTableWidget(self.model, self)
+        self.ui.copter_table = CopterTableWidget(self.model)
         self.ui.copter_table.setObjectName("copter_table")
         # Insert to layout at right
         self.ui.horizontalLayout.insertWidget(0, self.ui.copter_table, 0)

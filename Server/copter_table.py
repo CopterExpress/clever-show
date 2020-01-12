@@ -15,10 +15,9 @@ import copter_table_models as table
 class CopterTableWidget(QTableView):
     config_dialog_signal = QtCore.pyqtSignal(object, object)
 
-    def __init__(self, model, window, data_model=table.StatedCopterData):
+    def __init__(self, model, data_model=table.StatedCopterData):
         QTableView.__init__(self)
 
-        self._window = window
         self.model = model
         self._data_model = data_model
 
@@ -54,7 +53,7 @@ class CopterTableWidget(QTableView):
         name = self.current_columns.pop(old_index)
         self.current_columns.insert(new_index, name)
 
-    def load_column_order(self, order):
+    def set_column_order(self, order):
         if set(order) != set(self.current_columns):
             raise ValueError
 
@@ -121,7 +120,7 @@ class CopterTableWidget(QTableView):
         if self._signal_connection is not None:
             self.config_dialog_signal.disconnect(self._signal_connection)
 
-        call = ConfigDialog(self._window).call_copter_dialog
+        call = ConfigDialog().call_copter_dialog
         self._signal_connection = self.config_dialog_signal.connect(call)
         copter.client.get_response("config", self.config_dialog_signal.emit)
 
@@ -160,7 +159,7 @@ class HeaderListWidget(QListWidget):
     def dropEvent(self, event: QtGui.QDropEvent):
         super().dropEvent(event)
         column_order = [self.item(i).text() for i in range(self.count())]
-        self.source_widget.load_column_order(column_order)
+        self.source_widget.set_column_order(column_order)
 
     @pyqtSlot(QListWidgetItem)
     def on_itemChanged(self, item):
