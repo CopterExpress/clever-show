@@ -374,8 +374,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'sensors', 
-                        '  mode  ', ' checks ', 'current x y z yaw frame_id', '    start x y z    ', 'dt')
+        self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '     system     ', ' sensors ', 
+                        '     mode     ', ' checks ', ' current x y z yaw frame_id ', '    start x y z    ', ' dt ')
         self.data_contents = []
 
         self.checks = checks
