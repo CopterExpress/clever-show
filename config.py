@@ -218,6 +218,7 @@ class ConfigManager:
         config = ConfigObj(configspec=cls._get_spec_path(cfg_path))
         config.filename = cfg_path
         config.validate(vdt, copy=True)
+        config.indent_type = ''
         config.initial_comment = ('This is generated config with default values',
                                   'Modify to configure')
         config.write()
