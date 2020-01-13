@@ -17,6 +17,7 @@ __pycache__/
 
 # Development
 images/
+show-env/
 Server/tests.py
 Server/convert_ui.sh
 Server/server_logs
