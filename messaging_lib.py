@@ -506,7 +506,6 @@ class NotifierSock(Singleton):
         self._send_lock = threading.Lock()
 
         self._receiving_sock = None
-        self._selector = None
 
     def init(self, selector, port=26000):
         port += random.randint(0, 100)  # local testing fix
@@ -518,7 +517,6 @@ class NotifierSock(Singleton):
         logger.info("Notify socket: connected")
 
         selector.register(self._receiving_sock, selectors.EVENT_READ, data=self)
-        self._selector = selector
         logger.info("Notify socket: selector registered")
 
     def get_sock(self):
@@ -543,7 +541,6 @@ class NotifierSock(Singleton):
 
     def close(self):
         try:
-            self._selector.unregister(self._receiving_sock)
             self._server_socket.close()
             self._sending_sock.close()
             self._receiving_sock.close()
