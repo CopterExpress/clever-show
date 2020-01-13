@@ -30,10 +30,12 @@ class CopterTableWidget(QTableView):
         # Initiate table and table self.model
         self.setModel(self.proxy_model)
 
-        self.columns = [header.strip() for header in self.model.headers]
+        self.columns = [header.strip() for header in self.model.headers]  # header keys
         self.current_columns = self.columns[:]
 
         header = self.horizontalHeader()
+        header.setCascadingSectionResizes(False)
+        header.setStretchLastSection(True)
         header.setSectionsMovable(True)
         header.sectionMoved.connect(self.moved)
         header.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -45,6 +47,7 @@ class CopterTableWidget(QTableView):
         self._signal_connection = None
 
         # Adjust properties
+        self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
         self.resizeColumnsToContents()
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.doubleClicked.connect(self.on_double_click)
