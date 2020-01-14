@@ -53,7 +53,7 @@ def get_id(filepath="animation.csv"):
                 logger.debug("No animation id in file")
     return anim_id
 
-def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1):
+def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1, z_ratio=1):
     try:
         animation_file = open(filepath)
     except IOError:
