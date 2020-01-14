@@ -188,11 +188,25 @@ def check_time_delta(item):
     return abs(item) < ModelChecks.time_delta_max
 
 
+columns_names = {'copter_id': 'copter ID',
+                 'git_ver': 'version',
+                 'animation_id': ' animation ID ',
+                 'battery': '  battery  ',
+                 'system_status': '  system  ',
+                 'calibration_status': 'sensors',
+                 'mode': '  mode  ',
+                 'selfcheck': ' checks ',
+                 'current_position': 'current x y z yaw frame_id',
+                 'start_position': '    start x y z     ',
+                 'time_delta': 'dt'
+                 }
+
+
 class CopterData:
-    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('anim_id', None),
-                                                    ('battery', None), ('sys_status', None), ('cal_status', None),
-                                                    ('mode', None), ('selfcheck', None), ('position', None),
-                                                    ('start_pos', None), ('time_delta', None), ('client', None)])
+    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('animation_id', None),
+                                                    ('battery', None), ('system_status', None), ('calibration_status', None),
+                                                    ('mode', None), ('selfcheck', None), ('current_position', None),
+                                                    ('start_position', None), ('time_delta', None), ('client', None)])
 
     def __init__(self, **kwargs):
         self.attrs_dict = self.class_basic_attrs.copy()
@@ -214,7 +228,7 @@ class StatedCopterData(CopterData):
 
     def __init__(self, checks_class=ModelChecks, **kwargs):
         self.states = CopterData(**self.class_basic_states)
-        self.checks = ModelChecks
+        self.checks = checks_class
 
         super(StatedCopterData, self).__init__(**kwargs)
 
@@ -225,10 +239,10 @@ class StatedCopterData(CopterData):
             try:
                 self.states.__dict__[key] = \
                     ModelChecks.checks_dict[self.attrs_dict.keys().index(key)](value)
-                if key == 'start_pos':
-                    if (self.__dict__['position'] is not None) and (self.__dict__['start_pos'] is not None):
+                if key == 'start_position':
+                    if (self.__dict__['position'] is not None) and (self.__dict__['start_position'] is not None):
                         current_pos = get_position(self.__dict__['position'])                   
-                        start_pos = get_position(self.__dict__['start_pos'])
+                        start_pos = get_position(self.__dict__['start_position'])
                         delta = get_position_delta(current_pos, start_pos)
                         if delta != 'NO_POS':
                             self.states.__dict__[key] = (delta < ModelChecks.start_pos_delta_max)
@@ -374,8 +388,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        self.headers = ('copter ID', 'version', ' animation ID ', '  battery  ', '  system  ', 'sensors', 
-                        '  mode  ', ' checks ', 'current x y z yaw frame_id', '    start x y z    ', 'dt')
+        self.headers = list(columns_names.values())
         self.data_contents = []
 
         self.checks = checks
@@ -520,6 +533,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             if col == 0:
                 self.data_contents[row].client.send_message("id", {"new_id": formatted_value})
                 self.data_contents[row].client.remove()  # TODO change
+                self.remove_row(row)
 
         elif role == ModelDataRole:  # For inner setting\editing of data
             self.data_contents[row][col] = value
