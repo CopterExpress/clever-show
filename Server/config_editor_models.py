@@ -699,6 +699,8 @@ class ConfigDialog(QtWidgets.QDialog):
             self.model.config_dict_setup(data, convert_types=convert_types)
 
         self.ui.config_view.expandAll()
+        self.ui.config_view.resizeColumnToContents(0)
+        self.ui.config_view.resizeColumnToContents(1)
 
     def setupUi(self):
         self.ui.setupUi(self)
