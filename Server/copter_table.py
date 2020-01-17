@@ -1,5 +1,6 @@
 from functools import partial
 from copy import deepcopy
+import logging
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt as Qt
@@ -44,7 +45,7 @@ class CopterTableWidget(QTableView):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_menu)
 
-        self._signal_connection = None
+        self.config_dialog_signal.connect(lambda x: x)
 
         # Adjust properties
         self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
@@ -120,12 +121,14 @@ class CopterTableWidget(QTableView):
 
     @pyqtSlot()
     def edit_config(self, copter):
-        if self._signal_connection is not None:
-            self.config_dialog_signal.disconnect(self._signal_connection)
-
-        call = ConfigDialog().call_copter_dialog
-        self._signal_connection = self.config_dialog_signal.connect(call)
-        copter.client.get_response("config", self.config_dialog_signal.emit)
+        try:
+            self.config_dialog_signal.disconnect()
+        except (TypeError, RuntimeError) as error:
+            logging.error(f"Disconnection of signal failed: {error}")
+        else:
+            call = ConfigDialog().call_copter_dialog
+            self.config_dialog_signal.connect(call)
+            copter.client.get_response("config", self.config_dialog_signal.emit)
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
     #     shortened = []
