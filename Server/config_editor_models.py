@@ -5,7 +5,7 @@ from functools import partial
 from copy import deepcopy
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt as Qt, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog, QFileDialog
 
@@ -23,8 +23,8 @@ import config
 
 states_colors = {
     'normal': Qt.white,
-    'unchanged': Qt.darkGray,
-    'default': Qt.lightGray,
+    'unchanged': Qt.blue,
+    'default': Qt.cyan,
     'edited': Qt.yellow,
     'added': Qt.green,
     'deleted': Qt.red,
