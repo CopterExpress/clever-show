@@ -690,12 +690,13 @@ class Telemetry:
         "animation_id": None,
         "battery": None,
         "armed": False,
-        "system_status": None,
-        "calibration_status": None,
+        "fcu_status": None,
+        "cal_status": None,
         "mode": None,
         "selfcheck": None,
         "current_position": None,
         "start_position": None,
+        "task": None,
         "time": None,
     }
 
@@ -779,6 +780,7 @@ class Telemetry:
 
     def update_telemetry_fast(self):
         self.start_position = self.get_start_position()
+        self.task = task_manager.get_current_task()
         try:
             self.ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
             if self.ros_telemetry.connected:
@@ -802,8 +804,8 @@ class Telemetry:
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
         try:
-            self.calibration_status = get_calibration_status()
-            self.system_status = get_sys_status()
+            self.cal_status = get_calibration_status()
+            self.fcu_status = get_sys_status()
             self.battery = self.get_battery(self.ros_telemetry)
         except rospy.ServiceException:
             rospy.logdebug("Some service is unavailable")
@@ -825,8 +827,8 @@ class Telemetry:
 
     def reset_telemetry_values(self):
         self.battery = float('nan'), float('nan')
-        self.calibration_status = 'NO_FCU'
-        self.system_status = 'NO_FCU'
+        self.cal_status = 'NO_FCU'
+        self.fcu_status = 'NO_FCU'
         self.mode = 'NO_FCU'
         self.selfcheck = ['NO_FCU']
         self.current_position = 'NO_POS'
@@ -900,15 +902,14 @@ class Telemetry:
             if client.active_client.config.telemetry_transmit and client.active_client.connected:
                 self.transmit_message()
 
-            if client.active_client.config.telemetry_log_resources:
-                self.log_cpu_and_memory()
-
             rate.sleep()
 
     def _slow_update_loop(self):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown():
             self.update_telemetry_slow()
+            if client.active_client.config.telemetry_log_resources:
+                self.log_cpu_and_memory()
             rate.sleep()
 
     def start_loop(self):
