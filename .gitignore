@@ -1,13 +1,14 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
 *$py.class
 
 # Logs
 *.log
+
+# Config files
+Drone/config/client.ini
+Server/config/server.ini
 
 # IDE
 .mypy_cache/
@@ -18,6 +19,8 @@ __pycache__/
 # Development
 images/
 show-env/
+builder/clever-config
+
 Server/tests.py
 Server/convert_ui.sh
 Server/config/server.ini
@@ -32,10 +35,3 @@ Drone/client_logs
 Drone/config/client.ini
 Drone/_copter_client_old_\.py
 Drone/test_cl\.py
-
-images/
-.vscode/
-\.idea/
-builder/clever-config
-
-
