@@ -96,94 +96,11 @@ def check_pos_status(item):
 def check_start_pos_status(item):
     return item != 'NO_POS'
 
-
 @ModelChecks.col_check(10)
-def check_time_delta(item):
-    return abs(item) < ModelChecks.time_delta_max
-
-
-class ModelChecks:
-    checks_dict = {}
-    takeoff_checklist = (3, 4, 6, 7, 8)
-
-    @classmethod
-    def col_check(cls, col):
-        def inner(f):
-            def wrapper(item):
-                if item is not None:
-                    return f(item)
-                return None
-
-            cls.checks_dict[col] = wrapper
-            return wrapper
-
-        return inner
-
-    @classmethod
-    def all_checks(cls, copter_item):
-        for col, check in cls.checks_dict.items():
-            if not check(copter_item[col]):
-                return False
-        return True
-
-    @classmethod
-    def takeoff_checks(cls, copter_item):
-        for col in cls.takeoff_checklist:
-            if not cls.checks_dict[col](copter_item[col]):
-                return False
-        return True
-
-
-@ModelChecks.col_check(1)
-def check_ver(item):
-    return True  # TODO git version!
-
-
-@ModelChecks.col_check(2)
-def check_anim(item):
-    return str(item) != 'No animation'
-
-
-@ModelChecks.col_check(3)
-def check_bat(item):
-    if item == "NO_INFO":
-        return False
-    return item[1]*100 > ModelChecks.battery_min
-
-
-@ModelChecks.col_check(4)
-def check_sys_status(item):
-    return item == "STANDBY"
-
-
-@ModelChecks.col_check(5)
-def check_cal_status(item):
-    return item == "OK"
-
-
-@ModelChecks.col_check(6)
-def check_mode(item):
-    return (item != "NO_FCU") and not ("CMODE" in item)
-
-
-@ModelChecks.col_check(7)
 def check_selfcheck(item):
-    return item == "OK"
+    return True
 
-
-@ModelChecks.col_check(8)
-def check_pos_status(item):
-    if item == 'NO_POS':
-        return False
-    return not math.isnan(item[0])
-
-
-@ModelChecks.col_check(9)
-def check_start_pos_status(item):
-    return item != 'NO_POS'
-
-
-@ModelChecks.col_check(10)
+@ModelChecks.col_check(11)
 def check_time_delta(item):
     return abs(item) < ModelChecks.time_delta_max
 
@@ -192,21 +109,22 @@ columns_names = {'copter_id': 'copter ID',
                  'git_ver': 'version',
                  'animation_id': ' animation ID ',
                  'battery': '  battery  ',
-                 'system_status': '  system  ',
-                 'calibration_status': 'sensors',
+                 'fcu_status': 'FCU status',
+                 'cal_status': 'sensors',
                  'mode': '  mode  ',
                  'selfcheck': ' checks ',
                  'current_position': 'current x y z yaw frame_id',
                  'start_position': '    start x y z     ',
+                 'last_task': 'last task',
                  'time_delta': 'dt'
                  }
 
 
 class CopterData:
     class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('animation_id', None),
-                                                    ('battery', None), ('system_status', None), ('calibration_status', None),
+                                                    ('battery', None), ('fcu_status', None), ('cal_status', None),
                                                     ('mode', None), ('selfcheck', None), ('current_position', None),
-                                                    ('start_position', None), ('time_delta', None), ('client', None)])
+                                                    ('start_position', None), ('last_task', None), ('time_delta', None), ('client', None)])
 
     def __init__(self, **kwargs):
         self.attrs_dict = self.class_basic_attrs.copy()
@@ -370,11 +288,16 @@ def view_selfcheck(value):
     return value
 
 @ModelFormatter.col_format(10, ModelFormatter.PLACE_FORMATTER)
+def view_last_task(value):
+    if value is None:
+        return 'No task'
+    return value
+
+@ModelFormatter.col_format(11, ModelFormatter.PLACE_FORMATTER)
 def place_time_delta(value):
-    return abs(value - time.time())
+    return abs(value - time.time())  
 
-
-@ModelFormatter.col_format(10, ModelFormatter.VIEW_FORMATTER)
+@ModelFormatter.col_format(11, ModelFormatter.VIEW_FORMATTER)
 def view_time_delta(value):
     return "{:.3f}".format(value)  
 
@@ -389,8 +312,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
         # self.headers = list(columns_names.values())  #  todo
-        self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '     system     ', ' sensors ', 
-                        '     mode     ', ' checks ', ' current x y z yaw frame_id ', '    start x y z    ', ' dt ')
+        self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '  fcu_status  ', ' sensors ', 
+                        '      mode      ', ' checks ', ' current x y z yaw frame_id ', '    start x y z    ', '       task       ',  ' dt ')
         self.data_contents = []
 
         self.checks = checks

@@ -89,6 +89,21 @@ class TaskManager(object):
 
     def get_last_task_name(self):
         return self._last_task
+    
+    def get_current_task(self):
+        try:
+            start_time, priority, count, task = self.task_queue[0]
+        except IndexError as e:
+            logger.debug("Task queue checking exception: {}".format(e))
+            return "No task"
+        else:
+            if self._running_event.is_set():
+                time_to_start = start_time - time.time()
+                if time_to_start > 0:
+                    return "{} in {:.1f} s".format(task.func.__name__,time_to_start)
+                return task.func.__name__
+            else:
+                return "paused"
 
     def start(self):
         #print("Task manager is started")
@@ -138,7 +153,7 @@ class TaskManager(object):
         with self._task_queue_lock:
             try:
                 start_time, priority, count, task = self.task_queue[0]
-            except Exception as e:
+            except IndexError as e:
                 logger.debug("Task queue checking exception: {}".format(e))
                 self._timeshift = 0.0
                 self._wait_interrupt_event.clear()
@@ -180,7 +195,7 @@ class TaskManager(object):
         if time.time() > start_time:
             try:
                 start_time_n, priority_n, count_n, task_n = self.task_queue[0]
-            except Exception as e:
+            except IndexError as e:
                 logger.warning("Timeout checking exception: {}".format(e))
                 self._timeshift = 0.0
                 self._wait_interrupt_event.clear()
