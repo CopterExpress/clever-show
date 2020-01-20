@@ -220,13 +220,14 @@ class MainWindow(QtWidgets.QMainWindow):
             "git_version": 1,
             "animation_id": 2,
             "battery": 3,
-            "system_status": 4,
-            "calibration_status": 5,
+            "fcu_status": 4,
+            "cal_status": 5,
             "mode": 6,
             "selfcheck": 7,
             "current_position": 8,
             "start_position": 9,
-            "time": 10,
+            "task": 10,
+            "time": 11,
         }
 
         for key, value in telems.items():
