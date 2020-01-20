@@ -34,6 +34,10 @@ def multi_glob(*patterns):
     return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
 
 
+def b_partial(func, *args, **kwargs):  # call argument blocker partial
+    return lambda *a: func(*args, **kwargs)
+
+
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
         @wraps(f)
@@ -100,16 +104,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.clicked.connect(self.send_start_time_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
 
-        self.ui.land_all_button.clicked.connect(partial(Client.broadcast, "land"))
-        self.ui.land_selected_button.clicked.connect(partial(self.send_to_selected, "land"))
-        self.ui.disarm_all_button.clicked.connect(partial(Client.broadcast, "disarm"))
-        self.ui.disarm_selected_button.clicked.connect(partial(self.send_to_selected, "disarm"))
+        self.ui.land_all_button.clicked.connect(b_partial(Client.broadcast, "land"))
+        self.ui.land_selected_button.clicked.connect(b_partial(self.send_to_selected, "land"))
+        self.ui.disarm_all_button.clicked.connect(b_partial(Client.broadcast, "disarm"))
+        self.ui.disarm_selected_button.clicked.connect(b_partial(self.send_to_selected, "disarm"))
         self.ui.visual_land_button.clicked.connect(self.visual_land)
-        self.ui.emergency_land_button.clicked.connect(partial(self.send_to_selected, "emergency_land"))
-        self.ui.leds_button.clicked.connect(partial(self.send_to_selected, "led_test"))
+        self.ui.emergency_land_button.clicked.connect(b_partial(self.send_to_selected, "emergency_land"))
+        self.ui.leds_button.clicked.connect(b_partial(self.send_to_selected, "led_test"))
         self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
         self.ui.flip_button.clicked.connect(self.flip_selected)
-        self.ui.reboot_fcu.clicked.connect(partial(self.send_to_selected, "reboot_fcu"))
+        self.ui.reboot_fcu.clicked.connect(b_partial(self.send_to_selected, "reboot_fcu"))
         self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
         self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
         self.ui.action_remove_row.triggered.connect(self.remove_selected)
@@ -122,16 +126,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_any_file.triggered.connect(self.send_any_file)
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
-            partial(self.send_to_selected, "service_restart", {"name": "clever"}))
+            b_partial(self.send_to_selected, "service_restart", {"name": "clever"}))
         self.ui.action_restart_clever_show.triggered.connect(
-            partial(self.send_to_selected, "service_restart", {"name": "clever-show"}))
-        self.ui.action_update_client_repo.triggered.connect(partial(self.send_to_selected, "update_repo"))
-        self.ui.action_reboot_all.triggered.connect(partial(self.send_to_selected, "reboot_all"))
-        self.ui.action_set_start_to_current_position.triggered.connect(partial(self.send_to_selected, "move_start"))
-        self.ui.action_reset_start.triggered.connect(partial(self.send_to_selected, "reset_start"))
-        self.ui.action_set_z_offset_to_ground.triggered.connect(partial(self.send_to_selected, "set_z_to_ground"))
-        self.ui.action_reset_z_offset.triggered.connect(partial(self.send_to_selected, "reset_z_offset"))
-        self.ui.action_restart_chrony.triggered.connect(partial(self.send_to_selected, "repair_chrony"))
+            b_partial(self.send_to_selected, "service_restart", {"name": "clever-show"}))
+        self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
+        self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
+        self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
+        self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
+        self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
+        self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
+        self.ui.action_restart_chrony.triggered.connect(b_partial(self.send_to_selected, "repair_chrony"))
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
@@ -180,8 +184,8 @@ class MainWindow(QtWidgets.QMainWindow):
             yield f(copter, *args, **kwargs)
 
     @pyqtSlot()
-    def send_to_selected(self, *args, **kwargs):
-        return list(self.iterate_selected(lambda copter: copter.client.send_message(*args, **kwargs)))
+    def send_to_selected(self, command, command_args=None):
+        return list(self.iterate_selected(lambda copter: copter.client.send_message(command, command_args)))
 
     def new_client_connected(self, client: Client):
         logging.debug("Added client {}".format(client))
