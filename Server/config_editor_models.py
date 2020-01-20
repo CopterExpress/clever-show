@@ -759,6 +759,10 @@ class ConfigDialog(QtWidgets.QDialog):
 
         edited_dict = self.model.to_config_dict()
         client.send_message("config", {"config": edited_dict, "mode": "rewrite"})
+
+        if self.ui.do_restart.isChecked():
+            client.send_message("service_restart", {"name": "clever-show"})
+
         return True
 
     def call_standalone_dialog(self):
@@ -776,6 +780,7 @@ class ConfigDialog(QtWidgets.QDialog):
             return False
 
         self.setupModel(cfg.full_dict, convert_types=(not cfg.validated))
+        self.ui.do_restart.setDisabled(True)
 
         filename = cfg.config.filename
         validation_path = path if cfg.config.filename is None else cfg.config.filename
