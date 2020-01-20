@@ -104,9 +104,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.start_button.clicked.connect(self.send_start_time_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
 
-        self.ui.land_all_button.clicked.connect(b_partial(Client.broadcast, "land"))
+        self.ui.land_all_button.clicked.connect(b_partial(Client.broadcast_message, "land"))
         self.ui.land_selected_button.clicked.connect(b_partial(self.send_to_selected, "land"))
-        self.ui.disarm_all_button.clicked.connect(b_partial(Client.broadcast, "disarm"))
+        self.ui.disarm_all_button.clicked.connect(b_partial(Client.broadcast_message, "disarm"))
         self.ui.disarm_selected_button.clicked.connect(b_partial(self.send_to_selected, "disarm"))
         self.ui.visual_land_button.clicked.connect(self.visual_land)
         self.ui.emergency_land_button.clicked.connect(b_partial(self.send_to_selected, "emergency_land"))
