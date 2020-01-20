@@ -6,10 +6,6 @@ __pycache__/
 # Logs
 *.log
 
-# Config files
-Drone/config/client.ini
-Server/config/server.ini
-
 # IDE
 .mypy_cache/
 .vscode/settings.json
