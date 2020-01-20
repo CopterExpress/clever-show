@@ -298,7 +298,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data, table.ModelDataRole)
+            self.ui.copter_table.update_data(row, col, data, table.ModelDataRole)
             # Send request
             client.get_response("calibrate_gyro", self._get_calibration_info)
 
@@ -310,7 +310,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data, table.ModelDataRole)
+            self.ui.copter_table.update_data(row, col, data, table.ModelDataRole)
             # Send request
             client.get_response("calibrate_level", self._get_calibration_info)
 
@@ -320,7 +320,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row = self.model.get_row_index(row_data)
         if row is not None:
             data = str(value)
-            self.signals.update_data_signal.emit(row, col, data, table.ModelDataRole)
+            self.ui.copter_table.update_data(row, col, data, table.ModelDataRole)
 
     def _send_files(self, files, copters=None, client_path="", client_filename="", match_id=False, callback=None):
         if copters is None:
