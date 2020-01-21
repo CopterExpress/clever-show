@@ -158,8 +158,8 @@ class StatedCopterData(CopterData):
                 self.states.__dict__[key] = \
                     ModelChecks.checks_dict[self.attrs_dict.keys().index(key)](value)
                 if key == 'start_position':
-                    if (self.__dict__['position'] is not None) and (self.__dict__['start_position'] is not None):
-                        current_pos = get_position(self.__dict__['position'])                   
+                    if (self.__dict__['current_position'] is not None) and (self.__dict__['start_position'] is not None):
+                        current_pos = get_position(self.__dict__['current_position'])                   
                         start_pos = get_position(self.__dict__['start_position'])
                         delta = get_position_delta(current_pos, start_pos)
                         if delta != 'NO_POS':
@@ -313,7 +313,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         super(CopterDataModel, self).__init__(parent)
         # self.headers = list(columns_names.values())  #  todo
         self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '  fcu_status  ', ' sensors ', 
-                        '       mode       ', ' checks ', ' current x y z yaw frame_id ', '    start x y z    ', '       task       ',  ' dt ')
+                        '       mode       ', ' checks ', ' current x y z yaw frame_id ', '       start x y z       ', '           task           ',  'dt')
         self.data_contents = []
 
         self.checks = checks
