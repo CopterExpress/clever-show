@@ -31,6 +31,8 @@ if not os.path.exists(log_path):
     else:
         print("Successfully created the directory {}".format(log_path))
 
+logger = logging.getLogger(__name__)
+
 ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
 
 
