@@ -1,10 +1,10 @@
 import rospy
+import os
 import sys
 import time
 import math
 import logging
 import threading
-import ConfigParser
 from clever.srv import SetAttitude
 from sensor_msgs.msg import Range
 from mavros_msgs.msg import State, PositionTarget
@@ -13,15 +13,22 @@ from std_msgs.msg import Bool
 from std_srvs.srv import Trigger, TriggerResponse
 from geometry_msgs.msg import PoseStamped
 
-config = ConfigParser.ConfigParser()
-config.read("client_config.ini")
+import inspect  # Add parent dir to PATH to import messaging_lib
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir) 
 
-visual_pose_timeout = config.getfloat('VISUAL_POSE_WATCHDOG', 'timeout')
-pos_delta_max = config.getfloat('VISUAL_POSE_WATCHDOG', 'pos_delta_max')
-timeout_action = config.get('VISUAL_POSE_WATCHDOG', 'action')
-emergency_land_thrust = config.getfloat('VISUAL_POSE_WATCHDOG', 'emergency_land_thrust')
-emergency_land_decrease_thrust_after = config.getfloat('VISUAL_POSE_WATCHDOG', 'emergency_land_decrease_thrust_after')
-timeout_to_disarm = config.getfloat('VISUAL_POSE_WATCHDOG', 'timeout_to_disarm')
+from config import ConfigManager
+
+config = ConfigManager()
+config.load_config_and_spec("config/client.ini")
+
+visual_pose_timeout = config.visual_pose_watchdog_timeout
+pos_delta_max = config.visual_pose_watchdog_pos_delta_max
+timeout_action = config.visual_pose_watchdog_action
+emergency_land_thrust = config.emergency_land_thrust
+emergency_land_decrease_thrust_after = config.emergency_land_decrease_thrust_after
+timeout_to_disarm = config.emergency_land_disarm_timeout
 
 logging.basicConfig(  # TODO all prints as logs
    level=logging.DEBUG, # INFO
