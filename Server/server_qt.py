@@ -439,8 +439,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_fcu_parameters(self):
-        def request_callback(copter, value):
-            logger.info("Send parameters to {} success: {}".format(copter.client.copter_id, value))
+        def request_callback(client, value):
+            logger.info("Send parameters to {} success: {}".format(client.copter_id, value))
 
         def callback(copter):
             copter.client.get_response("load_params", request_callback)
