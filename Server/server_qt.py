@@ -29,23 +29,6 @@ from copter_table import CopterTableWidget
 from visual_land_dialog import VisualLandDialog
 from config_editor_models import ConfigDialog
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
-    handlers=[
-        logging.FileHandler("server_logs/{}.log".format(now)),
-        logging.StreamHandler(sys.stdout)
-    ])
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-handler.setFormatter(formatter)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logger.addHandler(handler)
-
 
 def multi_glob(*patterns):
     return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
@@ -65,10 +48,10 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No
             )
             if reply == QMessageBox.Yes:
-                logger.debug("Dialog accepted")
+                logging.debug("Dialog accepted")
                 return f(*args, **kwargs)
 
-            logger.debug("Dialog declined")
+            logging.debug("Dialog declined")
 
         return wrapper
 
@@ -205,26 +188,26 @@ class MainWindow(QtWidgets.QMainWindow):
         return list(self.iterate_selected(lambda copter: copter.client.send_message(command, command_args)))
 
     def new_client_connected(self, client: Client):
-        logger.debug("Added client {}".format(client))
+        logging.debug("Added client {}".format(client))
         self.ui.copter_table.add_client(copter_id=client.copter_id, client=client)
 
     def client_connection_changed(self, client: Client):
-        logger.debug("Connection {} changed {}".format(client, client.connected))
+        logging.debug("Connection {} changed {}".format(client, client.connected))
         row_data = self.model.get_row_by_attr("client", client)
 
         if row_data is None:
-            logger.error("No row for client presented")
+            logging.error("No row for client presented")
             return
 
         if self.server.config.table_remove_disconnected and (not client.connected):
             client.remove()
             self.ui.copter_table.remove_client_data(row_data)
-            logger.debug("Removing from table")
+            logging.debug("Removing from table")
         else:
             row_num = self.model.get_row_index(row_data)
             if row_num is not None:
                 self.ui.copter_table.update_data(row_num, 0, client.connected, table.ModelStateRole)
-                logger.debug("Client status updated")
+                logging.debug("Client status updated")
 
     @pyqtSlot()
     def selfcheck_selected(self):
@@ -250,7 +233,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for key, value in telems.items():
             col = cols_dict.get(key, None)
             if col is None:
-                logger.error("No column {} present!".format(key))
+                logging.error("No column {} present!".format(key))
                 continue
 
             row_data = self.model.get_row_by_attr("client", client)
@@ -264,18 +247,18 @@ class MainWindow(QtWidgets.QMainWindow):
             copter.client.remove()
             if not self.server.config.table_remove_disconnected:
                 self.ui.copter_table.remove_client_data(copter)
-            logger.info("Client removed from table!")
+            logging.info("Client removed from table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
     def send_start_time_selected(self):
         time_now = server.time_now()
         dt = self.ui.start_delay_spin.value()
-        logger.info('Wait {} seconds to start animation'.format(dt))
+        logging.info('Wait {} seconds to start animation'.format(dt))
         if self.ui.music_checkbox.isChecked():
             music_dt = self.ui.music_delay_spin.value()
             asyncio.ensure_future(self.play_music_at_time(music_dt + time_now), loop=loop)
-            logger.info('Wait {} seconds to play music'.format(music_dt))
+            logging.info('Wait {} seconds to play music'.format(music_dt))
         # self.selfcheck_selected()
         for copter in filter(self.model.checks.all_checks, self.model.user_selected()):
             server.send_starttime(copter.client, dt + time_now)
@@ -346,7 +329,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         for num, file in enumerate(files):
             filepath, filename = os.path.split(file)
-            logger.info("Preparing file for sending: {} {}".format(filepath, filename))
+            logging.info("Preparing file for sending: {} {}".format(filepath, filename))
 
             if match_id:
                 name = os.path.splitext(filename)[0]
@@ -355,10 +338,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 to_send = copters
 
             if not to_send:
-                logger.error(f"No copters to send file {filename} to")
+                logging.error(f"No copters to send file {filename} to")
                 continue
 
-            logger.info(f"Sending file {filename} to clients: {to_send}")
+            logging.info(f"Sending file {filename} to clients: {to_send}")
             filename = client_filename.format(num, filename) or filename
 
             for copter in to_send:
@@ -440,7 +423,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_fcu_parameters(self):
         def request_callback(client, value):
-            logger.info("Send parameters to {} success: {}".format(client.copter_id, value))
+            logging.info("Send parameters to {} success: {}".format(client.copter_id, value))
 
         def callback(copter):
             copter.client.get_response("load_params", request_callback)
@@ -462,7 +445,7 @@ class MainWindow(QtWidgets.QMainWindow):
         config = cfg.ConfigManager()
         config.load_only_config(path)
         data = config.full_dict
-        logger.info(f"Loaded config from {path}")
+        logging.info(f"Loaded config from {path}")
 
         copters = self.model.user_selected()
         for copter in copters:
@@ -489,10 +472,10 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def play_music(self):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logger.info("Can't play media")
+            logging.info("Can't play media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logger.info("No media file")
+            logging.info("No media file")
             return
 
         if self.player.state() == QtMultimedia.QMediaPlayer.StoppedState or \
@@ -506,24 +489,24 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def stop_music(self):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logger.error("Can't stop media")
+            logging.error("Can't stop media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logger.error("No media file")
+            logging.error("No media file")
             return
         self.player.stop()
 
     @asyncio.coroutine
     def play_music_at_time(self, t):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
-            logger.error("Can't play media")
+            logging.error("Can't play media")
             return
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.NoMedia:
-            logger.error("No media file")
+            logging.error("No media file")
             return
         self.player.stop()
         yield from asyncio.sleep(t - time.time())
-        logger.info("Playing music")
+        logging.info("Playing music")
         self.player.play()
 
     @pyqtSlot()
