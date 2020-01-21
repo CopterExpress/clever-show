@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 
 interrupt_event = threading.Event()
 
-config = ConfigParser.ConfigParser()
-config.read("client_config.ini")
-
-default_delay = config.getfloat('ANIMATION', 'frame_delay')
-
 anim_id = "Empty id"
 
 # TODO refactor as class
@@ -83,7 +78,7 @@ def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1, z_ratio=1):
     return float(x)*x_ratio, float(y)*y_ratio
 
 
-def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):
+def load_animation(filepath="animation.csv", default_delay = 0.1, x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):
     imported_frames = []
     global anim_id
     try:

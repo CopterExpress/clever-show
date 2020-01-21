@@ -135,7 +135,7 @@ class CopterClient(client.Client):
             if self.config.floor_frame_enabled:
                 self.start_floor_frame_broadcast()
             else:
-                rospy.logerror("Can't make floor frame!")
+                rospy.logerr("Can't make floor frame!")
         start_subscriber()
 
         telemetry.start_loop()
@@ -143,9 +143,9 @@ class CopterClient(client.Client):
 
     def start_floor_frame_broadcast(self):
         trans = TransformStamped()
-        trans.transform.translation.x = self.config.floor_frame_transtation[0]
-        trans.transform.translation.y = self.config.floor_frame_transtation[1]
-        trans.transform.translation.z = self.config.floor_frame_transtation[2]
+        trans.transform.translation.x = self.config.floor_frame_translation[0]
+        trans.transform.translation.y = self.config.floor_frame_translation[1]
+        trans.transform.translation.z = self.config.floor_frame_translation[2]
         trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.config.floor_frame_rotation[0]),
                                                                      math.radians(self.config.floor_frame_rotation[1]),
                                                                      math.radians(self.config.floor_frame_rotation[2])))
@@ -332,7 +332,8 @@ def _response_animation_id(*args, **kwargs):
     if result != 'No animation':
         logger.debug("Saving corrected animation")
         offset = numpy.array(client.active_client.config.private_offset) + numpy.array(client.active_client.config.copter_common_offset)
-        frames = animation.load_animation(os.path.abspath("animation.csv"), offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
+        frames = animation.load_animation(os.path.abspath("animation.csv"), client.active_client.config.animation_frame_delay, 
+                                            offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
         # Correct start and land frames in animation
         corrected_frames, start_action, start_delay = animation.correct_animation(frames,
                                                         check_takeoff=client.active_client.config.animation_takeoff_detection,
@@ -597,7 +598,8 @@ def _play_animation(*args, **kwargs):
     logger.info("Start time = {}, wait for {} seconds".format(start_time, start_time - time.time()))
     # Load animation
     offset = numpy.array(client.active_client.config.private_offset) + numpy.array(client.active_client.config.copter_common_offset)
-    frames = animation.load_animation(os.path.abspath("animation.csv"), offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
+    frames = animation.load_animation(os.path.abspath("animation.csv"), client.active_client.config.animation_frame_delay, 
+                                            offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
     # Correct start and land frames in animation
     corrected_frames, start_action, start_delay = animation.correct_animation(frames,
                                                         check_takeoff=client.active_client.config.animation_takeoff_detection,
@@ -651,7 +653,7 @@ def _play_animation(*args, **kwargs):
                               }
                               )
         # Calculate first frame start time
-        frame_time += client.active_client.config.animation_frame_delay  # TODO Think about arming time
+        frame_time += corrected_frames[0]["delay"]  # TODO Think about arming time
     logger.debug(task_manager.task_queue)
     # Play animation file
     for frame in corrected_frames:
