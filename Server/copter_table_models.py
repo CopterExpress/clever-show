@@ -106,11 +106,11 @@ def check_time_delta(item):
 
 
 columns_names = {'copter_id': 'copter ID',
-                 'git_ver': 'version',
+                 'git_version': 'version',
                  'animation_id': ' animation ID ',
                  'battery': '  battery  ',
                  'fcu_status': 'FCU status',
-                 'cal_status': 'sensors',
+                 'calibration_status': 'sensors',
                  'mode': '  mode  ',
                  'selfcheck': ' checks ',
                  'current_position': 'current x y z yaw frame_id',
@@ -311,9 +311,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
         super(CopterDataModel, self).__init__(parent)
-        # self.headers = list(columns_names.values())  #  todo
-        self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '  fcu_status  ', ' sensors ', 
-                        '       mode       ', ' checks ', ' current x y z yaw frame_id ', '       start x y z       ', '           task           ',  'dt')
+        # self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '  fcu_status  ', ' sensors ',
+        #                 '       mode       ', ' checks ', ' current x y z yaw frame_id ', '       start x y z       ', '           task           ',  'dt')
+        self.headers = list(columns_names.values())
         self.data_contents = []
 
         self.checks = checks
