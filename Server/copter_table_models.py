@@ -230,7 +230,7 @@ class ModelFormatter:
 
 @ModelFormatter.col_format(0, ModelFormatter.PLACE_FORMATTER)
 def place_id(value):
-    value = value.strip()
+    value = str(value).strip()
     # check user hostname spelling http://man7.org/linux/man-pages/man7/hostname.7.html
     # '-' (hyphen) not first; latin letters/numbers/hyphens; length form 1 to 63
     # or matches command pattern

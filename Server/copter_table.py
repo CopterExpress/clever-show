@@ -1,6 +1,5 @@
 from functools import partial
 from copy import deepcopy
-import logging
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt as Qt
@@ -67,12 +66,15 @@ class CopterTableWidget(QTableView):
                 self.horizontalHeader().moveSection(index_from, index_to)
 
     def load_columns(self, item_dict: dict=None):
+        presets = self.config.table_presets
         if item_dict is None:
-            item_dict = self.config.table_presets[self.config.table_presets_current]
+            item_dict = presets[self.config.table_presets_current]
+
+        item_dict.update({key: False for key in presets[HeaderEditWidget.default] if key not in item_dict})
 
         self.set_column_order(list(item_dict.keys()))
-        for index, show in enumerate(item_dict.values()):
-            self.horizontalHeader().setColumnHidden(index, not show)
+        for name, show in item_dict.items():         # for index, name in enumerate(self.columns):
+            self.setColumnHidden(self.columns.index(name), not show)  # self.setColumnHidden(index, not item_dict.get(name, False))
 
     # Some fancy wrappers to simplify syntax
     def add_client(self, **kwargs):
@@ -110,14 +112,13 @@ class CopterTableWidget(QTableView):
         action.setDefaultWidget(header_view)
         menu.addAction(action)
         menu.exec_(QCursor.pos())
-        # todo header_view.
+        header_view.save_preset()
 
     @pyqtSlot(QtCore.QPoint)
     def open_menu(self, point):
         menu = QMenu(self)
         index = self.indexAt(point)
         item = self.model.get_row_data(index)
-        # print(item, index.row(), index.column())
 
         edit_config = QAction("Edit config")
         edit_config.triggered.connect(partial(self.edit_copter_config, item))
@@ -144,18 +145,15 @@ class CopterTableWidget(QTableView):
 class HeaderListWidget(QListWidget):
     ColumnKeyRole = 998
 
-    def __init__(self, config, parent=None, default_items=None):
+    def __init__(self, parent=None, default_items=None):
         super().__init__(parent)
-        self.populated_items = {}
         if default_items is not None:
             self.populate_items(default_items)
 
-        self.config = config
         self.setDragDropMode(QAbstractItemView.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
 
     def populate_items(self, item_dict: dict):
-        self.populated_items = item_dict
         self.clear()
         for name, visible in item_dict.items():
             flags = Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
@@ -171,33 +169,12 @@ class HeaderListWidget(QListWidget):
         return {self.item(i).data(HeaderListWidget.ColumnKeyRole): bool(self.item(i).checkState())
                 for i in range(self.count())}
 
-    def save_to_config(self, current=None, write=False):
-        if self.count() != len(self.populated_items):  # Do not save when populating
-           print("nosave")
-           return
-
-        if current is None:
-            current = self.config.table_presets_current
-        print("sAVe", current)
-        presets = self.config.table_presets
-        header_dict = self.item_dict
-
-        for key in presets[HeaderEditWidget.default]:
-            print(key, current, header_dict, presets)
-            if key not in presets[current] and not header_dict[key]:
-                header_dict.pop(key)
-
-        presets[current] = header_dict
-        if write:
-            self.config.write()
-
 
 class ActiveHeaderListWidget(HeaderListWidget):
-    def __init__(self, source: CopterTableWidget, config, parent=None):
-        super().__init__(config, parent=parent)
+    def __init__(self, source: CopterTableWidget, parent=None):
+        super().__init__(parent=parent)
         self.source_widget = source
 
-        self.config = config
         self.current_columns = source.current_columns
         self.columns = source.columns
 
@@ -220,31 +197,30 @@ class ActiveHeaderListWidget(HeaderListWidget):
             return
         self.source_widget.setColumnHidden(self.columns.index(key),
                                            not bool(item.checkState()))
-        self.save_to_config(write=True)
 
     def dropEvent(self, event: QtGui.QDropEvent):
         super().dropEvent(event)
         column_order = [self.item(i).data(HeaderListWidget.ColumnKeyRole) for i in range(self.count())]
         self.source_widget.set_column_order(column_order)
-        self.save_to_config(write=True)
 
 
 class HeaderEditWidget(QtWidgets.QWidget):
     add_new_text = "< add new >"
     default = "DEFAULT"
 
-    def __init__(self, source, config_data, menu_mode=False, *args, **kwargs):
+    def __init__(self, source, config, menu_mode=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # self.auto_apply = auto_apply
         self.source = source  # source = copter table
-        self.config = config_data
+        self.config = config
         self.menu_mode = menu_mode
 
         self.preset_widget = QtWidgets.QComboBox()
-        self.header_widget = ActiveHeaderListWidget(self.source, self.config) \
-            if self.menu_mode else HeaderListWidget(self.config)
+        self.header_widget = ActiveHeaderListWidget(self.source) \
+            if self.menu_mode else HeaderListWidget()
 
         self.previous = self.config.table_presets_current
+        self._dialog = None
 
         self.setupUi()
 
@@ -270,6 +246,8 @@ class HeaderEditWidget(QtWidgets.QWidget):
             save_button.clicked.connect(self.save_preset)
             apply_button = QPushButton("Apply")
             apply_button.clicked.connect(self.apply_preset)
+            apply_button.setDefault(True)
+            apply_button.setFocus()
 
             hbox.addWidget(add_button)
             hbox.addWidget(remove_button)
@@ -277,7 +255,9 @@ class HeaderEditWidget(QtWidgets.QWidget):
             hbox.addWidget(save_button)
             hbox.addWidget(apply_button)
         else:
+            self._dialog = HeaderEditDialog(self.source, self.config)
             dialog_button = QPushButton("Manage presets")
+            dialog_button.clicked.connect(self._dialog.show)
             hbox.addWidget(dialog_button)
 
         vbox.addLayout(hbox)
@@ -308,8 +288,6 @@ class HeaderEditWidget(QtWidgets.QWidget):
         if self.menu_mode:
             self.source.set_column_order(list(items.keys()))
             self.config.table_presets_current = index
-            print(index)
-            self.config.write()
         self.header_widget.populate_items(items)
 
     def add_preset(self):
@@ -348,12 +326,31 @@ class HeaderEditWidget(QtWidgets.QWidget):
         self.update_preset_list()
 
     def save_preset(self):
-        self.header_widget.save_to_config(current=self.preset_widget.currentText(), write=True)
+        current = self.preset_widget.currentText()
+        presets = self.config.table_presets
+        header_dict = self.header_widget.item_dict
+
+        for key in presets[self.default]:
+            if key not in presets[current] and not header_dict[key]:
+                header_dict.pop(key)
+
+        presets[current] = header_dict
+        self.config.write()
 
     def apply_preset(self):
         self.config.table_presets_current = self.preset_widget.currentText()
         self.save_preset()
         self.source.load_columns()
+
+
+class HeaderEditDialog(QtWidgets.QDialog):
+    def __init__(self, source, config, parent=None):
+        super(HeaderEditDialog, self).__init__(parent=None)
+        self.ui = HeaderEditWidget(source, config, menu_mode=False)
+        self.setWindowTitle("Column preset editor")
+        layout = QVBoxLayout()
+        layout.addWidget(self.ui)
+        self.setLayout(layout)
 
 
 if __name__ == '__main__':

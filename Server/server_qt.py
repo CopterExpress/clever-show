@@ -179,6 +179,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
 
+    def show(self):
+        self.ui.copter_table.load_columns()
+        super().show()
+
     def iterate_selected(self, f, *args, **kwargs):
         for copter in self.model.user_selected():
             yield f(copter, *args, **kwargs)
