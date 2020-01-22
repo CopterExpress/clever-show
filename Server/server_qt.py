@@ -183,6 +183,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.copter_table.load_columns()
         super().show()
 
+    def closeEvent(self, event):
+        # TODO if any connected copters
+        reply = QMessageBox.question(self, "Confirm exit", "There are copters connected to the server. "
+                                     "Are you sure you want to exit?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply != QMessageBox.Yes:
+            event.ignore()
+        else:
+            event.accept()
+            QApplication.quit()
+
     def iterate_selected(self, f, *args, **kwargs):
         for copter in self.model.user_selected():
             yield f(copter, *args, **kwargs)
