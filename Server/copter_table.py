@@ -44,6 +44,7 @@ class CopterTableWidget(QTableView):
         self.customContextMenuRequested.connect(self.open_menu)
 
         # Adjust properties
+        self.setSortingEnabled(True)
         self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
         self.resizeColumnsToContents()
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
