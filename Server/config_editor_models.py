@@ -686,11 +686,14 @@ class ConfigTreeWidget(QTreeView):
 
 
 class ConfigDialog(QtWidgets.QDialog):
+    copter_editor_signal = QtCore.pyqtSignal(object, object)
+
     def __init__(self, parent=None):
         super(ConfigDialog, self).__init__(parent)
         self.ui = config_editor.Ui_config_dialog()
         self.model = ConfigModel(widget=self)
         self.setupUi()
+        self.copter_editor_signal.connect(self._call_copter_dialog)
 
     def setupModel(self, data, pure_dict=False, convert_types=False):
         if pure_dict:
@@ -749,6 +752,11 @@ class ConfigDialog(QtWidgets.QDialog):
                 return True
 
     def call_copter_dialog(self, client, value):
+        self.copter_editor_signal.emit(client, value)
+
+    @pyqtSlot(object, object)
+    def _call_copter_dialog(self, client, value):
+        logging.info("Opening dialog")
         config_dict, spec_dict = value["config"], value["configspec"]
         cfg = config.ConfigManager()
         cfg.load_from_dict(config_dict, spec_dict)

@@ -8,6 +8,7 @@ import random
 import logging
 import threading
 import collections
+import traceback
 
 from contextlib import closing
 
@@ -392,9 +393,15 @@ class ConnectionManager(object):
             logger.debug(
                 "Request {} successfully closed with value {}".format(request, message.content["value"])
             )
+            print(self, "CALLBACK", request.callback, "VAL", value, "ARGS",request.callback_args, request.callback_kwargs)
+            try:
+                request.callback(self, value, *request.callback_args, **request.callback_kwargs)
+                print(1)
+            except Exception as e:
+                logging.error("Error during callback call of request")  # TODO more info
+                traceback.print_exc()
+                print(e)
 
-            f = request.callback
-            f(self, value, *request.callback_args, **request.callback_kwargs)
         else:
             logger.warning("Unexpected  response!")
 

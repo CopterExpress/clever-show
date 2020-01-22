@@ -14,8 +14,6 @@ import copter_table_models as table
 
 
 class CopterTableWidget(QTableView):
-    config_dialog_signal = QtCore.pyqtSignal(object, object)
-
     def __init__(self, model, data_model=table.StatedCopterData):
         QTableView.__init__(self)
 
@@ -44,8 +42,6 @@ class CopterTableWidget(QTableView):
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_menu)
-
-        self.config_dialog_signal.connect(lambda x: x)
 
         # Adjust properties
         self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
@@ -121,14 +117,8 @@ class CopterTableWidget(QTableView):
 
     @pyqtSlot()
     def edit_config(self, copter):
-        try:
-            self.config_dialog_signal.disconnect()
-        except (TypeError, RuntimeError) as error:
-            logging.error(f"Disconnection of signal failed: {error}")
-        else:
-            call = ConfigDialog().call_copter_dialog
-            self.config_dialog_signal.connect(call)
-            copter.client.get_response("config", self.config_dialog_signal.emit)
+        dialog = ConfigDialog()
+        copter.client.get_response("config", dialog.call_copter_dialog)
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
     #     shortened = []
