@@ -78,52 +78,9 @@ class CopterClient(client.Client):
 
     def load_config(self):
         super(CopterClient, self).load_config()
-        #print(self.config)
-        # self.FLOOR_FRAME_EXISTS = False
-        # self.TELEM_FREQ = self.config.getfloat('TELEMETRY', 'frequency')
-        # self.TELEM_TRANSMIT = self.config.getboolean('TELEMETRY', 'transmit')
-        # self.LOG_CPU_AND_MEMORY = self.config.getboolean('TELEMETRY', 'log_cpu_and_memory')
-        # self.LAND_POS_DELTA = self.config.getfloat('TELEMETRY', 'land_if_pos_delta_bigger_than')
-        # self.FRAME_ID = self.config.get('COPTERS', 'frame_id')
-        # self.FRAME_FLIPPED_HEIGHT = 0.
-        # self.TAKEOFF_HEIGHT = self.config.getfloat('COPTERS', 'takeoff_height')
-        # self.TAKEOFF_TIME = self.config.getfloat('COPTERS', 'takeoff_time')
-        # self.SAFE_TAKEOFF = self.config.getboolean('COPTERS', 'safe_takeoff')
-        # self.RFP_TIME = self.config.getfloat('COPTERS', 'reach_first_point_time')
-        # self.LAND_TIME = self.config.getfloat('COPTERS', 'land_time')
-        # self.LAND_TIMEOUT = self.config.getfloat('COPTERS', 'land_timeout')
-        # self.X0_COMMON = self.config.getfloat('COPTERS', 'x0_common')
-        # self.Y0_COMMON = self.config.getfloat('COPTERS', 'y0_common')
-        # self.Z0_COMMON = self.config.getfloat('COPTERS', 'z0_common')
-        # self.YAW = self.config.get('COPTERS', 'yaw')
-        # self.TAKEOFF_CHECK = self.config.getboolean('ANIMATION', 'takeoff_animation_check')
-        # self.LAND_CHECK = self.config.getboolean('ANIMATION', 'land_animation_check')
-        # self.FRAME_DELAY = self.config.getfloat('ANIMATION', 'frame_delay')
-        # self.X_RATIO = self.config.getfloat('ANIMATION', 'x_ratio')
-        # self.Y_RATIO = self.config.getfloat('ANIMATION', 'y_ratio')
-        # self.Z_RATIO = self.config.getfloat('ANIMATION', 'z_ratio')
-        # self.X0 = self.config.getfloat('PRIVATE', 'x0')
-        # self.Y0 = self.config.getfloat('PRIVATE', 'y0')
-        # self.Z0 = self.config.getfloat('PRIVATE', 'z0')
-        # self.USE_LEDS = self.config.getboolean('PRIVATE', 'use_leds')
-        # self.LED_PIN = self.config.getint('PRIVATE', 'led_pin')
-        # try:
-        #     self.FLOOR_DX = self.config.getfloat('FLOOR FRAME', 'x')
-        #     self.FLOOR_DY = self.config.getfloat('FLOOR FRAME', 'y')
-        #     self.FLOOR_DZ = self.config.getfloat('FLOOR FRAME', 'z')
-        #     self.FLOOR_ROLL = self.config.getfloat('FLOOR FRAME', 'roll')
-        #     self.FLOOR_PITCH = self.config.getfloat('FLOOR FRAME', 'pitch')
-        #     self.FLOOR_YAW = self.config.getfloat('FLOOR FRAME', 'yaw')
-        #     self.FLOOR_PARENT = self.config.get('FLOOR FRAME', 'parent')
-        #     self.FLOOR_FRAME_EXISTS = True
-        # except ConfigParser.Error:
-        #     rospy.logerror("No floor frame!")
-        #     self.FLOOR_FRAME_EXISTS = False
-        # self.RESTART_AFTER_RENAME = self.config.getboolean('PRIVATE', 'restart_after_rename')
 
     def on_broadcast_bind(self):
-        configure_chrony_ip(self.config.server_host)
-        restart_service("chrony")
+        repair_chrony(self.config.server_host)
 
     def start(self, task_manager_instance):
         rospy.loginfo("Init ROS node")
@@ -157,6 +114,10 @@ class CopterClient(client.Client):
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
 
+def repair_chrony(ip):
+    logger.info("Configure chrony ip to {}".format(ip))
+    configure_chrony_ip(ip)
+    restart_service("chrony")
 
 def execute_command(command):
     os.system(command)
@@ -180,7 +141,6 @@ def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
 
     if "." not in current_ip:
         logger.debug("That's not ip!")
-        return False
 
     if current_ip != ip:
         content[ip_index] = ip
@@ -486,8 +446,7 @@ def _command_service_restart(*args, **kwargs):
 
 @messaging.message_callback("repair_chrony")
 def _command_chrony_repair(*args, **kwargs):
-    configure_chrony_ip(client.active_client.config.server_host)
-    restart_service("chrony")
+    repair_chrony(client.active_client.config.server_host)
 
 
 @messaging.message_callback("led_test")

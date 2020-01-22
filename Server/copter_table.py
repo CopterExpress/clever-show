@@ -46,7 +46,7 @@ class CopterTableWidget(QTableView):
         # Adjust properties
         self.setTextElideMode(QtCore.Qt.ElideMiddle)
         self.setWordWrap(True)
-
+        self.setSortingEnabled(True)
         self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
         self.resizeColumnsToContents()
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
