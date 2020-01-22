@@ -404,7 +404,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not ok:
             return
 
-        c_filename, c_filepath = os.path.split(c_path)
+        c_filepath, c_filename = os.path.split(c_path)
         files = [file]
         self._send_files(files, client_path=c_filepath, client_filename=c_filename)
 
