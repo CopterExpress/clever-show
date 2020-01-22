@@ -133,10 +133,9 @@ class ConfigManager:
             keys = parent_keys + (key,)
             if isinstance(value, dict):
                 items.update(cls.flatten_keys(value, keys, sep=sep))
-            else:
-                formatted_keys = [key.lower().strip().replace(' ', sep) for key in keys]
-                formatted_key = sep.join(formatted_keys)
-                items.update({formatted_key: keys})
+            formatted_keys = [key.lower().strip().replace(' ', sep) for key in keys]
+            formatted_key = sep.join(formatted_keys)
+            items.update({formatted_key: keys})
         return dict(items)
 
     def __getattr__(self, item):
