@@ -372,7 +372,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
         return QtCore.Qt.CopyAction | QtCore.Qt.MoveAction
 
     def mimeTypes(self):
-        return ['app/configitem', 'text/xml']
+        return ['app/configitem']
 
     def mimeData(self, indexes):
         mimedata = QtCore.QMimeData()

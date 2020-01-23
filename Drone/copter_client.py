@@ -645,6 +645,7 @@ def _play_animation(*args, **kwargs):
                           )
 
 
+# noinspection PyAttributeOutsideInit
 class Telemetry:
     params_default_dict = {
         "git_version": None,
@@ -652,13 +653,14 @@ class Telemetry:
         "battery": None,
         "armed": False,
         "fcu_status": None,
-        "cal_status": None,
+        "calibration_status": None,
         "mode": None,
         "selfcheck": None,
         "current_position": None,
         "start_position": None,
         "task": None,
         "time": None,
+        "config_version": None,
     }
 
     def __init__(self):
@@ -689,6 +691,10 @@ class Telemetry:
     @classmethod
     def get_git_version(cls):
         return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True)
+
+    @classmethod
+    def get_config_version(cls):
+        return "{} V{}".format(client.active_client.config.config_name, client.active_client.config.config_version)
 
     @classmethod
     def get_start_position(cls):
@@ -764,6 +770,7 @@ class Telemetry:
     def update_telemetry_slow(self):
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
+        self.config_version = self.get_config_varsion()
         try:
             self.cal_status = get_calibration_status()
             self.fcu_status = get_sys_status()
