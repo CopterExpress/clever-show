@@ -123,7 +123,7 @@ def execute_command(command):
     os.system(command)
 
 
-def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
+def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):  # TODO simplify
     try:
         with open(path, 'r') as f:
             raw_content = f.read()
@@ -245,7 +245,7 @@ def _execute(*args, **kwargs):
         logger.info("Executing done")
 
 
-@messaging.message_callback("id")
+@messaging.message_callback("id")  # TODO redo
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
     if new_id is not None:
@@ -828,9 +828,9 @@ class Telemetry:
             self._tasks_cleared = False
         self._last_state = state
 
-    def transmit_message(self):
+    def transmit_message(self):  # todo if connected
         try:
-            client.active_client.server_connection.send_message('telemetry', args={'value': self.create_msg_contents()})
+            client.active_client.server_connection.send_message('telemetry', kwargs={'value': self.create_msg_contents()})
         except AttributeError as e:
             logger.debug(e)
 

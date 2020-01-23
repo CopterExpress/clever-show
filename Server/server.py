@@ -185,7 +185,7 @@ class Server(messaging.Singleton):
 
     def _ip_broadcast(self):
         logging.info("Broadcast sender thread started!")
-        msg = messaging.MessageManager.create_simple_message(
+        msg = messaging.MessageManager.create_action_message(
             "server_ip", {"host": self.ip, "port": str(self.config.server_port), "id": self.id,
                           "start_time": str(self.time_started)})
         logging.debug("Formed broadcast message: {}".format(msg))
@@ -231,11 +231,11 @@ class Server(messaging.Singleton):
                 message.process_message()
                 content = message.content
 
-                right_command = (content and content["command"] == "server_ip")
+                right_command = (content and message.jsonheader["action"] == "server_ip")
 
                 if right_command:
-                    different_id = content["args"]["id"] != str(self.id)
-                    self_younger = float(message.content["args"]["start_time"]) <= self.time_started
+                    different_id = content["kwargs"]["id"] != str(self.id)
+                    self_younger = float(content["kwargs"]["start_time"]) <= self.time_started
 
                     if different_id and self_younger:
                         # younger server should shut down
@@ -253,7 +253,7 @@ class Server(messaging.Singleton):
             logging.info("Broadcast listener thread stopped, socked closed!")
 
     def send_starttime(self, copter, start_time):
-        copter.send_message("start", {"time": str(start_time)})
+        copter.send_message("start", kwargs={"time": str(start_time)})
 
 
 def requires_connect(f):
@@ -356,7 +356,7 @@ class Client(messaging.ConnectionManager):
     @classmethod
     @requires_any_connected
     def broadcast_message(cls, command, args=None, force_all=False):
-        cls.broadcast(messaging.MessageManager.create_simple_message(command, args), force_all)
+        cls.broadcast(messaging.MessageManager.create_action_message(command, args), force_all)
 
 
 if __name__ == '__main__':

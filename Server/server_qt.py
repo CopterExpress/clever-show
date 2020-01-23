@@ -126,9 +126,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_any_file.triggered.connect(self.send_any_file)
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", {"name": "clever"}))
+            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
         self.ui.action_restart_clever_show.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", {"name": "clever-show"}))
+            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever-show"}))
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
         self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
@@ -200,8 +200,9 @@ class MainWindow(QtWidgets.QMainWindow):
             yield f(copter, *args, **kwargs)
 
     @pyqtSlot()
-    def send_to_selected(self, command, command_args=None):
-        return list(self.iterate_selected(lambda copter: copter.client.send_message(command, command_args)))
+    def send_to_selected(self, command, command_args=(), command_kwargs=None):
+        return list(self.iterate_selected(lambda copter: copter.client.send_message(
+            command, command_args, command_kwargs)))
 
     def new_client_connected(self, client: Client):
         logging.debug("Added client {}".format(client))
@@ -295,7 +296,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for copter in self.model.user_selected():
             if self.model.checks.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
-                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int
+                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int, merge commands
                 else:
                     copter.client.send_message("takeoff")
 
@@ -425,7 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_aruco(self):
         def callback(copter):
-            copter.client.send_message("service_restart", {"name": "clever"})
+            copter.client.send_message("service_restart", kwargs={"name": "clever"})
 
         self.send_files("Select aruco map configuration file", "Aruco map files (*.txt)", onefile=True,
                         client_path="/home/pi/catkin_ws/src/clever/aruco_pose/map/",
@@ -465,7 +466,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         copters = self.model.user_selected()
         for copter in copters:
-            copter.client.send_message("config", {"config": data, "mode": mode.lower()})
+            copter.client.send_message("config", kwargs={"config": data, "mode": mode.lower()})
 
     @pyqtSlot()
     def send_any_command(self):
