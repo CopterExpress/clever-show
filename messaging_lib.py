@@ -385,15 +385,16 @@ class ConnectionManager(object):
         args = message.content["args"]
         kwargs = message.content["kwargs"]
 
-        callback = self.requests_callbacks.get(requested_value, None)
-        if callback is None:
-            logger.warning("Request {} does not exist!".format(requested_value))
-            return
         filetransfer = requested_value == "filetransfer"
         try:
             if filetransfer:
                 value = self._read_file(kwargs["filepath"])
             else:
+                callback = self.requests_callbacks.get(requested_value, None)
+                if callback is None:
+                    logger.warning("Request {} does not exist!".format(requested_value))
+                    return
+
                 value = callback(self, *args, **kwargs)
         except Exception as error:  # TODO send response error\cancel
             logger.error("Error during request {} processing: {}".format(requested_value, error))
@@ -412,12 +413,14 @@ class ConnectionManager(object):
         if requested_value == "filetransfer":
             value = True
             self._process_filetransfer(message.content, request.callback_kwargs["filepath"])
+            logger.debug(
+                "Request {} successfully closed with file bytes {}...".format(request, message.content[:256])
+            )
         else:
             value = message.content["value"]
-
-        logger.debug(
-            "Request {} successfully closed with value {}".format(request, message.content["value"])
-        )
+            logger.debug(
+                "Request {} successfully closed with value {}".format(request, message.content["value"])
+            )
         if request.callback is not None:
             try:
                 request.callback(self, value, *request.callback_args, **request.callback_kwargs)
