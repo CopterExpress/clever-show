@@ -8,6 +8,7 @@ import datetime
 import threading
 import selectors
 import collections
+import traceback
 
 import inspect  # Add parent dir to PATH to import messaging_lib and config_lib
 
@@ -156,6 +157,7 @@ class Server(messaging.Singleton):
                         client.process_events(mask)
                     except Exception as error:
                         logging.error("Exception {} occurred for {}! Resetting connection!".format(error, client.addr))
+                        traceback.print_exc()
                         client.close(True)
                 else:  # Notifier
                     client.process_events(mask)
@@ -186,8 +188,8 @@ class Server(messaging.Singleton):
     def _ip_broadcast(self):
         logging.info("Broadcast sender thread started!")
         msg = messaging.MessageManager.create_action_message(
-            "server_ip", {"host": self.ip, "port": str(self.config.server_port), "id": self.id,
-                          "start_time": str(self.time_started)})
+            "server_ip", kwargs={"host": self.ip, "port": str(self.config.server_port), "id": self.id,
+                                 "start_time": str(self.time_started)})
         logging.debug("Formed broadcast message: {}".format(msg))
 
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
