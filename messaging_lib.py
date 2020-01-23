@@ -418,10 +418,13 @@ class ConnectionManager(object):
         logger.debug(
             "Request {} successfully closed with value {}".format(request, message.content["value"])
         )
-        try:
-            request.callback(self, value, *request.callback_args, **request.callback_kwargs)
-        except Exception as error:
-            logger.error("Error during response {} processing: {}".format(request, error))
+        if request.callback is not None:
+            try:
+                request.callback(self, value, *request.callback_args, **request.callback_kwargs)
+            except Exception as error:
+                logger.error("Error during response {} processing: {}".format(request, error))
+        else:
+            logger.info("No callback were registered for response: {}".format(request))
 
     @staticmethod
     def _read_file(filepath):
@@ -496,6 +499,20 @@ class ConnectionManager(object):
                 resend=True,
             )
         self._send(MessageManager.create_request(requested_value, request_id, request_args, request_kwargs))
+
+    def get_file(self, client_filepath, filepath=None, callback=None,
+                 callback_args=(), callback_kwargs=None, ):
+        if callback_kwargs is None:
+            callback_kwargs = {}
+
+        if filepath is None:
+            filepath = os.path.split(client_filepath)[1]
+
+        request_kwargs = {"filepath": client_filepath}
+        callback_kwargs.update({"filepath": filepath})
+
+        self.get_response("filetransfer", callback, request_kwargs=request_kwargs,
+                          callback_args=callback_args, callback_kwargs=callback_kwargs)
 
     def _resend_requests(self):
         with self._request_lock:
