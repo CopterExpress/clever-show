@@ -127,8 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
             b_partial(self.send_to_selected, "service_restart", {"name": "clever"}))
-        self.ui.action_restart_clever_show.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", {"name": "clever-show"}))
+        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
         self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
@@ -473,6 +472,12 @@ class MainWindow(QtWidgets.QMainWindow):
                                         "Command:", QLineEdit.Normal, "")
         if ok and text:
             self.send_to_selected("execute", {"command": text})
+
+    @pyqtSlot()
+    def restart_clever_show(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("service_restart", {"name": "visual_pose_watchdog"})
+            copter.client.send_message("service_restart", {"name": "clever-show"})
 
     @pyqtSlot()
     def select_music_file(self):
