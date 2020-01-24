@@ -543,9 +543,22 @@ class ConfigTreeWidget(QTreeView):
         self.setDropIndicatorShown(True)
         self.setAnimated(True)
 
-        self.delete_shortcut = QShortcut(QKeySequence('Del'), self)
-        self.delete_shortcut.activated.connect(
-            self.with_selected(self.remove))
+        self.duplicate_shortcut = QShortcut(QKeySequence('Shift+D'), self)
+        self.duplicate_shortcut.activated.connect(self.with_selected(self.duplicate))
+        self.exclude_shortcut = QShortcut(QKeySequence('Alt+Del'), self)
+        self.exclude_shortcut.activated.connect(self.with_selected(self.exclude))
+        self.remove_shortcut = QShortcut(QKeySequence('Del'), self)
+        self.remove_shortcut.activated.connect(self.with_selected(self.remove))
+        self.clear_shortcut = QShortcut(QKeySequence('Shift+R'), self)
+        self.clear_shortcut.activated.connect(self.with_selected(self.reset_item, 'clear_value'))
+        self.default_shortcut = QShortcut(QKeySequence('Ctrl+R'), self)
+        self.default_shortcut.activated.connect(self.with_selected(self.reset_item, 'default'))
+        self.reset_shortcut = QShortcut(QKeySequence('Alt+R'), self)
+        self.reset_shortcut.activated.connect(self.with_selected(self.reset_item, 'all'))
+        self.item_shortcut = QShortcut(QKeySequence('Shift+A'), self)
+        self.item_shortcut.activated.connect(self.with_selected(self.add_item, False))
+        self.section_shortcut = QShortcut(QKeySequence('Ctrl+A'), self)
+        self.section_shortcut.activated.connect(self.with_selected(self.add_item, True))
 
     def with_selected(self, f, *args, **kwargs):
         def decorated():
@@ -561,38 +574,46 @@ class ConfigTreeWidget(QTreeView):
         menu = QMenu()
 
         duplicate = QAction("Duplicate")
+        duplicate.setShortcut(self.duplicate_shortcut.key())
         duplicate.triggered.connect(partial(self.duplicate, index))
         menu.addAction(duplicate)
 
         exclude = QAction("Toggle exclude")
+        exclude.setShortcut(self.exclude_shortcut.key())
         exclude.triggered.connect(partial(self.exclude, index))
         menu.addAction(exclude)
 
         remove = QAction("Remove from config")
+        remove.setShortcut(self.remove_shortcut.key())
         remove.triggered.connect(partial(self.remove, index))
         menu.addAction(remove)
 
         menu.addSeparator()
 
         clear = QAction("Clear item value")
+        clear.setShortcut(self.clear_shortcut.key())
         clear.triggered.connect(partial(self.reset_item, index, 'clear_value'))
         menu.addAction(clear)
 
         reset_default = QAction("Reset value to default")
+        reset_default.setShortcut(self.default_shortcut.key())
         reset_default.triggered.connect(partial(self.reset_item, index, 'default'))
         menu.addAction(reset_default)
 
         reset_all = QAction("Reset all changes")
+        reset_all.setShortcut(self.reset_shortcut.key())
         reset_all.triggered.connect(partial(self.reset_item, index, 'all'))
         menu.addAction(reset_all)
 
         menu.addSeparator()
 
         add_option = QAction("Add option")
+        add_option.setShortcut(self.item_shortcut.key())
         add_option.triggered.connect(partial(self.add_item, index, False))
         menu.addAction(add_option)
 
         add_section = QAction("Add section")
+        add_section.setShortcut(self.section_shortcut.key())
         add_section.triggered.connect(partial(self.add_item, index, True))
         menu.addAction(add_section)
 
@@ -637,6 +658,8 @@ class ConfigTreeWidget(QTreeView):
         parentItem = self.model().nodeFromIndex(index)
 
         if parentItem.type in ('list', 'list_item'):
+            if is_section:
+                return
             item_type = 'list_item'
         else:
             item_type = 'section' if is_section else 'option'
@@ -686,9 +709,13 @@ class ConfigTreeWidget(QTreeView):
                 model.setData(index, 'unchanged', role=StateRole)
 
         elif reset_type == 'clear_value':
-            model.setData(itemdataindex, None)
+            item_type = model.data(itemdataindex, TypeRole)
+            if item_type == 'list':
+                return
+            if item_type != 'section':
+                model.setData(itemdataindex, None)
 
-            # if model.data(itemdataindex, TypeRole) == 'list':
+            # if model.data(itemdataindex, TypeRole) == 'list':  # TODO
             #     model.removeRows(0, item.childCount(), index)
             #     model.setData(index, 'option', role=TypeRole)
             #     return
