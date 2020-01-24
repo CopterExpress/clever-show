@@ -773,7 +773,7 @@ class ConfigDialog(QtWidgets.QDialog):
         cfg = config.ConfigManager()
         cfg.load_from_dict(config_dict, spec_dict)
 
-        self.setupModel(config_dict)
+        self.setupModel(cfg.full_dict(include_defaults=True))
         if not self.validation_loop(cfg, spec_dict):
             return False
 
@@ -799,7 +799,7 @@ class ConfigDialog(QtWidgets.QDialog):
                                 "Config cannot be opened or validated: {}".format(error))
             return False
 
-        self.setupModel(cfg.full_dict, convert_types=(not cfg.validated))
+        self.setupModel(cfg.full_dict(include_defaults=True), convert_types=(not cfg.validated))
         self.ui.do_restart.setDisabled(True)
 
         filename = cfg.config.filename

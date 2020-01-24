@@ -170,7 +170,6 @@ class Client(object):
         while True:
             #self.server_connection.send_message("telemetry", kwargs={"value":{"time": time.time()}})
             events = self.selector.select(timeout=1)
-
             for key, mask in events:
                 connection = key.data
                 if connection is not None:
@@ -217,7 +216,7 @@ def _command_config_write(*args, **kwargs):
 
 @messaging.request_callback("config")
 def _response_config(*args, **kwargs):
-    response = {"config": active_client.config.full_dict,
+    response = {"config": active_client.config.full_dict(),
                 "configspec": dict(active_client.config.config.configspec)}
     return response
 

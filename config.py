@@ -92,7 +92,7 @@ class ConfigManager:
         self.validated = True
 
     @classmethod
-    def _full_dict(cls, item):
+    def _full_dict(cls, item, include_defaults=False):
         if not isinstance(item, Section):
             return item
 
@@ -103,15 +103,17 @@ class ConfigManager:
         inline_comments = item.inline_comments
 
         for key, value in item.items():
-            result = cls._full_dict(value)
+            result = cls._full_dict(value, include_defaults)
             if not isinstance(result, dict):
                 item_d = {'__option__': True,
                           'value': value,
-                          'default': default_values.get(key, None),
-                          'unchanged': key in defaults,
                           'comments': comments.get(key, []),
                           'inline_comment': inline_comments.get(key, None),
                           }
+                if include_defaults:
+                    item_d.update({'default': default_values.get(key, None),
+                                   'unchanged': key in defaults,
+                                   })
                 data[key] = item_d
 
             else:
@@ -119,9 +121,8 @@ class ConfigManager:
 
         return data
 
-    @property
-    def full_dict(self):
-        d = self._full_dict(self.config)
+    def full_dict(self, include_defaults=False):
+        d = self._full_dict(self.config, include_defaults=include_defaults)
         d['initial_comment'] = self.config.initial_comment
         d['final_comment'] = self.config.final_comment
         return d
@@ -322,7 +323,7 @@ if __name__ == '__main__':
     #pprint.pprint(cfg2.full_dict)
     cfg.merge(cfg2)
     #pprint.pprint(cfg.full_dict)
-    print(cfg.full_dict)
+    print(cfg.full_dict(include_defaults=True))
     print(dict(cfg.config.configspec))
     #print(dict(ConfigManager(cfg.config.configspec).config))
 
