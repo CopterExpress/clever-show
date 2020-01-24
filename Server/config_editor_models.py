@@ -715,6 +715,7 @@ class ConfigDialog(QtWidgets.QDialog):
         self.ui.config_view.expandAll()
 
         self.ui.do_coloring.stateChanged.connect(self.model.enable_color)
+        self.ui.save_as_button.clicked.connect(self.save_as)
 
         # self.ui.delete_button.pressed.connect(self.remove_selected)
 
@@ -727,6 +728,17 @@ class ConfigDialog(QtWidgets.QDialog):
                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No
                                       )
         return reply == QMessageBox.Yes
+
+    def save_as(self):
+        cfg = config.ConfigManager()
+        cfg.load_from_dict(self.model.to_config_dict())
+        save_path = QFileDialog.getSaveFileName(self, "Save as configuration file",
+                                                filter="Config files (*.ini)")[0]
+        if not save_path:
+            return
+
+        cfg.config.filename = save_path
+        cfg.write()
 
     @pyqtSlot()
     def run(self):
@@ -807,6 +819,7 @@ class ConfigDialog(QtWidgets.QDialog):
 
         cfg.config.filename = save_path
         cfg.write()
+        return True
 
 
 if __name__ == '__main__':

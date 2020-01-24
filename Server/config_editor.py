@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'config_editor.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.2
+# Created by: PyQt5 UI code generator 5.14.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -25,19 +25,22 @@ class Ui_config_dialog(object):
         self.gridLayout.addWidget(self.config_view, 0, 0, 1, 1)
         self.gridLayout_2 = QtWidgets.QGridLayout()
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.buttonBox = QtWidgets.QDialogButtonBox(config_dialog)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
-        self.buttonBox.setCenterButtons(False)
-        self.buttonBox.setObjectName("buttonBox")
-        self.gridLayout_2.addWidget(self.buttonBox, 0, 2, 1, 1)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.gridLayout_2.addItem(spacerItem, 0, 2, 1, 1)
         self.do_restart = QtWidgets.QCheckBox(config_dialog)
         self.do_restart.setObjectName("do_restart")
         self.gridLayout_2.addWidget(self.do_restart, 0, 1, 1, 1)
+        self.buttonBox = QtWidgets.QDialogButtonBox(config_dialog)
+        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
+        self.buttonBox.setObjectName("buttonBox")
+        self.gridLayout_2.addWidget(self.buttonBox, 0, 4, 1, 1)
         self.do_coloring = QtWidgets.QCheckBox(config_dialog)
         self.do_coloring.setChecked(True)
         self.do_coloring.setObjectName("do_coloring")
         self.gridLayout_2.addWidget(self.do_coloring, 0, 0, 1, 1)
+        self.save_as_button = QtWidgets.QPushButton(config_dialog)
+        self.save_as_button.setObjectName("save_as_button")
+        self.gridLayout_2.addWidget(self.save_as_button, 0, 3, 1, 1)
         self.gridLayout.addLayout(self.gridLayout_2, 2, 0, 1, 1)
         self.line = QtWidgets.QFrame(config_dialog)
         self.line.setFrameShape(QtWidgets.QFrame.HLine)
@@ -56,6 +59,7 @@ class Ui_config_dialog(object):
         self.do_restart.setText(_translate("config_dialog", "Restart"))
         self.do_restart.setShortcut(_translate("config_dialog", "R"))
         self.do_coloring.setText(_translate("config_dialog", "Color Indication"))
+        self.save_as_button.setText(_translate("config_dialog", "Save as"))
 
 
 if __name__ == "__main__":
