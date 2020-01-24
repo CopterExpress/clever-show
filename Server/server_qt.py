@@ -127,7 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_any_file.triggered.connect(self.send_any_file)
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
+            b_partial(self.send_to_selected, "service_restart", {"name": "clever"}))
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
@@ -200,9 +200,8 @@ class MainWindow(QtWidgets.QMainWindow):
             yield f(copter, *args, **kwargs)
 
     @pyqtSlot()
-    def send_to_selected(self, command, command_args=(), command_kwargs=None):
-        return list(self.iterate_selected(lambda copter: copter.client.send_message(
-            command, command_args, command_kwargs)))
+    def send_to_selected(self, command, command_args=None):
+        return list(self.iterate_selected(lambda copter: copter.client.send_message(command, command_args)))
 
     def new_client_connected(self, client: Client):
         logging.debug("Added client {}".format(client))
@@ -238,14 +237,13 @@ class MainWindow(QtWidgets.QMainWindow):
             "animation_id": 2,
             "battery": 3,
             "fcu_status": 4,
-            "calibration_status": 5,
+            "cal_status": 5,
             "mode": 6,
             "selfcheck": 7,
             "current_position": 8,
             "start_position": 9,
             "task": 10,
             "time": 11,
-            "config_version": 12,
         }
 
         for key, value in telems.items():
@@ -288,7 +286,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.pause_button.setText('Resume')
         else:
             time_gap = 0.1  # TODO config? automatic delay detection?
-            self.send_to_selected("resume", kwargs={"time": server.time_now() + time_gap})
+            self.send_to_selected("resume", {"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
@@ -297,7 +295,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for copter in self.model.user_selected():
             if self.model.checks.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
-                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int, merge commands
+                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int
                 else:
                     copter.client.send_message("takeoff")
 
@@ -427,7 +425,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_aruco(self):
         def callback(copter):
-            copter.client.send_message("service_restart", kwargs={"name": "clever"})
+            copter.client.send_message("service_restart", {"name": "clever"})
 
         self.send_files("Select aruco map configuration file", "Aruco map files (*.txt)", onefile=True,
                         client_path="/home/pi/catkin_ws/src/clever/aruco_pose/map/",
@@ -467,20 +465,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         copters = self.model.user_selected()
         for copter in copters:
-            copter.client.send_message("config", kwargs={"config": data, "mode": mode.lower()})
+            copter.client.send_message("config", {"config": data, "mode": mode.lower()})
 
     @pyqtSlot()
     def send_any_command(self):
         text, ok = QInputDialog.getText(self, "Enter command to send on copter",
                                         "Command:", QLineEdit.Normal, "")
         if ok and text:
-            self.send_to_selected("execute", kwargs={"command": text})
+            self.send_to_selected("execute", {"command": text})
 
     @pyqtSlot()
     def restart_clever_show(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("service_restart", kwargs={"name": "visual_pose_watchdog"})
-            copter.client.send_message("service_restart", kwargs={"name": "clever-show"})
+            copter.client.send_message("service_restart", {"name": "visual_pose_watchdog"})
+            copter.client.send_message("service_restart", {"name": "clever-show"})
 
     @pyqtSlot()
     def restart_chrony(self):

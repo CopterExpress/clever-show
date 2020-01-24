@@ -8,7 +8,6 @@ import datetime
 import threading
 import selectors
 import collections
-import traceback
 
 import inspect  # Add parent dir to PATH to import messaging_lib and config_lib
 
@@ -157,7 +156,6 @@ class Server(messaging.Singleton):
                         client.process_events(mask)
                     except Exception as error:
                         logging.error("Exception {} occurred for {}! Resetting connection!".format(error, client.addr))
-                        traceback.print_exc()
                         client.close(True)
                 else:  # Notifier
                     client.process_events(mask)
@@ -187,9 +185,9 @@ class Server(messaging.Singleton):
 
     def _ip_broadcast(self):
         logging.info("Broadcast sender thread started!")
-        msg = messaging.MessageManager.create_action_message(
-            "server_ip", kwargs={"host": self.ip, "port": str(self.config.server_port), "id": self.id,
-                                 "start_time": str(self.time_started)})
+        msg = messaging.MessageManager.create_simple_message(
+            "server_ip", {"host": self.ip, "port": str(self.config.server_port), "id": self.id,
+                          "start_time": str(self.time_started)})
         logging.debug("Formed broadcast message: {}".format(msg))
 
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -233,11 +231,11 @@ class Server(messaging.Singleton):
                 message.process_message()
                 content = message.content
 
-                right_command = (content and message.jsonheader["action"] == "server_ip")
+                right_command = (content and content["command"] == "server_ip")
 
                 if right_command:
-                    different_id = content["kwargs"]["id"] != str(self.id)
-                    self_younger = float(content["kwargs"]["start_time"]) <= self.time_started
+                    different_id = content["args"]["id"] != str(self.id)
+                    self_younger = float(message.content["args"]["start_time"]) <= self.time_started
 
                     if different_id and self_younger:
                         # younger server should shut down
@@ -255,7 +253,7 @@ class Server(messaging.Singleton):
             logging.info("Broadcast listener thread stopped, socked closed!")
 
     def send_starttime(self, copter, start_time):
-        copter.send_message("start", kwargs={"time": str(start_time)})
+        copter.send_message("start", {"time": str(start_time)})
 
 
 def requires_connect(f):
@@ -358,7 +356,7 @@ class Client(messaging.ConnectionManager):
     @classmethod
     @requires_any_connected
     def broadcast_message(cls, command, args=None, force_all=False):
-        cls.broadcast(messaging.MessageManager.create_action_message(command, args), force_all)
+        cls.broadcast(messaging.MessageManager.create_simple_message(command, args), force_all)
 
 
 if __name__ == '__main__':

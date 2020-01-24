@@ -49,10 +49,8 @@ class CopterTableWidget(QTableView):
         self.setSortingEnabled(True)
         self.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
         self.resizeColumnsToContents()
-        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
-        self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.doubleClicked.connect(self.on_double_click)
-        self.setDragEnabled(True)
 
     def moved(self, logical_index, old_index, new_index):
         name = self.current_columns.pop(old_index)

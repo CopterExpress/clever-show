@@ -148,18 +148,18 @@ class Client(object):
                     message = messaging.MessageManager()
                     message.income_raw = data
                     message.process_message()
-                    if message.content and message.jsonheader["action"] == "server_ip":
+                    if message.content:
                         logger.info("Received broadcast message {} from {}".format(message.content, addr))
+                        if message.content["command"] == "server_ip":
+                            args = message.content["args"]
+                            self.config.set("SERVER", "port", int(args["port"]))
+                            self.config.set("SERVER", "host", args["host"])
+                            self.config.write()
 
-                        kwargs = message.content["kwargs"]
-                        self.config.set("SERVER", "port", int(kwargs["port"]))
-                        self.config.set("SERVER", "host", kwargs["host"])
-                        self.config.write()
-
-                        logger.info("Binding to new IP: {}:{}".format(
-                            self.config.server_host, self.config.server_port))
-                        self.on_broadcast_bind()
-                        break
+                            logger.info("Binding to new IP: {}:{}".format(
+                                self.config.server_host, self.config.server_port))
+                            self.on_broadcast_bind()
+                            break
         finally:
             broadcast_client.close()
 
@@ -168,7 +168,6 @@ class Client(object):
 
     def _process_connections(self):
         while True:
-            #self.server_connection.send_message("telemetry", kwargs={"value":{"time": time.time()}})
             events = self.selector.select(timeout=1)
 
             for key, mask in events:
@@ -227,7 +226,6 @@ def _response_id(*args, **kwargs):
     if new_id is not None:
         active_client.config.set("PRIVATE", "id", new_id, True)
         active_client.load_config()
-        # TODO renaming here
 
     return active_client.client_id
 

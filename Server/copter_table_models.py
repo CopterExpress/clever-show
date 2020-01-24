@@ -1,14 +1,12 @@
 import re
 import sys
-import os
 import time
 import math
 import indexed
-from contextlib import suppress
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt as Qt, QUrl, QDir
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import Qt as Qt
+
 
 ModelDataRole = 998
 ModelStateRole = 999
@@ -118,18 +116,15 @@ columns_names = {'copter_id': 'copter ID',
                  'current_position': 'current x y z yaw frame_id',
                  'start_position': '    start x y z     ',
                  'last_task': 'last task',
-                 'time_delta': 'dt',
-                 'config_version': 'configuration',
+                 'time_delta': 'dt'
                  }
 
-columns = list(columns_names.keys())
 
 class CopterData:
     class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('animation_id', None),
-                                                    ('battery', None), ('fcu_status', None), ('calibration_status', None),
+                                                    ('battery', None), ('fcu_status', None), ('cal_status', None),
                                                     ('mode', None), ('selfcheck', None), ('current_position', None),
-                                                    ('start_position', None), ('last_task', None), ('time_delta', None),
-                                                    ("config_version", None), ('client', None)])
+                                                    ('start_position', None), ('last_task', None), ('time_delta', None), ('client', None)])
 
     def __init__(self, **kwargs):
         self.attrs_dict = self.class_basic_attrs.copy()
@@ -304,11 +299,7 @@ def place_time_delta(value):
 
 @ModelFormatter.col_format(11, ModelFormatter.VIEW_FORMATTER)
 def view_time_delta(value):
-    return "{:.3f}".format(value)
-
-
-def is_column(index, column_name):
-    return index.column() == columns.index(column_name)
+    return "{:.3f}".format(value)  
 
 
 class CopterDataModel(QtCore.QAbstractTableModel):
@@ -479,7 +470,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.update_model(index, role)
         return True
 
-    def select_all(self):  # probably NOT thread-safe! TODO remake
+    def select_all(self):  # probably NOT thread-safe!
         self.first_col_is_checked = not self.first_col_is_checked
         for row_num, copter in enumerate(self.data_contents):
             copter.states.checked = int(self.first_col_is_checked)*2
@@ -489,36 +480,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         roles = Qt.ItemIsSelectable | Qt.ItemIsEnabled
         if index.column() == 0:
             roles |= Qt.ItemIsUserCheckable | Qt.ItemIsEditable
-        if is_column(index, "config_version"):
-            roles |= Qt.ItemIsDragEnabled # | Qt.ItemIsDropEnabled
-
         return roles
-
-    def supportedDropActions(self):
-        return QtCore.Qt.CopyAction
-
-    def mimeTypes(self):
-        return ['text/plain']
-
-    def mimeData(self, indexes):
-        index = indexes[0]
-        if is_column(index, "config_version"):
-            return self._config_mime(index)
-
-        return None
-
-    def _config_mime(self, index):
-        mimedata = QtCore.QMimeData()
-        path = os.path.join(QDir.tempPath(), "config_{}.ini".format(
-            self.data_contents[index.row()].copter_id))
-
-        with suppress(OSError):  # remove if file exists
-            os.remove(path)
-
-        self.data_contents[index.row()].client.get_file("config/client.ini", path,)
-        mimedata.setUrls([QUrl.fromLocalFile(path)])
-
-        return mimedata
 
     @QtCore.pyqtSlot(int, int, QtCore.QVariant, QtCore.QVariant)
     def update_item(self, row, col, value, role=Qt.EditRole):

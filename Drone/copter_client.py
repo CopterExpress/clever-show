@@ -123,7 +123,7 @@ def execute_command(command):
     os.system(command)
 
 
-def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):  # TODO simplify
+def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):
     try:
         with open(path, 'r') as f:
             raw_content = f.read()
@@ -245,7 +245,7 @@ def _execute(*args, **kwargs):
         logger.info("Executing done")
 
 
-@messaging.message_callback("id")  # TODO redo
+@messaging.message_callback("id")
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
     if new_id is not None:
@@ -645,7 +645,6 @@ def _play_animation(*args, **kwargs):
                           )
 
 
-# noinspection PyAttributeOutsideInit
 class Telemetry:
     params_default_dict = {
         "git_version": None,
@@ -653,14 +652,13 @@ class Telemetry:
         "battery": None,
         "armed": False,
         "fcu_status": None,
-        "calibration_status": None,
+        "cal_status": None,
         "mode": None,
         "selfcheck": None,
         "current_position": None,
         "start_position": None,
         "task": None,
         "time": None,
-        "config_version": None,
     }
 
     def __init__(self):
@@ -691,10 +689,6 @@ class Telemetry:
     @classmethod
     def get_git_version(cls):
         return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True)
-
-    @classmethod
-    def get_config_version(cls):
-        return "{} V{}".format(client.active_client.config.config_name, client.active_client.config.config_version)
 
     @classmethod
     def get_start_position(cls):
@@ -770,7 +764,6 @@ class Telemetry:
     def update_telemetry_slow(self):
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
-        self.config_version = self.get_config_varsion()
         try:
             self.cal_status = get_calibration_status()
             self.fcu_status = get_sys_status()
@@ -835,9 +828,9 @@ class Telemetry:
             self._tasks_cleared = False
         self._last_state = state
 
-    def transmit_message(self):  # todo if connected
+    def transmit_message(self):
         try:
-            client.active_client.server_connection.send_message('telemetry', kwargs={'value': self.create_msg_contents()})
+            client.active_client.server_connection.send_message('telemetry', args={'value': self.create_msg_contents()})
         except AttributeError as e:
             logger.debug(e)
 
