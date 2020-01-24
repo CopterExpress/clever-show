@@ -6,8 +6,9 @@ from copy import deepcopy
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog, QFileDialog
+from PyQt5.QtGui import QCursor, QKeySequence
+from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog, QFileDialog, \
+    QShortcut
 
 import config_editor
 
@@ -542,6 +543,17 @@ class ConfigTreeWidget(QTreeView):
         self.setDropIndicatorShown(True)
         self.setAnimated(True)
 
+        self.delete_shortcut = QShortcut(QKeySequence('Del'), self)
+        self.delete_shortcut.activated.connect(
+            self.with_selected(self.remove))
+
+    def with_selected(self, f, *args, **kwargs):
+        def decorated():
+            index = self.selectedIndexes()[0]
+            return f(index, *args, **kwargs)
+
+        return decorated
+
     def open_menu(self, point):
         index = self.indexAt(point)
         item = index.internalPointer()
@@ -718,8 +730,6 @@ class ConfigDialog(QtWidgets.QDialog):
         self.ui.save_as_button.clicked.connect(self.save_as)
 
         # self.ui.delete_button.pressed.connect(self.remove_selected)
-
-        # index = self.config_view.selectedIndexes()[0]
 
     def edit_caution(self):
         reply = QMessageBox().warning(self, "Editing caution",
