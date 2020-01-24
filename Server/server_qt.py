@@ -5,6 +5,7 @@ import glob
 import time
 import logging
 import asyncio
+import platform
 import itertools
 from functools import partial, wraps
 
@@ -134,7 +135,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
         self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
         self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
-        self.ui.action_restart_chrony.triggered.connect(b_partial(self.send_to_selected, "repair_chrony"))
+        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
@@ -478,6 +479,13 @@ class MainWindow(QtWidgets.QMainWindow):
         for copter in self.model.user_selected():
             copter.client.send_message("service_restart", {"name": "visual_pose_watchdog"})
             copter.client.send_message("service_restart", {"name": "clever-show"})
+
+    @pyqtSlot()
+    def restart_chrony(self):
+        if platform.system() == 'Linux':
+            os.system("pkexec systemctl restart chrony")
+        for copter in self.model.user_selected():
+            copter.client.send_message("repair_chrony")
 
     @pyqtSlot()
     def select_music_file(self):
