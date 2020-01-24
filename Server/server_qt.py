@@ -5,6 +5,7 @@ import glob
 import time
 import logging
 import asyncio
+import platform
 import itertools
 from functools import partial, wraps
 
@@ -127,15 +128,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
         self.ui.action_restart_clever.triggered.connect(
             b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
-        self.ui.action_restart_clever_show.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever-show"}))
+        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
         self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
         self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
         self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
         self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
-        self.ui.action_restart_chrony.triggered.connect(b_partial(self.send_to_selected, "repair_chrony"))
+        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
@@ -288,7 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.pause_button.setText('Resume')
         else:
             time_gap = 0.1  # TODO config? automatic delay detection?
-            self.send_to_selected("resume", {"time": server.time_now() + time_gap})
+            self.send_to_selected("resume", kwargs={"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
@@ -435,7 +435,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_launch(self):
-        self.send_directory_files("Select directory with launch files", ('.launch', ), match_id=False,
+        self.send_directory_files("Select directory with launch files", ('.launch', '.yaml'), match_id=False,
                                   client_path='/home/pi/catkin_ws/src/clever/clever/launch/')  # TODO clever restart callback?
 
     @pyqtSlot()
@@ -474,7 +474,20 @@ class MainWindow(QtWidgets.QMainWindow):
         text, ok = QInputDialog.getText(self, "Enter command to send on copter",
                                         "Command:", QLineEdit.Normal, "")
         if ok and text:
-            self.send_to_selected("execute", {"command": text})
+            self.send_to_selected("execute", kwargs={"command": text})
+
+    @pyqtSlot()
+    def restart_clever_show(self):
+        for copter in self.model.user_selected():
+            copter.client.send_message("service_restart", kwargs={"name": "visual_pose_watchdog"})
+            copter.client.send_message("service_restart", kwargs={"name": "clever-show"})
+
+    @pyqtSlot()
+    def restart_chrony(self):
+        if platform.system() == 'Linux':
+            os.system("pkexec systemctl restart chrony")
+        for copter in self.model.user_selected():
+            copter.client.send_message("repair_chrony")
 
     @pyqtSlot()
     def select_music_file(self):
