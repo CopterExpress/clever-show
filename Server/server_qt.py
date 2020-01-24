@@ -433,7 +433,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def send_launch(self):
-        self.send_directory_files("Select directory with launch files", ('.launch', ), match_id=False,
+        self.send_directory_files("Select directory with launch files", ('.launch', '.yaml'), match_id=False,
                                   client_path='/home/pi/catkin_ws/src/clever/clever/launch/')  # TODO clever restart callback?
 
     @pyqtSlot()
