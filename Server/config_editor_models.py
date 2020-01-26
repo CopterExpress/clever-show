@@ -731,6 +731,7 @@ class ConfigDialog(QtWidgets.QDialog):
         super(ConfigDialog, self).__init__(parent)
         self.ui = config_editor.Ui_config_dialog()
         self.model = ConfigModel(widget=self)
+        self.unsaved = False
         self.setupUi()
         self.copter_editor_signal.connect(self._call_copter_dialog)
 
@@ -743,6 +744,8 @@ class ConfigDialog(QtWidgets.QDialog):
         self.ui.config_view.expandAll()
         self.ui.config_view.resizeColumnToContents(0)
         self.ui.config_view.resizeColumnToContents(1)
+
+        self.model.dataChanged.connect(self.unsaved_call)  # connect after setup
 
     def setupUi(self):
         self.ui.setupUi(self)
@@ -757,6 +760,26 @@ class ConfigDialog(QtWidgets.QDialog):
         self.ui.save_as_button.clicked.connect(self.save_as)
 
         # self.ui.delete_button.pressed.connect(self.remove_selected)
+
+    def unsaved_call(self):
+        name = self.windowTitle()+'*'
+        self.setWindowTitle(name)
+        self.unsaved = True
+        self.model.dataChanged.disconnect(self.unsaved_call)
+
+    def closeEvent(self, event):
+        if not self.unsaved or self.result():
+            event.accept()
+            return
+
+        reply = QMessageBox.question(self, "Confirm exit", "There are unsaved changes in config file. "
+                                                           "Are you sure you want to exit?",
+                                     QMessageBox.No | QMessageBox.Yes, QMessageBox.No)
+
+        if reply != QMessageBox.Yes:
+            event.ignore()
+        else:
+            event.accept()
 
     def edit_caution(self):
         reply = QMessageBox().warning(self, "Editing caution",
