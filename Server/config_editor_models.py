@@ -79,7 +79,7 @@ class ConfigModelItem:
         if comments:
             try:
                 raw_spec = comments.split('\n')[-1].split()[1:]
-                if raw_spec[0] == '__list__': # and len(raw_spec[1:]) == len(data):
+                if raw_spec[0] == '__list__':  # and len(raw_spec[1:]) == len(data):
                     return raw_spec[1:]
             except IndexError:
                 pass
@@ -156,10 +156,21 @@ class ConfigModelItem:
 
     def check_state(self):
         if self.spec_default is not None and self.data(1) == self.spec_default \
-                and self.data(0) == self.default_values[0]:
+                and self.data(0) == self.default_values[0] and self.type != 'section':
             self.set_state('default')
+            print('def', self.data(1), self.data(0), self.spec_default)
 
-    def set_state(self, state):
+        child_states = [child.state for child in self.childItems]
+        if any(state in child_states for state in ['edited', 'added', 'deleted']):
+            self.state = 'edited'
+        if len(set(child_states)) == 1:  # if all states equal
+            self.set_state(child_states[0], set_children=False)
+            print(child_states)
+
+        if self.parentItem is not None:
+            self.parentItem.check_state()
+
+    def set_state(self, state, set_children=True):
         if self.state == 'unchanged' and state == 'default':
             return
 
@@ -168,11 +179,12 @@ class ConfigModelItem:
 
         self.state = state
 
-        for child in self.childItems:
-            child.set_state(state)
+        if set_children:  # to prevent cycle state set
+            for child in self.childItems:
+                child.set_state(state)
 
-        if state == 'edited':
-            self.parentItem.state = state
+        # if state == 'edited':
+        #    self.parentItem.state = state
 
     def set_type(self, item_type):
         self.type = item_type
@@ -355,10 +367,10 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         if index.column() == 0:
             if item.type != 'list_item':
-                flags |= int(QtCore.Qt.ItemIsDragEnabled)
+                flags |= int(Qt.ItemIsDragEnabled)
 
             if item.type == 'section':
-                flags |= int(QtCore.Qt.ItemIsDropEnabled)
+                flags |= int(Qt.ItemIsDropEnabled)
 
         not_section = not (index.column() > 0 and item.type == 'section')
         not_list_item = not (index.column() > 1 and item.type == 'list_item')
@@ -472,6 +484,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
             else:
                 section = ConfigModelItem((key,), parent=parent, item_type='section')
                 self.config_dict_setup(item, convert_types=convert_types, parent=section)
+                section.check_state()
 
     def to_dict(self, parent=None) -> dict:
         if parent is None:
@@ -642,7 +655,7 @@ class ConfigTreeWidget(QTreeView):
         item.set_state('added')
         ensure_unique_names(item)
         self.model().insertItems(index.row() + 1, [item], index.parent())
-        self.expandAll()  # fix not expanded duplicated section
+        self.expandAll()  # fixes not expanded duplicated section
 
     def remove(self, index):
         self.model().removeRow(index)
@@ -650,7 +663,7 @@ class ConfigTreeWidget(QTreeView):
     def exclude(self, index):
         item = self.model().nodeFromIndex(index)
         if item.state == 'deleted':
-            self.model().setData(index, item.default_state, StateRole)
+            self.model().setData(index, item.previous_state, StateRole)
         else:
             self.model().setData(index, 'deleted', StateRole)
 
