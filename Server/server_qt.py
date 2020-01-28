@@ -184,7 +184,10 @@ class MainWindow(QtWidgets.QMainWindow):
         super().show()
 
     def closeEvent(self, event):
-        # TODO if any connected copters
+        if not any(copter.connected for copter in Client.clients.values()):
+            event.accept()
+            return
+
         reply = QMessageBox.question(self, "Confirm exit", "There are copters connected to the server. "
                                      "Are you sure you want to exit?",
                                      QMessageBox.No | QMessageBox.Yes, QMessageBox.No)
