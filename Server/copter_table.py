@@ -13,23 +13,20 @@ import copter_table_models as table
 
 
 class CopterTableWidget(QTableView):
-    def __init__(self, model, config, data_model=table.StatedCopterData):
+    def __init__(self, model, config):
         QTableView.__init__(self)
 
         self.config = config
         self.model = model
-        self._data_model = data_model
 
         self.proxy_model = table.CopterProxyModel()
-        self.signals = table.SignalManager(self.model)
-
         self.proxy_model.setSourceModel(self.model)
         self.proxy_model.setDynamicSortFilter(True)
 
         # Initiate table and table self.model
         self.setModel(self.proxy_model)
 
-        self.columns = list(table.columns_names.keys())  #[header.strip() for header in self.model.headers]  # header keys
+        self.columns = self.model.columns  #[header.strip() for header in self.model.headers]  # header keys
         self.current_columns = self.columns[:]
 
         header = self.horizontalHeader()
@@ -77,16 +74,6 @@ class CopterTableWidget(QTableView):
         self.set_column_order(list(item_dict.keys()))
         for name, show in item_dict.items():         # for index, name in enumerate(self.columns):
             self.setColumnHidden(self.columns.index(name), not show)  # self.setColumnHidden(index, not item_dict.get(name, False))
-
-    # Some fancy wrappers to simplify syntax
-    def add_client(self, **kwargs):
-        self.signals.add_client_signal.emit(self._data_model(**kwargs))
-
-    def remove_client_data(self, row_data):
-        self.signals.remove_client_signal.emit(row_data)
-
-    def update_data(self, row, col, data, role=table.ModelDataRole):
-        self.signals.update_data_signal.emit(row, col, data, role)
 
     @pyqtSlot(QtCore.QModelIndex)
     def on_double_click(self, index):

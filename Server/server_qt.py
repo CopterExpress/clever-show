@@ -187,7 +187,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # TODO if any connected copters
         reply = QMessageBox.question(self, "Confirm exit", "There are copters connected to the server. "
                                      "Are you sure you want to exit?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                                     QMessageBox.No | QMessageBox.Yes, QMessageBox.No)
 
         if reply != QMessageBox.Yes:
             event.ignore()
@@ -206,7 +206,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def new_client_connected(self, client: Client):
         logging.debug("Added client {}".format(client))
-        self.ui.copter_table.add_client(copter_id=client.copter_id, client=client)
+        self.model.add_client(copter_id=client.copter_id, client=client)
 
     def client_connection_changed(self, client: Client):
         logging.debug("Connection {} changed {}".format(client, client.connected))
@@ -218,12 +218,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.server.config.table_remove_disconnected and (not client.connected):
             client.remove()
-            self.ui.copter_table.remove_client_data(row_data)
+            self.model.remove_client_data(row_data)
             logging.debug("Removing from table")
         else:
             row_num = self.model.get_row_index(row_data)
             if row_num is not None:
-                self.ui.copter_table.update_data(row_num, 0, client.connected, table.ModelStateRole)
+                self.model.update_data(row_num, 0, client.connected, table.ModelStateRole)
                 logging.debug("Client status updated")
 
     @pyqtSlot()
@@ -257,14 +257,14 @@ class MainWindow(QtWidgets.QMainWindow):
             row_data = self.model.get_row_by_attr("client", client)
             row_num = self.model.get_row_index(row_data)
             if row_num is not None:
-                self.ui.copter_table.update_data(row_num, col, value, Qt.EditRole)
+                self.model.update_data(row_num, col, value, Qt.EditRole)
 
     @pyqtSlot()
     def remove_selected(self):
         for copter in self.model.user_selected():
             copter.client.remove()
             if not self.server.config.table_remove_disconnected:
-                self.ui.copter_table.remove_client_data(copter)
+                self.model.remove_client_data(copter)
             logging.info("Client removed from table!")
 
     @pyqtSlot()
@@ -316,7 +316,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.ui.copter_table.update_data(row, col, data, table.ModelDataRole)
+            self.model.update_data(row, col, data, table.ModelDataRole)
             # Send request
             client.get_response("calibrate_gyro", self._get_calibration_info)
 
@@ -328,7 +328,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.ui.copter_table.update_data(row, col, data, table.ModelDataRole)
+            self.model.update_data(row, col, data, table.ModelDataRole)
             # Send request
             client.get_response("calibrate_level", self._get_calibration_info)
 
@@ -338,7 +338,7 @@ class MainWindow(QtWidgets.QMainWindow):
         row = self.model.get_row_index(row_data)
         if row is not None:
             data = str(value)
-            self.ui.copter_table.update_data(row, col, data, table.ModelDataRole)
+            self.model.update_data(row, col, data, table.ModelDataRole)
 
     def _send_files(self, files, copters=None, client_path="", client_filename="", match_id=False, callback=None):
         if copters is None:

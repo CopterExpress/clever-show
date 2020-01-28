@@ -1,14 +1,12 @@
+import os
 import re
 import sys
-import os
 import time
 import math
-import indexed
 from contextlib import suppress
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt, QUrl, QDir
-from PyQt5.QtWidgets import QApplication
 
 ModelDataRole = 998
 ModelStateRole = 999
@@ -18,8 +16,8 @@ class ModelChecks:
     checks_dict = {}
     takeoff_checklist = (3, 4, 6, 7, 8)
 
-    battery_min = 50.0  # config.getfloat('CHECKS', 'battery_percentage_min')
-    start_pos_delta_max = 1.0  # config.getfloat('CHECKS', 'start_pos_delta_max')
+    battery_min = 50.0
+    start_pos_delta_max = 1.0
     time_delta_max = 1.0
 
     @classmethod
@@ -64,7 +62,7 @@ def check_anim(item):
 def check_bat(item):
     if item == "NO_INFO":
         return False
-    return item[1]*100 > ModelChecks.battery_min
+    return item[1] * 100 > ModelChecks.battery_min
 
 
 @ModelChecks.col_check(4)
@@ -98,87 +96,76 @@ def check_pos_status(item):
 def check_start_pos_status(item):
     return item != 'NO_POS'
 
+
 @ModelChecks.col_check(10)
 def check_selfcheck(item):
     return True
+
 
 @ModelChecks.col_check(11)
 def check_time_delta(item):
     return abs(item) < ModelChecks.time_delta_max
 
 
-columns_names = {'copter_id': 'copter ID',
-                 'git_version': 'version',
-                 'animation_id': ' animation ID ',
-                 'battery': '  battery  ',
-                 'fcu_status': 'FCU status',
-                 'calibration_status': 'sensors',
-                 'mode': '  mode  ',
-                 'selfcheck': ' checks ',
-                 'current_position': 'current x y z yaw frame_id',
-                 'start_position': '    start x y z     ',
-                 'last_task': 'last task',
-                 'time_delta': 'dt',
-                 'config_version': 'configuration',
-                 }
 
-columns = list(columns_names.keys())
+
 
 class CopterData:
-    class_basic_attrs = indexed.IndexedOrderedDict([('copter_id', None), ('git_ver', None), ('animation_id', None),
-                                                    ('battery', None), ('fcu_status', None), ('calibration_status', None),
-                                                    ('mode', None), ('selfcheck', None), ('current_position', None),
-                                                    ('start_position', None), ('last_task', None), ('time_delta', None),
-                                                    ("config_version", None), ('client', None)])
+    def __init__(self, columns=(), **kwargs):
+        self._columns = columns
+        for column in columns:
+            setattr(self, column, None)
 
-    def __init__(self, **kwargs):
-        self.attrs_dict = self.class_basic_attrs.copy()
-        self.attrs_dict.update(kwargs)
-
-        for attr, value in self.attrs_dict.items():
+        for attr, value in kwargs.items():
             setattr(self, attr, value)
 
     def __getitem__(self, key):
-        return getattr(self, self.attrs_dict.keys()[key])
+        if key in self._columns:
+            return getattr(self, key)
+        return getattr(self, self._columns[key])
 
     def __setitem__(self, key, value):
-        setattr(self, self.attrs_dict.keys()[key], value)
+        if key in self._columns:
+            setattr(self, key, value)
+        else:
+            setattr(self, self._columns[key], value)
 
 
 class StatedCopterData(CopterData):
-    class_basic_states = indexed.IndexedOrderedDict([("checked", 0), ("selfchecked", None), ("takeoff_ready", None),
-                                                    ("copter_id", True), ])
+    def __init__(self, columns=(), checks_defaults=None, checks_class=ModelChecks, **kwargs):
+        if checks_defaults is None:
+            checks_defaults = {}
 
-    def __init__(self, checks_class=ModelChecks, **kwargs):
-        self.states = CopterData(**self.class_basic_states)
-        self.checks = checks_class
+        self.__dict__['states'] = CopterData(columns, **checks_defaults)
+        self.__dict__['checks'] = checks_class
+        self.__dict__['all_checks'] = None
 
-        super(StatedCopterData, self).__init__(**kwargs)
+        super().__init__(columns, **kwargs)
 
     def __setattr__(self, key, value):
         self.__dict__[key] = value
 
-        if key in self.class_basic_attrs.keys():
-            try:
-                self.states.__dict__[key] = \
-                    ModelChecks.checks_dict[self.attrs_dict.keys().index(key)](value)
-                if key == 'start_position':
-                    if (self.__dict__['current_position'] is not None) and (self.__dict__['start_position'] is not None):
-                        current_pos = get_position(self.__dict__['current_position'])                   
-                        start_pos = get_position(self.__dict__['start_position'])
-                        delta = get_position_delta(current_pos, start_pos)
-                        if delta != 'NO_POS':
-                            self.states.__dict__[key] = (delta < ModelChecks.start_pos_delta_max)
-            except KeyError:  # No check present for that col
-                pass
-            else:  # update selfchecked and takeoff_ready
-                self.states.__dict__["selfchecked"] = all(
-                    [self.states[i] for i in ModelChecks.checks_dict.keys()]
-                )
+        if key in self._columns:
+            with suppress(KeyError):
+                # print(self.__dict__)
+                self.states.__dict__[key] = self.checks.checks_dict[self._columns.index(key)](value)
+                self.states.__dict__["all_checks"] = all([self.states[i] for i in ModelChecks.checks_dict.keys()])
 
-                self.states.__dict__["takeoff_ready"] = all(
-                    [self.states[i] for i in ModelChecks.takeoff_checklist]
-                )
+                # if key == 'start_position':
+                #     if (self.__dict__['current_position'] is not None) and (
+                #             self.__dict__['start_position'] is not None):
+                #         current_pos = get_position(self.__dict__['current_position'])
+                #         start_pos = get_position(self.__dict__['start_position'])
+                #         delta = get_position_delta(current_pos, start_pos)
+                #         if delta != 'NO_POS':
+                #             self.states.__dict__[key] = (delta < ModelChecks.start_pos_delta_max)
+
+                # update all_checks and takeoff_ready
+
+                # self.states.__dict__["takeoff_ready"] = all(
+                #     [self.states[i] for i in ModelChecks.takeoff_checklist]
+                # )
+
 
 def get_position(pos_array):
     if pos_array[0] != 'nan' and pos_array != 'NO_POS':
@@ -194,7 +181,7 @@ def get_position_delta(pos1, pos2):
     if pos1 != 'NO_POS' and pos2 != 'NO_POS':
         delta_squared = 0
         for i in range(3):
-            delta_squared += (pos1[i]-pos2[i])**2
+            delta_squared += (pos1[i] - pos2[i]) ** 2
         return math.sqrt(delta_squared)
     return 'NO_POS'
 
@@ -266,17 +253,19 @@ def place_battery(value):
 def view_battery(value):
     if isinstance(value, list):
         battery_v, battery_p = value
-        return "{:.1f}V {:d}%".format(battery_v, int(battery_p*100))
+        return "{:.1f}V {:d}%".format(battery_v, int(battery_p * 100))
     return value
+
 
 @ModelFormatter.col_format(7, ModelFormatter.VIEW_FORMATTER)
 def view_selfcheck(value):
     if isinstance(value, list):
-        if len(value)==1:
+        if len(value) == 1:
             if len(value[0]) <= 8:
                 return value[0]
         return "ERROR"
     return value
+
 
 @ModelFormatter.col_format(8, ModelFormatter.VIEW_FORMATTER)
 def view_selfcheck(value):
@@ -285,6 +274,7 @@ def view_selfcheck(value):
         return "{:.2f} {:.2f} {:.2f} {:d} {}".format(x, y, z, int(yaw), frame)
     return value
 
+
 @ModelFormatter.col_format(9, ModelFormatter.VIEW_FORMATTER)
 def view_selfcheck(value):
     if isinstance(value, list):
@@ -292,43 +282,70 @@ def view_selfcheck(value):
         return "{:.2f} {:.2f} {:.2f}".format(x, y, z)
     return value
 
+
 @ModelFormatter.col_format(10, ModelFormatter.PLACE_FORMATTER)
 def view_last_task(value):
     if value is None:
         return 'No task'
     return value
 
+
 @ModelFormatter.col_format(11, ModelFormatter.PLACE_FORMATTER)
 def place_time_delta(value):
-    return abs(value - time.time())  
+    return abs(value - time.time())
+
 
 @ModelFormatter.col_format(11, ModelFormatter.VIEW_FORMATTER)
 def view_time_delta(value):
     return "{:.3f}".format(value)
 
 
-def is_column(index, column_name):
-    return index.column() == columns.index(column_name)
-
-
 class CopterDataModel(QtCore.QAbstractTableModel):
+    columns_dict = {'copter_id': 'copter ID',
+                    'git_version': 'version',
+                    'animation_id': ' animation ID ',
+                    'battery': '  battery  ',
+                    'fcu_status': 'FCU status',
+                    'calibration_status': 'sensors',
+                    'mode': '  mode  ',
+                    'selfcheck': ' checks ',
+                    'current_position': 'current x y z yaw frame_id',
+                    'start_position': '    start x y z     ',
+                    'last_task': 'last task',
+                    'time_delta': 'dt',
+                    'config_version': 'configuration',
+                    }
+
+    columns = list(columns_dict.keys())
+
     selected_ready_signal = QtCore.pyqtSignal(bool)
     selected_takeoff_ready_signal = QtCore.pyqtSignal(bool)
     selected_flip_ready_signal = QtCore.pyqtSignal(bool)  # TODO fix this signals
     selected_calibrating_signal = QtCore.pyqtSignal(bool)
     selected_calibration_ready_signal = QtCore.pyqtSignal(bool)
 
-    def __init__(self, checks=ModelChecks, formatter=ModelFormatter, parent=None):
+    update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant, QtCore.QVariant)
+    add_client_signal = QtCore.pyqtSignal(object)
+    remove_row_signal = QtCore.pyqtSignal(int)
+    remove_client_signal = QtCore.pyqtSignal(object)
+
+    def __init__(self, checks=ModelChecks, formatter=ModelFormatter, data_model=StatedCopterData, parent=None):
         super(CopterDataModel, self).__init__(parent)
         # self.headers = ('   copter ID   ', '   version   ', '    animation ID    ', '     battery     ', '  fcu_status  ', ' sensors ',
         #                 '       mode       ', ' checks ', ' current x y z yaw frame_id ', '       start x y z       ', '           task           ',  'dt')
-        self.headers = list(columns_names.values())
+        self.headers = list(self.columns_dict.values())
         self.data_contents = []
 
         self.checks = checks
         self.formatter = formatter
+        self.data_model = data_model
 
         self.first_col_is_checked = False
+
+        self.update_data_signal.connect(self._update_item)
+        self.add_client_signal.connect(self._add_client)
+        self.remove_row_signal.connect(self._remove_row)
+        self.remove_client_signal.connect(self._remove_row_data)
 
     def insertRows(self, contents, position='last', parent=QtCore.QModelIndex()):
         rows = len(contents)
@@ -345,56 +362,37 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
         return True
 
+    @classmethod
+    def is_column(cls, index, column_name):
+        return index.column() == cls.columns.index(column_name)
+
+    def filter(self, f, contents=()):
+        contents = contents or self.data_contents
+        return filter(f, contents)
+
     def user_selected(self, contents=()):
-        contents = contents or self.data_contents
-        return filter(lambda x: x.states.checked == Qt.Checked, contents)
-
-    def selfchecked_ready(self, contents=()):
-        contents = contents or self.data_contents
-        return filter(lambda x: x.states.selfchecked, contents)
-
-    def takeoff_ready(self, contents=()):
-        contents = contents or self.data_contents
-        return filter(lambda x: x.states.takeoff_ready, contents)
-
-    def flip_ready(self, contents=()):
-        contents = contents or self.data_contents
-        return filter(flip_checks, contents)  # possibly change as takeoff checks
-
-    def calibrating(self, contents=()):
-        contents = contents or self.data_contents
-        return filter(calibrating_check, contents)
-
-    def calibration_ready(self, contents=()):
-        contents = contents or self.data_contents
-        return filter(calibration_ready_check, contents)
+        return self.filter(lambda x: x.states.checked == Qt.Checked, contents)
 
     def get_row_data(self, index):
         row = index.row()
         if row == -1:
             return None
         try:
-            data = self.data_contents[row]
+            return self.data_contents[row]
         except IndexError:
             return None
-        else:
-            return data
 
     def get_row_index(self, row_data):
         try:
-            index = self.data_contents.index(row_data)
+            return self.data_contents.index(row_data)
         except ValueError:
             return None
-        else:
-            return index
 
     def get_row_by_attr(self, attr, value):
         try:
-            row_data = next(filter(lambda x: getattr(x, attr, None) == value, self.data_contents))
+            return next(filter(lambda x: getattr(x, attr, None) == value, self.data_contents))
         except StopIteration:
             return None
-        else:
-            return row_data
 
     def rowCount(self, n=None):
         return len(self.data_contents)
@@ -438,12 +436,11 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def update_model(self, index=QtCore.QModelIndex(), role=QtCore.Qt.EditRole):
         selected = set(self.user_selected())
 
-        self.selected_ready_signal.emit(selected.issubset(self.selfchecked_ready()))
-        self.selected_takeoff_ready_signal.emit(selected.issubset(self.takeoff_ready()))
-
-        self.selected_flip_ready_signal.emit(selected.issubset(self.flip_ready()))
-        self.selected_calibrating_signal.emit(selected.issubset(self.calibrating()))
-        self.selected_calibration_ready_signal.emit(selected.issubset(self.calibration_ready()))
+        self.selected_ready_signal.emit(selected.issubset(self.filter(lambda x: x.states.all_checks)))
+        #self.selected_takeoff_ready_signal.emit(selected.issubset(self.filter(lambda x: x.states.takeoff_ready)))
+        self.selected_flip_ready_signal.emit(selected.issubset(self.filter(flip_checks)))
+        self.selected_calibrating_signal.emit(selected.issubset(self.filter(calibrating_check)))
+        self.selected_calibration_ready_signal.emit(selected.issubset(self.filter(calibration_ready_check)))
 
         self.dataChanged.emit(index, index, (role,))
 
@@ -467,7 +464,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             if col == 0:
                 self.data_contents[row].client.send_message("id", {"new_id": formatted_value})
                 self.data_contents[row].client.remove()  # TODO change
-                self.remove_row(row)
+                self._remove_row(row)
 
         elif role == ModelDataRole:  # For inner setting\editing of data
             self.data_contents[row][col] = value
@@ -482,15 +479,15 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     def select_all(self):  # probably NOT thread-safe! TODO remake
         self.first_col_is_checked = not self.first_col_is_checked
         for row_num, copter in enumerate(self.data_contents):
-            copter.states.checked = int(self.first_col_is_checked)*2
+            copter.states.checked = int(self.first_col_is_checked) * 2
             self.update_model(self.index(row_num, 0), Qt.CheckStateRole)
 
     def flags(self, index):
         roles = Qt.ItemIsSelectable | Qt.ItemIsEnabled
         if index.column() == 0:
             roles |= Qt.ItemIsUserCheckable | Qt.ItemIsEditable
-        if is_column(index, "config_version"):
-            roles |= Qt.ItemIsDragEnabled # | Qt.ItemIsDropEnabled
+        if self.is_column(index, "config_version"):
+            roles |= Qt.ItemIsDragEnabled  # | Qt.ItemIsDropEnabled
 
         return roles
 
@@ -502,7 +499,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def mimeData(self, indexes):
         index = indexes[0]
-        if is_column(index, "config_version"):
+        if self.is_column(index, "config_version"):
             return self._config_mime(index)
 
         return None
@@ -515,25 +512,41 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         with suppress(OSError):  # remove if file exists
             os.remove(path)
 
-        self.data_contents[index.row()].client.get_file("config/client.ini", path,)
+        self.data_contents[index.row()].client.get_file("config/client.ini", path, )
         mimedata.setUrls([QUrl.fromLocalFile(path)])
 
         return mimedata
 
+    # Thread-safe wrappers
+    def add_client(self, **kwargs):
+        default_states = {"checked": 0, "copter_id": True}
+        # class_basic_attrs = {'client': None}
+        # class_basic_states = OrderedDict([("checked", 0), ("selfchecked", None), ("takeoff_ready", None)])
+        self.add_client_signal.emit(self.data_model(self.columns, default_states, **kwargs))
+
+    def remove_client_data(self, row_data):
+        self.remove_client_signal.emit(row_data)
+
+    def remove_row(self, row):
+        self.remove_row_signal.emit(row)
+
+    def update_data(self, row, col, data, role=ModelDataRole):
+        self.update_data_signal.emit(row, col, data, role)
+
     @QtCore.pyqtSlot(int, int, QtCore.QVariant, QtCore.QVariant)
-    def update_item(self, row, col, value, role=Qt.EditRole):
+    def _update_item(self, row, col, value, role=Qt.EditRole):
         self.setData(self.index(row, col), value, role)
 
     @QtCore.pyqtSlot(object)
-    def add_client(self, client):
+    def _add_client(self, client):
         self.insertRows([client])
 
     @QtCore.pyqtSlot(int)  # Probably deprecated now
-    def remove_row(self, row):
+    def _remove_row(self, row):
         self.removeRows(row)
 
     @QtCore.pyqtSlot(object)
-    def remove_row_data(self, data):
+    def _remove_row_data(self, data):
         row = self.get_row_index(data)
         if row is not None:
             self.removeRows(row)
@@ -577,24 +590,11 @@ class CopterProxyModel(QtCore.QSortFilterProxyModel):
 
         return self.human_sort_prepare(leftData) < self.human_sort_prepare(rightData)
 
-class SignalManager(QtCore.QObject):
-    update_data_signal = QtCore.pyqtSignal(int, int, QtCore.QVariant, QtCore.QVariant)
-    add_client_signal = QtCore.pyqtSignal(object)
-    remove_row_signal = QtCore.pyqtSignal(int)
-    remove_client_signal = QtCore.pyqtSignal(object)
-
-    def __init__(self, model):
-        super().__init__()
-
-        self.update_data_signal.connect(model.update_item)
-        self.add_client_signal.connect(model.add_client)
-        self.remove_row_signal.connect(model.remove_row)
-        self.remove_client_signal.connect(model.remove_row_data)
-
 
 if __name__ == '__main__':
     import threading
     import time
+
 
     def timer():
         idc = 1001
@@ -603,11 +603,12 @@ if __name__ == '__main__':
             idc += 1
             time.sleep(1)
 
+
     app = QtWidgets.QApplication.instance()
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
     tableView = QtWidgets.QTableView()
-    myModel = CopterDataModel(None)
+    myModel = CopterDataModel()
     proxyModel = CopterProxyModel()
 
     proxyModel.setDynamicSortFilter(True)
@@ -628,14 +629,14 @@ if __name__ == '__main__':
     msg = "[{}]: Failure: {}".format("FCU connection2", "Angular velocities estimation is not available")
     msgs.append(msg)
 
-    myModel.add_client(StatedCopterData(copter_id=1000, checked=0, selfcheck=msgs, time_utc=1))
-    myModel.add_client(StatedCopterData(checked=2, selfcheck="OK", time_utc=2))
-    myModel.add_client(StatedCopterData(checked=2, selfcheck="not ok", time_utc="no"))
+    #myModel._add_client(StatedCopterData(copter_id=1000, checked=0, selfcheck=msgs, time_utc=1))
+    #myModel._add_client(StatedCopterData(checked=2, selfcheck="OK", time_utc=2))
+    #myModel._add_client(StatedCopterData(checked=2, selfcheck="not ok", time_utc="no"))
+    myModel.add_client(copter_id=1000, client=None)
+    #myModel.setData(myModel.index(0, 1), "test")
 
-    myModel.setData(myModel.index(0, 1), "test")
-
-    t = threading.Thread(target=timer, daemon=True)
-    t.start()
+   # t = threading.Thread(target=timer, daemon=True)
+    #t.start()
     print(QtCore.QT_VERSION_STR)
 
     app.exec_()
