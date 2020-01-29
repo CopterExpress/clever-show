@@ -148,7 +148,7 @@ class HeaderListWidget(QListWidget):
             flags = Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
             state = Qt.Checked if visible else Qt.Unchecked
 
-            item = QListWidgetItem(table.columns_names.get(name, "").strip() or name, self)
+            item = QListWidgetItem(table.CopterDataModel.columns_dict.get(name, "").strip() or name, self)
             item.setFlags(flags)
             item.setCheckState(state)
             item.setData(HeaderListWidget.ColumnKeyRole, name)
