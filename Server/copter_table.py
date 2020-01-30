@@ -13,7 +13,7 @@ import copter_table_models as table
 
 
 class CopterTableWidget(QTableView):
-    def __init__(self, model, config):
+    def __init__(self, model: table.CopterDataModel, config):
         QTableView.__init__(self)
 
         self.config = config
@@ -26,7 +26,7 @@ class CopterTableWidget(QTableView):
         # Initiate table and table self.model
         self.setModel(self.proxy_model)
 
-        self.columns = self.model.columns  #[header.strip() for header in self.model.headers]  # header keys
+        self.columns = self.model.columns  # [header.strip() for header in self.model.headers]  # header keys
         self.current_columns = self.columns[:]
 
         header = self.horizontalHeader()
@@ -75,6 +75,17 @@ class CopterTableWidget(QTableView):
         for name, show in item_dict.items():         # for index, name in enumerate(self.columns):
             self.setColumnHidden(self.columns.index(name), not show)  # self.setColumnHidden(index, not item_dict.get(name, False))
 
+    def select_all(self, state):
+        for i in self.model.rowCount():
+            self.model.update_data(i, 0, state, Qt.CheckStateRole)
+
+    def toggle_select(self):
+        if len(list(self.model.user_selected())) == self.model.rowCount():  # if all items are selected
+            state = Qt.Unchecked
+        else:
+            state = Qt.Checked
+        self.select_all(state)
+
     @pyqtSlot(QtCore.QModelIndex)
     def on_double_click(self, index):
         col = index.column()
@@ -95,7 +106,7 @@ class CopterTableWidget(QTableView):
     def showHeaderMenu(self, event):
         menu = QMenu(self)
         header_view = HeaderEditWidget(self, self.config, menu_mode=True, parent=menu)
-        #header_view.setFixedHeight((header_view.geometry().height()-2) * len(header_view.columns))
+        # header_view.setFixedHeight((header_view.geometry().height()-2) * len(header_view.columns))
         # box.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         action = QWidgetAction(menu)
         action.setDefaultWidget(header_view)

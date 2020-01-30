@@ -144,11 +144,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.init_table()
 
-        # Set most safety-important buttons disabled
-        self.ui.start_button.setEnabled(False)
-        self.ui.takeoff_button.setEnabled(False)
-        self.ui.flip_button.setEnabled(False)
-
     def init_table(self):
         # Remove standard table widget
         self.ui.horizontalLayout.removeWidget(self.ui.tableView)
@@ -178,6 +173,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
+
+        # Set most safety-important buttons disabled
+        self.model.emit_signals()
 
     def show(self):
         self.ui.copter_table.load_columns()

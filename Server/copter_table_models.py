@@ -17,6 +17,23 @@ def get_git_version():  # TODO import from animation
     return subprocess.check_output("git log --pretty=format:%h -n 1").decode('UTF-8')
 
 
+class CheckState:
+    def __init__(self, bool_state, color):
+        self._bool = bool_state
+        self.color = color
+        self.brush = QtGui.QBrush(self.color)
+
+    def __bool__(self):
+        return self._bool
+
+
+# State objects providing both boolean and color information for table
+# Add more if required
+true_state = CheckState(True, Qt.green)
+false_state = CheckState(False, Qt.red)
+missing_state = CheckState(False, Qt.yellow)
+outdated_state = CheckState(False, Qt.magenta)
+
 
 class ModelChecks:
     checks_dict = {}
@@ -46,9 +63,13 @@ class ModelChecks:
             column = context.columns[column]
         item = context[column]
         try:
-            return cls.checks_dict[column](item, context)
+            result = cls.checks_dict[column](item, context)
         except KeyError:  # When there is no check
-            return None if item is None else True  # item is not None
+            return None if item is None else true_state  # item is not None
+        else:
+            if isinstance(result, bool):
+                return true_state if result else false_state
+            return result
 
     @classmethod
     def all_checks(cls, copter_item):
@@ -125,7 +146,7 @@ def check_start_pos(item, context):
 
 
 def get_position(position):
-    if position != 'NO_POS' and position[0] != 'nan':
+    if position != 'NO_POS' and position[0] != 'nan':  # float('nan')?
         return position
     return [float('nan')]*3
 
@@ -155,6 +176,9 @@ class CopterData:
             setattr(self, key, value)
         else:
             setattr(self, self.columns[key], value)
+
+    def __repr__(self):
+        return str({key: self[key] for key in self.columns})
 
 
 class StatedCopterData(CopterData):
@@ -332,9 +356,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.formatter = formatter
         self.data_model = data_model
 
-        self.first_col_is_checked = False
-
-        self.update_data_signal.connect(self._update_item)
+        self.update_data_signal.connect(self._update_data)
         self.add_client_signal.connect(self._add_client)
         self.remove_row_signal.connect(self._remove_row)
         self.remove_client_signal.connect(self._remove_row_data)
@@ -351,7 +373,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows - 1)
         self.data_contents = self.data_contents[:position] + self.data_contents[position + rows:]
         self.endRemoveRows()
-
+        self.emit_signals()
         return True
 
     @classmethod
@@ -367,7 +389,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def selected_check(self, f, selected=()):
         selected = selected or set(self.user_selected())
-        print(selected and all(f(item) for item in selected))
         return bool(selected) and all(f(item) for item in selected) #selected.issubset(self.filter(f))
 
     def get_row_data(self, index):
@@ -411,18 +432,10 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             return self.data_contents[row][col]
 
         elif role == Qt.BackgroundRole:
-            try:
-                item = self.data_contents[row]
-                result = item.states[col]
-            except KeyError:
-                return QtGui.QBrush(Qt.white)
-            else:
-                if result is None:
-                    return QtGui.QBrush(Qt.yellow)
-                if result:
-                    return QtGui.QBrush(Qt.green)
-                else:
-                    return QtGui.QBrush(Qt.red)
+            state = self.data_contents[row].states[col]
+            if state is None:
+                state = missing_state
+            return state.brush
 
         elif role == Qt.CheckStateRole and col == 0:
             return self.data_contents[row].states.checked
@@ -430,7 +443,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.TextAlignmentRole and col != 0:
             return QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter
 
-    def update_model(self, index=QtCore.QModelIndex(), role=QtCore.Qt.EditRole):
+    def emit_signals(self):
         selected = set(self.user_selected())
 
         self.selected_ready_signal.emit(self.selected_check(lambda x: x.states.all_checks, selected))
@@ -438,8 +451,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.selected_flip_ready_signal.emit(self.selected_check(flip_checks, selected))
         self.selected_calibrating_signal.emit(self.selected_check(calibrating_check, selected))
         self.selected_calibration_ready_signal.emit(self.selected_check(calibration_ready_check, selected))
-
-        self.dataChanged.emit(index, index, (role,))
 
     @QtCore.pyqtSlot()
     def setData(self, index, value, role=Qt.EditRole):
@@ -470,14 +481,9 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         else:
             return False
 
-        self.update_model(index, role)
+        self.emit_signals()
+        self.dataChanged.emit(index, index, (role,))
         return True
-
-    def select_all(self):  # probably NOT thread-safe! TODO remake
-        self.first_col_is_checked = not self.first_col_is_checked
-        for row_num, copter in enumerate(self.data_contents):
-            copter.states.checked = int(self.first_col_is_checked) * 2
-            self.update_model(self.index(row_num, 0), Qt.CheckStateRole)
 
     def flags(self, index):
         roles = Qt.ItemIsSelectable | Qt.ItemIsEnabled
@@ -485,7 +491,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             roles |= Qt.ItemIsUserCheckable | Qt.ItemIsEditable
         if self.is_column(index, "config_version"):
             roles |= Qt.ItemIsDragEnabled  # | Qt.ItemIsDropEnabled
-
         return roles
 
     def supportedDropActions(self):
@@ -529,7 +534,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         self.update_data_signal.emit(row, col, data, role)
 
     @QtCore.pyqtSlot(int, int, QtCore.QVariant, QtCore.QVariant)
-    def _update_item(self, row, col, value, role=Qt.EditRole):
+    def _update_data(self, row, col, value, role=Qt.EditRole):
         self.setData(self.index(row, col), value, role)
 
     @QtCore.pyqtSlot(object)
@@ -555,20 +560,25 @@ def takeoff_checks(copter_item):
     checklist = ("battery", "fcu_status", "mode", "selfcheck", "current_position")
     return check_checklist(copter_item, checklist)
 
+
 def flip_checks(copter_item):
     checklist = ("battery", "mode", "current_position")
     if not check_checklist(copter_item, checklist):
         return False
     if copter_item["fcu_status"] != "ACTIVE":
+        return False
     return True
 
 # for col in checklist:
     #     if not copter_item.state[col]:  # ModelChecks.check(col, copter_item):
+    #         return False
 
 def calibrating_check(copter_item):
+    return copter_item["calibration_status"] == "CALIBRATING"
 
 
 def calibration_ready_check(copter_item):
+    if not copter_item.states["fcu_status"]:  # ModelChecks.check("fcu_status", copter_item):
         return False
     return not calibrating_check(copter_item)
 
@@ -632,9 +642,12 @@ if __name__ == '__main__':
     #myModel._add_client(StatedCopterData(copter_id=1000, checked=0, selfcheck=msgs, time_utc=1))
     #myModel._add_client(StatedCopterData(checked=2, selfcheck="OK", time_utc=2))
     #myModel._add_client(StatedCopterData(checked=2, selfcheck="not ok", time_utc="no"))
+    myModel.add_client(copter_id=1000, client=None, git_version='11318ca', selfcheck=msgs)
     #myModel.setData(myModel.index(0, 1), "test")
 
+    # t = threading.Thread(target=timer, daemon=True)
     #t.start()
     print(QtCore.QT_VERSION_STR)
     print(get_git_version())
     myModel.update_data(0, 3, [1, 2], role=Qt.EditRole)
+    app.exec_()
