@@ -12,6 +12,17 @@ from config_editor_models import ConfigDialog
 import copter_table_models as table
 
 
+def save_preset(config, current, header_dict):
+    presets = config.table_presets
+
+    for key in presets[HeaderEditWidget.default]:
+        if key not in presets[current] and not header_dict[key]:
+            header_dict.pop(key)
+
+    presets[current] = header_dict
+    # config.write()
+
+
 class CopterTableWidget(QTableView):
     def __init__(self, model: table.CopterDataModel, config):
         QTableView.__init__(self)
@@ -75,8 +86,17 @@ class CopterTableWidget(QTableView):
         for name, show in item_dict.items():         # for index, name in enumerate(self.columns):
             self.setColumnHidden(self.columns.index(name), not show)  # self.setColumnHidden(index, not item_dict.get(name, False))
 
+    @property
+    def item_dict(self):
+        return {column: not self.isColumnHidden(self.columns.index(column)) for column in self.current_columns}
+
+    def save_columns(self):
+        current = self.config.table_presets_current
+        header_dict = self.item_dict
+        save_preset(self.config, current, header_dict)
+
     def select_all(self, state):
-        for i in self.model.rowCount():
+        for i in range(self.model.rowCount()):
             self.model.update_data(i, 0, state, Qt.CheckStateRole)
 
     def toggle_select(self):
@@ -104,6 +124,7 @@ class CopterTableWidget(QTableView):
         dialog.exec()
 
     def showHeaderMenu(self, event):
+        self.save_columns()
         menu = QMenu(self)
         header_view = HeaderEditWidget(self, self.config, menu_mode=True, parent=menu)
         # header_view.setFixedHeight((header_view.geometry().height()-2) * len(header_view.columns))
@@ -183,12 +204,7 @@ class ActiveHeaderListWidget(HeaderListWidget):
         self.itemChanged.connect(self.on_itemChanged)
 
     def _populate_from_widget(self):
-        item_dict = {}
-        for column, name in enumerate(self.current_columns):
-            visible = not self.source_widget.isColumnHidden(column)
-            item_dict[name] = visible
-
-        self.populate_items(item_dict)
+        self.populate_items(self.source_widget.item_dict)
 
     @pyqtSlot(QListWidgetItem)
     def on_itemChanged(self, item):
@@ -220,9 +236,16 @@ class HeaderEditWidget(QtWidgets.QWidget):
             if self.menu_mode else HeaderListWidget()
 
         self.previous = self.config.table_presets_current
-        self._dialog = None
+        self.save = True
+        # self._dialog = None
 
         self.setupUi()
+
+    @pyqtSlot()
+    def call_dialog(self):
+        self.save_preset()
+        self.save = False
+        HeaderEditDialog(self.source, self.config).exec()
 
     def setupUi(self):
         self.header_widget.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -255,9 +278,8 @@ class HeaderEditWidget(QtWidgets.QWidget):
             hbox.addWidget(save_button)
             hbox.addWidget(apply_button)
         else:
-            self._dialog = HeaderEditDialog(self.source, self.config)
             dialog_button = QPushButton("Manage presets")
-            dialog_button.clicked.connect(self._dialog.show)
+            dialog_button.clicked.connect(self.call_dialog)
             hbox.addWidget(dialog_button)
 
         vbox.addLayout(hbox)
@@ -297,13 +319,14 @@ class HeaderEditWidget(QtWidgets.QWidget):
             self.preset_widget.setCurrentText(self.previous)
             return
 
+        name = name.strip()
         if name in self.config.table_presets or name == self.default or name == self.add_new_text:
             QMessageBox.warning(None, "Preset already exists!", "Preset already exists!")
             self.preset_widget.setCurrentText(self.previous)
             return
 
         self.config.table_presets[name] = deepcopy(dict(self.config.table_presets[self.default]))
-        self.config.write()
+        # self.config.write()
 
         self.update_preset_list()
         self.preset_widget.setCurrentText(name)
@@ -320,22 +343,18 @@ class HeaderEditWidget(QtWidgets.QWidget):
             return
 
         self.config.table_presets.pop(self.preset_widget.currentText())
-        self.config.write()
+        # self.config.write()
 
         self.previous = self.default
         self.update_preset_list()
 
     def save_preset(self):
+        if not self.save:  # don't save after calling dialog to avoid overrides
+            return
+
         current = self.preset_widget.currentText()
-        presets = self.config.table_presets
         header_dict = self.header_widget.item_dict
-
-        for key in presets[self.default]:
-            if key not in presets[current] and not header_dict[key]:
-                header_dict.pop(key)
-
-        presets[current] = header_dict
-        self.config.write()
+        save_preset(self.config, current, header_dict)
 
     def apply_preset(self):
         self.config.table_presets_current = self.preset_widget.currentText()

@@ -196,6 +196,11 @@ class MainWindow(QtWidgets.QMainWindow):
             event.accept()
             QApplication.quit()
 
+    def on_quit(self):
+        self.ui.copter_table.save_columns()
+        self.server.config.write()
+        logging.info("Exit actions completed: config saved")
+
     def iterate_selected(self, f, *args, **kwargs):
         for copter in self.model.user_selected():
             yield f(copter, *args, **kwargs)
@@ -610,6 +615,8 @@ if __name__ == "__main__":
         Client.on_first_connect = window.new_client_connected
         Client.on_connect = window.client_connection_changed
         Client.on_disconnect = window.client_connection_changed
+
+        app.aboutToQuit.connect(window.on_quit)
 
         server.start()
 
