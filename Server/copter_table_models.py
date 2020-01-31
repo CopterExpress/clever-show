@@ -63,20 +63,9 @@ class ModelChecks:
             column = context.columns[column]
         item = context[column]
         try:
-            result = cls.checks_dict[column](item, context)
+            return cls.checks_dict[column](item, context)
         except KeyError:  # When there is no check
             return None if item is None else true_state  # item is not None
-        else:
-            if isinstance(result, bool):
-                return true_state if result else false_state
-            return result
-
-    @classmethod
-    def all_checks(cls, copter_item):
-        for col, check in cls.checks_dict.items():
-            if not check(copter_item[col]):
-                return False
-        return True
 
 
 @ModelChecks.column_check("git_version")
@@ -198,7 +187,7 @@ class StatedCopterData(CopterData):
         if key in self.columns:
             with suppress(KeyError):
                 self.states.__dict__[key] = \
-                    self.checks.check(key, self)  # {key: self.__dict__[key] for key in self.columns})
+                    self.checks.check(key, self)
                 self.states.__dict__["all_checks"] = all([self.states[i] for i in self.checks.checks_dict.keys()])
 
 
@@ -209,27 +198,34 @@ class ModelFormatter:
     PLACE_FORMATTER = 2
 
     @classmethod
-    def format_view(cls, col, value):
-        if col in cls.view_formatters:
-            return cls.view_formatters[col](value)
-        return value
+    def get_formatter(cls, formatter_type):
+        if formatter_type == cls.PLACE_FORMATTER:
+            return cls.place_formatters
+        if formatter_type == cls.VIEW_FORMATTER:
+            return cls.view_formatters
+        raise ValueError('Unknown formatter type')
 
     @classmethod
-    def format_place(cls, col, value):
-        if col in cls.place_formatters:
-            return cls.place_formatters[col](value)
-        return value
+    def format(cls, column, value, formatter_type):
+        formatters_dict = cls.get_formatter(formatter_type)
+        if isinstance(column, int):
+            column = CopterDataModel.columns[column]
+        try:
+            return formatters_dict[column](value)
+        except KeyError:
+            return value  # when there is no formatter for the column
+
+    format_place = partialmethod(format, formatter_type=PLACE_FORMATTER)
+    format_view = partialmethod(format, formatter_type=VIEW_FORMATTER)
 
     @classmethod
-    def column_formatter(cls, col, formatter_type):
+    def column_formatter(cls, column, formatter_type):
         def inner(f):
-            if formatter_type == cls.PLACE_FORMATTER:
-                cls.place_formatters[col] = f
-            elif formatter_type == cls.VIEW_FORMATTER:
-                cls.view_formatters[col] = f
+            formatters_dict = cls.get_formatter(formatter_type)
+            formatters_dict[column] = f
 
-            def wrapper(*args, **kwargs):
-                return f(*args, **kwargs)
+            def wrapper(value):
+                return f(value)
 
             return wrapper
 
@@ -435,6 +431,8 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             state = self.data_contents[row].states[col]
             if state is None:
                 state = missing_state
+            elif isinstance(state, bool):
+                state = true_state if state else false_state
             return state.brush
 
         elif role == Qt.CheckStateRole and col == 0:
@@ -474,7 +472,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
                 self.data_contents[row].client.remove()  # TODO change
                 self._remove_row(row)
 
-        elif role == ModelDataRole:  # For inner setting\editing of data
+        elif role == ModelDataRole:  # For inner setting\editing of raw data
             self.data_contents[row][col] = value
         elif role == ModelStateRole:
             self.data_contents[row].states[col] = value

@@ -284,7 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
             asyncio.ensure_future(self.play_music_at_time(music_dt + time_now), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
         # self.selfcheck_selected()
-        for copter in filter(self.model.checks.all_checks, self.model.user_selected()):
+        for copter in filter(lambda copter: copter.all_checks, self.model.user_selected()):
             server.send_starttime(copter.client, dt + time_now)
 
     @pyqtSlot()
