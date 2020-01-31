@@ -26,7 +26,7 @@ import messaging_lib as messaging
 import config as cfg
 
 import copter_table_models as table
-from copter_table import CopterTableWidget
+from copter_table import CopterTableWidget, HeaderEditDialog
 from visual_land_dialog import VisualLandDialog
 from config_editor_models import ConfigDialog
 
@@ -38,6 +38,8 @@ def multi_glob(*patterns):
 def b_partial(func, *args, **kwargs):  # call argument blocker partial
     return lambda *a: func(*args, **kwargs)
 
+def restart():
+    os.execl(sys.executable, os.path.abspath(__file__), *sys.argv)
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
@@ -100,10 +102,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player = QtMultimedia.QMediaPlayer()
 
     def init_ui(self):
+        self.init_table()
+
         # Connecting
         self.ui.check_button.clicked.connect(self.selfcheck_selected)
         self.ui.start_button.clicked.connect(self.send_start_time_selected)
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
+
+        self.ui.z_checkbox.clicked.connect(self.ui.z_spin.setEnabled)
 
         self.ui.land_all_button.clicked.connect(b_partial(Client.broadcast_message, "land"))
         self.ui.land_selected_button.clicked.connect(b_partial(self.send_to_selected, "land"))
@@ -117,32 +123,40 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.reboot_fcu.clicked.connect(b_partial(self.send_to_selected, "reboot_fcu"))
         self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
         self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
-        self.ui.action_remove_row.triggered.connect(self.remove_selected)
-        self.ui.action_send_animations.triggered.connect(self.send_animations)
-        self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
-        self.ui.action_send_configurations.triggered.connect(self.send_config)
-        self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
-        self.ui.action_send_launch_file.triggered.connect(self.send_launch)
-        self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
-        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
-        self.ui.action_send_any_command.triggered.connect(self.send_any_command)
-        self.ui.action_restart_clever.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
-        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
-        self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
-        self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
-        self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
-        self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
-        self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
-        self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
-        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
+
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
 
-        self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
+        self.ui.action_restart_server.triggered.connect(restart)
 
-        self.init_table()
+        self.ui.action_select_all.triggered.connect(partial(self.ui.copter_table.select_all, Qt.Checked))
+        self.ui.action_deselect_all.triggered.connect(partial(self.ui.copter_table.select_all, Qt.Unchecked))
+        self.ui.action_toggle_select.triggered.connect(self.ui.copter_table.toggle_select)
+        self.ui.action_remove_row.triggered.connect(self.remove_selected)
+        self.ui.action_configure_columns.triggered.connect(self.configure_columns)
+
+        self.ui.action_send_animations.triggered.connect(self.send_animations)
+        self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
+        self.ui.action_send_configurations.triggered.connect(self.send_config)
+        self.ui.action_send_aruco_map.triggered.connect(self.send_aruco)
+        self.ui.action_send_launch_file.triggered.connect(self.send_launch)
+        self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
+        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
+        self.ui.action_send_any_command.triggered.connect(self.send_any_command)
+
+        self.ui.action_restart_clever.triggered.connect(
+            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
+        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
+        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
+        self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
+
+        self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
+        self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
+        self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
+        self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
+
+        self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
 
     def init_table(self):
         # Remove standard table widget
@@ -153,6 +167,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.copter_table.setObjectName("copter_table")
         # Insert to layout at right
         self.ui.horizontalLayout.insertWidget(0, self.ui.copter_table, 0)
+        self.ui.copter_table.setFocus()
 
     def init_model(self):
         # Connect model signals to UI
@@ -239,31 +254,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot(object, dict)
     def update_table_data(self, client, telems: dict):
-        cols_dict = {
-            "git_version": 1,
-            "animation_id": 2,
-            "battery": 3,
-            "fcu_status": 4,
-            "calibration_status": 5,
-            "mode": 6,
-            "selfcheck": 7,
-            "current_position": 8,
-            "start_position": 9,
-            "task": 10,
-            "time": 11,
-            "config_version": 12,
-        }
-
         for key, value in telems.items():
-            col = cols_dict.get(key, None)
-            if col is None:
-                logging.error("No column {} present!".format(key))
-                continue
-
-            row_data = self.model.get_row_by_attr("client", client)
-            row_num = self.model.get_row_index(row_data)
-            if row_num is not None:
-                self.model.update_data(row_num, col, value, Qt.EditRole)
+            try:
+                col = self.model.index(key)
+            except ValueError:
+                logging.error(f"No column {key} present!")
+            else:
+                row_data = self.model.get_row_by_attr("client", client)
+                row_num = self.model.get_row_index(row_data)
+                if row_num is not None:
+                    self.model.update_data(row_num, col, value, Qt.EditRole)
 
     @pyqtSlot()
     def remove_selected(self):
@@ -548,8 +548,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def visual_land(self):
-        dialog = VisualLandDialog(self.model)
-        dialog.start()
+        VisualLandDialog(self.model).start()
+
+    @pyqtSlot()
+    def configure_columns(self):
+        HeaderEditDialog(self.ui.copter_table, self.server.config).exec()
 
     def register_callbacks(self):
         @messaging.message_callback("telemetry")

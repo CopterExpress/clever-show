@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1360</width>
-    <height>761</height>
+    <height>816</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -76,7 +76,7 @@
           <property name="formAlignment">
            <set>Qt::AlignHCenter|Qt::AlignTop</set>
           </property>
-          <item row="2" column="0">
+          <item row="0" column="0">
            <widget class="QLabel" name="start_text">
             <property name="layoutDirection">
              <enum>Qt::RightToLeft</enum>
@@ -89,14 +89,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="0" column="1">
            <widget class="QSpinBox" name="start_delay_spin">
             <property name="suffix">
              <string> s</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="1" column="0">
            <widget class="QLabel" name="music_text">
             <property name="layoutDirection">
              <enum>Qt::RightToLeft</enum>
@@ -106,7 +106,7 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="1" column="1">
            <widget class="QDoubleSpinBox" name="music_delay_spin">
             <property name="suffix">
              <string> s</string>
@@ -119,7 +119,7 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
+          <item row="2" column="0">
            <widget class="QLabel" name="music_play_text">
             <property name="layoutDirection">
              <enum>Qt::RightToLeft</enum>
@@ -129,7 +129,7 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="1">
+          <item row="2" column="1">
            <widget class="QCheckBox" name="music_checkbox">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -144,7 +144,7 @@
              <enum>Qt::DefaultContextMenu</enum>
             </property>
             <property name="layoutDirection">
-             <enum>Qt::RightToLeft</enum>
+             <enum>Qt::LeftToRight</enum>
             </property>
             <property name="autoFillBackground">
              <bool>false</bool>
@@ -224,14 +224,14 @@
           <property name="topMargin">
            <number>0</number>
           </property>
-          <item row="1" column="1">
+          <item row="0" column="1">
            <widget class="QPushButton" name="land_selected_button">
             <property name="text">
              <string>Land selected</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="1" column="1">
            <widget class="QPushButton" name="land_all_button">
             <property name="text">
              <string>Land ALL</string>
@@ -286,17 +286,14 @@
           <property name="formAlignment">
            <set>Qt::AlignCenter</set>
           </property>
-          <property name="verticalSpacing">
-           <number>6</number>
-          </property>
-          <item row="3" column="1">
+          <item row="0" column="1">
            <widget class="QPushButton" name="disarm_all_button">
             <property name="text">
              <string>Disarm ALL</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="1" column="1">
            <widget class="QPushButton" name="disarm_selected_button">
             <property name="text">
              <string>Disarm selected</string>
@@ -320,10 +317,10 @@
           <property name="formAlignment">
            <set>Qt::AlignCenter</set>
           </property>
-          <item row="7" column="1">
-           <widget class="QPushButton" name="flip_button">
+          <item row="0" column="1">
+           <widget class="QPushButton" name="leds_button">
             <property name="text">
-             <string>Flip</string>
+             <string>Test leds</string>
             </property>
            </widget>
           </item>
@@ -337,26 +334,13 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="leds_button">
-            <property name="text">
-             <string>Test leds</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="1">
+          <item row="2" column="1">
            <layout class="QHBoxLayout" name="horizontalLayout_2">
             <property name="topMargin">
              <number>0</number>
             </property>
             <item>
              <widget class="QCheckBox" name="z_checkbox">
-              <property name="cursor">
-               <cursorShape>ArrowCursor</cursorShape>
-              </property>
-              <property name="focusPolicy">
-               <enum>Qt::NoFocus</enum>
-              </property>
               <property name="layoutDirection">
                <enum>Qt::LeftToRight</enum>
               </property>
@@ -382,6 +366,13 @@
              </widget>
             </item>
            </layout>
+          </item>
+          <item row="3" column="1">
+           <widget class="QPushButton" name="flip_button">
+            <property name="text">
+             <string>Flip</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -435,71 +426,89 @@
      <x>0</x>
      <y>0</y>
      <width>1360</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">
     <property name="title">
      <string>Server</string>
     </property>
-    <widget class="QMenu" name="menuDeveloper_mode">
+    <widget class="QMenu" name="menuMusic_2">
      <property name="title">
-      <string>Developer mode</string>
+      <string>Music</string>
      </property>
-     <addaction name="action_send_any_file"/>
-     <addaction name="action_send_any_command"/>
+     <addaction name="action_select_music_file"/>
+     <addaction name="action_play_music"/>
+     <addaction name="action_stop_music"/>
     </widget>
-    <addaction name="action_send_animations"/>
-    <addaction name="action_send_configurations"/>
-    <addaction name="action_send_launch_file"/>
-    <addaction name="action_send_Aruco_map"/>
-    <addaction name="action_send_calibrations"/>
-    <addaction name="action_send_fcu_parameters"/>
+    <addaction name="menuMusic_2"/>
     <addaction name="separator"/>
-    <addaction name="menuDeveloper_mode"/>
+    <addaction name="action_edit_server_config"/>
+    <addaction name="action_edit_any_config"/>
     <addaction name="separator"/>
-    <addaction name="action_select_all_rows"/>
+    <addaction name="action_update_server_git"/>
+    <addaction name="action_restart_server"/>
    </widget>
-   <widget class="QMenu" name="menuAnimation">
+   <widget class="QMenu" name="menuTable">
     <property name="title">
-     <string>Animation</string>
+     <string>Table</string>
     </property>
-    <addaction name="action_set_start_to_current_position"/>
-    <addaction name="action_reset_start"/>
+    <addaction name="action_toggle_select"/>
+    <addaction name="action_select_all"/>
+    <addaction name="action_deselect_all"/>
+    <addaction name="separator"/>
+    <addaction name="action_remove_row"/>
+    <addaction name="separator"/>
+    <addaction name="action_configure_columns"/>
    </widget>
-   <widget class="QMenu" name="menuDrone">
+   <widget class="QMenu" name="menuDrone_2">
     <property name="title">
      <string>Drone</string>
     </property>
-    <widget class="QMenu" name="menuDeveloper_mode_2">
+    <widget class="QMenu" name="menuSend">
      <property name="title">
-      <string>Developer mode</string>
+      <string>Send</string>
      </property>
+     <addaction name="action_send_animations"/>
+     <addaction name="action_send_configurations"/>
+     <addaction name="action_send_launch_file"/>
+     <addaction name="action_send_aruco_map"/>
+     <addaction name="action_send_calibrations"/>
+     <addaction name="action_send_fcu_parameters"/>
+     <addaction name="separator"/>
+     <addaction name="action_send_any_file"/>
+     <addaction name="action_send_any_command"/>
+    </widget>
+    <widget class="QMenu" name="menuRestart">
+     <property name="title">
+      <string>Restart</string>
+     </property>
+     <addaction name="action_restart_chrony"/>
      <addaction name="action_restart_clever"/>
      <addaction name="action_restart_clever_show"/>
-     <addaction name="action_update_client_repo"/>
+     <addaction name="separator"/>
      <addaction name="action_reboot_all"/>
     </widget>
-    <addaction name="action_set_z_offset_to_ground"/>
+    <widget class="QMenu" name="menuRetrive">
+     <property name="title">
+      <string>Retrive</string>
+     </property>
+     <addaction name="action_retrive_any_file"/>
+    </widget>
+    <addaction name="menuSend"/>
+    <addaction name="menuRetrive"/>
+    <addaction name="menuRestart"/>
+    <addaction name="separator"/>
     <addaction name="action_reset_z_offset"/>
+    <addaction name="action_set_z_offset_to_ground"/>
+    <addaction name="action_set_start_to_current_position"/>
+    <addaction name="action_reset_start"/>
     <addaction name="separator"/>
-    <addaction name="action_restart_chrony"/>
-    <addaction name="action_remove_row"/>
-    <addaction name="separator"/>
-    <addaction name="menuDeveloper_mode_2"/>
-   </widget>
-   <widget class="QMenu" name="menuMusic">
-    <property name="title">
-     <string>Music</string>
-    </property>
-    <addaction name="action_select_music_file"/>
-    <addaction name="action_play_music"/>
-    <addaction name="action_stop_music"/>
+    <addaction name="action_update_client_repo"/>
    </widget>
    <addaction name="menuOptions"/>
-   <addaction name="menuDrone"/>
-   <addaction name="menuAnimation"/>
-   <addaction name="menuMusic"/>
+   <addaction name="menuTable"/>
+   <addaction name="menuDrone_2"/>
   </widget>
   <action name="action_send_animations">
    <property name="text">
@@ -511,7 +520,7 @@
     <string>Send configurations</string>
    </property>
   </action>
-  <action name="action_send_Aruco_map">
+  <action name="action_send_aruco_map">
    <property name="text">
     <string>Send aruco map</string>
    </property>
@@ -606,7 +615,10 @@
   </action>
   <action name="action_remove_row">
    <property name="text">
-    <string>Remove from table</string>
+    <string>Remove drone</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Del</string>
    </property>
   </action>
   <action name="action_send_calibrations">
@@ -616,7 +628,7 @@
   </action>
   <action name="action_reboot_all">
    <property name="text">
-    <string>Reboot all</string>
+    <string>Reboot system</string>
    </property>
   </action>
   <action name="action_restart_chrony">
@@ -627,6 +639,60 @@
   <action name="action_send_fcu_parameters">
    <property name="text">
     <string>Send FCU parameters</string>
+   </property>
+  </action>
+  <action name="action_toggle_select">
+   <property name="text">
+    <string>Toggle select</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
+   </property>
+  </action>
+  <action name="action_select_all">
+   <property name="text">
+    <string>Select all</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+A</string>
+   </property>
+  </action>
+  <action name="action_deselect_all">
+   <property name="text">
+    <string>Deselect all</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+A</string>
+   </property>
+  </action>
+  <action name="action_edit_server_config">
+   <property name="text">
+    <string>Edit server config</string>
+   </property>
+  </action>
+  <action name="action_edit_any_config">
+   <property name="text">
+    <string>Edit any config</string>
+   </property>
+  </action>
+  <action name="action_update_server_git">
+   <property name="text">
+    <string>Update server git</string>
+   </property>
+  </action>
+  <action name="action_retrive_any_file">
+   <property name="text">
+    <string>Retrive any file</string>
+   </property>
+  </action>
+  <action name="action_restart_server">
+   <property name="text">
+    <string>Restart server</string>
+   </property>
+  </action>
+  <action name="action_configure_columns">
+   <property name="text">
+    <string>Configure columns</string>
    </property>
   </action>
  </widget>
