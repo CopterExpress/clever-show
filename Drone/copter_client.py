@@ -658,8 +658,8 @@ class Telemetry:
         "selfcheck": None,
         "current_position": None,
         "start_position": None,
-        "task": None,
-        "time": None,
+        "last_task": None,
+        "time_delta": None,
         "config_version": None,
     }
 
@@ -747,7 +747,7 @@ class Telemetry:
 
     def update_telemetry_fast(self):
         self.start_position = self.get_start_position()
-        self.task = task_manager.get_current_task()
+        self.last_task = task_manager.get_current_task()
         try:
             self.ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
             if self.ros_telemetry.connected:
@@ -764,7 +764,7 @@ class Telemetry:
             rospy.logdebug(e)
         except rospy.TransportException as e:
             rospy.logdebug(e)
-        self.time = time.time()
+        self.time_delta = time.time()
         self.round_telemetry()
 
     def update_telemetry_slow(self):
