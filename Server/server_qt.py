@@ -7,6 +7,7 @@ import logging
 import asyncio
 import platform
 import itertools
+import subprocess
 from functools import partial, wraps
 
 from PyQt5 import QtWidgets, QtMultimedia, QtCore
@@ -38,8 +39,14 @@ def multi_glob(*patterns):
 def b_partial(func, *args, **kwargs):  # call argument blocker partial
     return lambda *a: func(*args, **kwargs)
 
-def restart():
+
+def restart():  # move to core
     os.execl(sys.executable, os.path.abspath(__file__), *sys.argv)
+
+
+def update_server():
+    subprocess.call("git pull --rebase")
+    restart()
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
@@ -129,6 +136,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_stop_music.triggered.connect(self.stop_music)
 
         self.ui.action_restart_server.triggered.connect(restart)
+        self.ui.action_update_server_git.triggered.connect(update_server)
 
         self.ui.action_select_all.triggered.connect(partial(self.ui.copter_table.select_all, Qt.Checked))
         self.ui.action_deselect_all.triggered.connect(partial(self.ui.copter_table.select_all, Qt.Unchecked))
@@ -420,7 +428,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if copters is None:
             copters = self.model.user_selected()
         copters = list(copters)
-        
+
         logging.info(f'Requesting file {client_path} to  local {save_path} from clients: {copters}')
         for copter in copters:
             if len(copters) > 1:
