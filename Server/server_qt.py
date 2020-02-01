@@ -145,6 +145,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_send_any_file.triggered.connect(self.send_any_file)
         self.ui.action_send_any_command.triggered.connect(self.send_any_command)
 
+        self.ui.action_retrive_any_file.triggered.connect(b_partial(self.request_any_file, client_path=None))
+
         self.ui.action_restart_clever.triggered.connect(
             b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
@@ -401,6 +403,31 @@ class MainWindow(QtWidgets.QMainWindow):
         files = multi_glob(*patterns)
         self._send_files(files, copters, client_path, client_filename, match_id, callback)
 
+    def request_any_file(self, client_path=None, copters=None):
+        if client_path is None:
+            _client_path, ok = QInputDialog.getText(self, "Enter path of file to request from client", "Source:",
+                                                    QLineEdit.Normal, "/home/pi/")
+            if not ok:
+                return
+            client_path = _client_path
+
+        save_path = QFileDialog.getSaveFileName(self, "Save file to:", directory=os.path.split(client_path)[1],
+                                                filter=f"Current ext(*{os.path.splitext(client_path)[1]});;"
+                                                       f"All files(*.*)")[0]
+        if not save_path:
+            return
+
+        if copters is None:
+            copters = self.model.user_selected()
+        copters = list(copters)
+        
+        logging.info(f'Requesting file {client_path} to  local {save_path} from clients: {copters}')
+        for copter in copters:
+            if len(copters) > 1:
+                save_path = cfg.modify_filename(save_path, f"{{}}_{copter.copter_id}")
+            copter.client.get_file(client_path, save_path)
+        logging.info('Files requested')
+
     @pyqtSlot()
     def send_any_file(self):
         file = QFileDialog.getOpenFileName(self, "Select any file")[0]
@@ -412,7 +439,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not ok:
             return
 
-        c_filepath, c_filename = os.path.split(c_path)
+        c_filepath, c_filename = os.path.split(c_path)  # c stands for client
         files = [file]
         self._send_files(files, client_path=c_filepath, client_filename=c_filename)
 

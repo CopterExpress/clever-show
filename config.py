@@ -6,7 +6,7 @@ from configobj import ConfigObj, Section, flatten_errors
 from validate import Validator
 
 
-def modify_filename(path, pattern):
+def modify_filename(path, pattern):  # TODO move to core
     old_path, filename = os.path.split(path)
     filename, ext = os.path.splitext(filename)
     newfilename = pattern.format(filename) + ext
