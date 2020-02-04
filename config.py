@@ -48,7 +48,6 @@ class ValidationError(ValueError):
 class ConfigManager:
     def __init__(self, config=None):
         self.config = ConfigObj() if config is None else config
-        self.validated = False
 
         self._name_dict = {}
 
@@ -75,13 +74,16 @@ class ConfigManager:
     def write(self):
         self.config.write()
 
+    @property
+    def validated(self):
+        return self.config.configspec is not None
+
     def set_config(self, config):
         self.config = config
         self._name_dict = self.flatten_keys(config)
-        self.validated = False
 
     def validate_config(self, config=None, copy_defaults=False):
-        config = config or self.config
+        config = self.config if config is None else config
         vdt = Validator()
 
         test = config.validate(vdt, copy=copy_defaults, preserve_errors=True)
@@ -89,7 +91,6 @@ class ConfigManager:
             raise ValidationError('Some config values are wrong', config, test)
 
         self.set_config(config)
-        self.validated = True
 
     @classmethod
     def _full_dict(cls, item, include_defaults=False):
@@ -263,21 +264,27 @@ class ConfigManager:
         final_comment = d.pop('final_comment', [''])
 
         kwargs = {'infile': self._extract_values(d), 'indent_type': ''}
+        filename = None
         if isinstance(configspec, dict):
             kwargs.update({'configspec': configspec})
         elif isinstance(configspec, str):
-            spec_path = self._get_spec_path(configspec)  # check for /spec, then for config
-            if not self._config_exists(spec_path):
-                spec_path = configspec
-            if self._config_exists(spec_path):
+            spec_path = self._get_spec_path(configspec)
+            if self._config_exists(spec_path):  # when 'configspec' points to configuration file and configspec exists
                 kwargs.update({'configspec': spec_path})
+                filename = configspec
+            elif self._config_exists(configspec):  # when 'configspec' points to configspec file
+                kwargs.update({'configspec': configspec})
+                if parent_dir(configspec) == 'spec':
+                    filename = self._get_config_path(configspec)
+            else:
+                raise ValueError("Configspec does not exist")
 
         config = ConfigObj(**kwargs)
-        config.filename = configspec if isinstance(configspec, str) else None
+        config.filename = filename
         config.initial_comment = initial_comment
         config.final_comment = final_comment
 
-        if configspec is not None:
+        if config.configspec is not None:
             self.validate_config(config)
         else:
             self.set_config(config)
@@ -318,13 +325,14 @@ if __name__ == '__main__':
     import pprint
     #pprint.pprint(cfg.full_dict)
     cfg2 = ConfigManager()
-    cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='Drone/config/spec/configspec_client.ini')
-    #cfg2.load_from_dict({"PRIVATE": {"id": 123132}})
+    #cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='Drone/config/spec/configspec_client.ini')
+    cfg2.load_from_dict({"PRIVATE": {"id": "heh"}})
     #pprint.pprint(cfg2.full_dict)
-    cfg.merge(cfg2)
+    #cfg.merge(cfg2)
     #pprint.pprint(cfg.full_dict)
-    print(cfg.full_dict(include_defaults=True))
-    print(dict(cfg.config.configspec))
+    print(cfg2.full_dict(include_defaults=True))
+    #print(dict(cfg2.config.configspec))
+    print(cfg2.config.PRIVATE)
     #print(dict(ConfigManager(cfg.config.configspec).config))
 
     # #print(cfg.full_dict)

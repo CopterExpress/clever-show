@@ -158,14 +158,14 @@ class ConfigModelItem:
         if self.spec_default is not None and self.data(1) == self.spec_default \
                 and self.data(0) == self.default_values[0] and self.type != 'section':
             self.set_state('default')
-            print('def', self.data(1), self.data(0), self.spec_default)
+            # print('def', self.data(1), self.data(0), self.spec_default)
 
         child_states = [child.state for child in self.childItems]
         if any(state in child_states for state in ['edited', 'added', 'deleted']):
             self.state = 'edited'
         if len(set(child_states)) == 1:  # if all states equal
             self.set_state(child_states[0], set_children=False)
-            print(child_states)
+            # print(child_states)
 
         if self.parentItem is not None:
             self.parentItem.check_state()
@@ -285,7 +285,7 @@ class ConfigModel(QtCore.QAbstractItemModel):
 
         childItem = index.internalPointer()
         if not isinstance(childItem, ConfigModelItem):
-            print(childItem, index.column()), # index.row(), index.parent().internalPointer())
+            # print(childItem, index.column()), # index.row(), index.parent().internalPointer())
             return QtCore.QModelIndex()
         parentItem = childItem.parent()
 
@@ -744,9 +744,14 @@ class ConfigDialog(QtWidgets.QDialog):
         super(ConfigDialog, self).__init__(parent)
         self.ui = config_editor.Ui_config_dialog()
         self.model = ConfigModel(widget=self)
+        self._filename = None
         self.unsaved = False
         self.setupUi()
         self.copter_editor_signal.connect(self._call_copter_dialog)
+
+    @property
+    def filename(self):
+        return self._filename or 'Untitled.ini'
 
     def setupModel(self, data, pure_dict=False, convert_types=False):
         if pure_dict:
@@ -774,10 +779,12 @@ class ConfigDialog(QtWidgets.QDialog):
 
         # self.ui.delete_button.pressed.connect(self.remove_selected)
 
+    def update_title(self):
+        self.setWindowTitle(f"Config editor - {self.filename}" + "*"*self.unsaved)
+
     def unsaved_call(self):
-        name = self.windowTitle()+'*'
-        self.setWindowTitle(name)
         self.unsaved = True
+        self.update_title()
         self.model.dataChanged.disconnect(self.unsaved_call)
 
     def closeEvent(self, event):
@@ -803,13 +810,14 @@ class ConfigDialog(QtWidgets.QDialog):
         return reply == QMessageBox.Yes
 
     def save_as(self):
-        cfg = config.ConfigManager()
-        cfg.load_from_dict(self.model.to_config_dict())
         save_path = QFileDialog.getSaveFileName(self, "Save as configuration file",
+                                                directory=self.filename,
                                                 filter="Config files (*.ini)")[0]
         if not save_path:
             return
 
+        cfg = config.ConfigManager()
+        cfg.load_from_dict(self.model.to_config_dict())
         cfg.config.filename = save_path
         cfg.write()
 
@@ -841,21 +849,36 @@ class ConfigDialog(QtWidgets.QDialog):
 
     @pyqtSlot(object, object)
     def _call_copter_dialog(self, client, value):
-        logging.info("Opening dialog")
+        logging.info("Opening copter config dialog")
         config_dict, spec_dict = value["config"], value["configspec"]
         cfg = config.ConfigManager()
         cfg.load_from_dict(config_dict, spec_dict)
 
-        self.setupModel(cfg.full_dict(include_defaults=True))
-        if not self.validation_loop(cfg, spec_dict):
-            return False
+        def save_callback():
+            edited_dict = cfg.full_dict(include_defaults=False)
+            client.send_message("config", {"config": edited_dict, "mode": "rewrite"})
 
-        edited_dict = self.model.to_config_dict()
-        client.send_message("config", {"config": edited_dict, "mode": "rewrite"})
-
-        if self.ui.do_restart.isChecked():
+        def restart_callback():
             client.send_message("service_restart", {"name": "clever-show"})
 
+        if not self.call_config_dialog(cfg, save_callback, restart_callback, f"{client.copter_id}"):
+            return False
+        return True
+
+    def call_config_dialog(self, cfg: config.ConfigManager, on_save=None, on_restart=None, name="Untitled.ini"):
+        self.setupModel(cfg.full_dict(include_defaults=True), convert_types=(not cfg.validated))
+        self.ui.do_restart.setEnabled(on_restart is not None)
+        self._filename = name
+        self.update_title()
+
+        if not self.validation_loop(cfg, cfg.config.configspec):
+            return False
+
+        if on_save is not None:
+            on_save()
+
+        if on_restart is not None and self.ui.do_restart.isChecked():
+            on_restart()
         return True
 
     def call_standalone_dialog(self):
@@ -872,26 +895,26 @@ class ConfigDialog(QtWidgets.QDialog):
                                 "Config cannot be opened or validated: {}".format(error))
             return False
 
-        self.setupModel(cfg.full_dict(include_defaults=True), convert_types=(not cfg.validated))
-        self.ui.do_restart.setDisabled(True)
+        def save_callback():
+            if cfg.config.filename is None:
+                save_path = QFileDialog.getSaveFileName(self, "Save configuration file",
+                                                        directory=self.filename,
+                                                        filter="Config files (*.ini)")[0]
+                if not save_path:
+                    return False
+            else:
+                save_path = cfg.config.filename
 
-        filename = cfg.config.filename
-        validation_path = path if cfg.config.filename is None else cfg.config.filename
-        validation_path = validation_path if cfg.validated else None
+            cfg.config.filename = save_path
+            cfg.write()
 
-        if not self.validation_loop(cfg, validation_path):
+        if cfg.config.filename is not None:
+            name = os.path.split(cfg.config.filename)[1]
+        else:  # when editing only configspec-based file
+            name = os.path.split(path)[1]
+
+        if not self.call_config_dialog(cfg, on_save=save_callback, name=name):
             return False
-
-        if filename is None:
-            save_path = QFileDialog.getSaveFileName(self, "Save configuration file",
-                                                    filter="Config files (*.ini)")[0]
-            if not save_path:
-                return False
-        else:
-            save_path = filename
-
-        cfg.config.filename = save_path
-        cfg.write()
         return True
 
 

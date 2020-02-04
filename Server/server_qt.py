@@ -41,6 +41,7 @@ def b_partial(func, *args, **kwargs):  # call argument blocker partial
 
 
 def restart():  # move to core
+    # ANY prints will break restarting or opening new windows after restart
     os.execl(sys.executable, os.path.abspath(__file__), *sys.argv)
 
 
@@ -134,6 +135,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_select_music_file.triggered.connect(self.select_music_file)
         self.ui.action_play_music.triggered.connect(self.play_music)
         self.ui.action_stop_music.triggered.connect(self.stop_music)
+
+        self.ui.action_edit_any_config.triggered.connect(ConfigDialog.call_standalone_dialog)
+        self.ui.action_edit_server_config.triggered.connect(self.edit_server_config)
+
 
         self.ui.action_restart_server.triggered.connect(restart)
         self.ui.action_update_server_git.triggered.connect(update_server)
@@ -588,6 +593,15 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def configure_columns(self):
         HeaderEditDialog(self.ui.copter_table, self.server.config).exec()
+
+    @pyqtSlot()
+    def edit_server_config(self):
+        config = self.server.config
+
+        def save_callback():
+            config.write()
+
+        ConfigDialog().call_config_dialog(config, save_callback, restart, name="Server config")
 
     def register_callbacks(self):
         @messaging.message_callback("telemetry")
