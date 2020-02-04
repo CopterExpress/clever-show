@@ -106,23 +106,21 @@ class ConfigManager:
         for key, value in item.items():
             result = cls._full_dict(value, include_defaults)
             if not isinstance(result, dict):
-                item_d = {'__option__': True,
-                          'value': value,
-                          }
-                comment = comments.get(key, []),
+                item_d = {'__value__': value}
+
+                comment = comments.get(key, [])
                 if comment and comment != ['']:
-                    item.update({'comments': comment})
+                    item_d.update({'comments': comment})
 
                 inline_comment = inline_comments.get(key, None)
                 if inline_comment:
-                    item.update({'inline_comment': inline_comments})
+                    item_d.update({'inline_comment': inline_comments})
 
                 if include_defaults:
                     item_d.update({'default': default_values.get(key, None),
                                    'unchanged': key in defaults,
                                    })
                 data[key] = item_d
-
             else:
                 data[key] = result
 
@@ -237,9 +235,9 @@ class ConfigManager:
         for key, val in d.items():
             if not isinstance(val, dict):  # Pure dict option
                 result[key] = val
-            elif val.get('__option__', False):  # Full-dict option with params
+            elif '__value__' in val:  # Full-dict option with params
                 if not val.get('unchanged', False):
-                    result[key] = val.get('value')
+                    result[key] = val.get('__value__')
             else:  # Section
                 result[key] = cls._extract_values(val)
         return result
@@ -253,7 +251,7 @@ class ConfigManager:
             if not isinstance(val, dict):  # Pure dict option
                 comments[key] = []
                 inline_comments[key] = None
-            elif val.get('__option__', False):  # Full-dict option with params
+            elif '__value__' in val:  # Full-dict option with params
                 comment = val.get('comments', [])
                 comments[key] = [] if comment == [''] else comment
                 inline_comments[key] = val.get('inline_comment', None)
@@ -308,9 +306,9 @@ class ConfigManager:
 
 if __name__ == '__main__':
     cfg = ConfigManager()
-    #cfg.load_from_file('Drone/config/client.ini')
-    cfg.load_from_file('Drone/config/spec/configspec_client.ini')
-
+    cfg.load_from_file('Server/config/server.ini')
+    #cfg.load_from_file('Drone/config/spec/configspec_client.ini')
+    print(dict(cfg.full_dict(include_defaults=True)))
 
     # cfg.load_config_and_spec('Drone/config/client.ini')
     # #print(cfg.config.comments)
@@ -330,15 +328,15 @@ if __name__ == '__main__':
     # # print(11111)
     import pprint
     #pprint.pprint(cfg.full_dict)
-    cfg2 = ConfigManager()
-    #cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='Drone/config/spec/configspec_client.ini')
-    cfg2.load_from_dict({"PRIVATE": {"id": "heh"}})
-    #pprint.pprint(cfg2.full_dict)
-    #cfg.merge(cfg2)
-    #pprint.pprint(cfg.full_dict)
-    print(cfg2.full_dict(include_defaults=True))
+    # cfg2 = ConfigManager()
+    # #cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='Drone/config/spec/configspec_client.ini')
+    # cfg2.load_from_dict({"PRIVATE": {"id": "heh"}})
+    # #pprint.pprint(cfg2.full_dict)
+    # #cfg.merge(cfg2)
+    # #pprint.pprint(cfg.full_dict)
+    # print(cfg2.full_dict(include_defaults=True))
     #print(dict(cfg2.config.configspec))
-    print(cfg2.config.PRIVATE)
+    #print(cfg2.config.PRIVATE)
     #print(dict(ConfigManager(cfg.config.configspec).config))
 
     # #print(cfg.full_dict)
