@@ -508,7 +508,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         config = cfg.ConfigManager()
         config.load_only_config(path)
-        data = config.full_dict()
+        data = config.full_dict(include_defaults=False)
         logging.info(f"Loaded config from {path}")
 
         copters = self.model.user_selected()

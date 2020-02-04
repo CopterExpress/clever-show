@@ -155,7 +155,7 @@ class ConfigManager:
             self.__dict__[key] = value
 
     @staticmethod
-    def _config_exists(path):
+    def config_exists(path):
         return os.path.isfile(path) and os.path.splitext(path)[1] == '.ini'
 
     @staticmethod
@@ -169,14 +169,14 @@ class ConfigManager:
                             filename.replace('configspec_', ''))
 
     def load_from_file(self, path):
-        if not self._config_exists(path):
+        if not self.config_exists(path):
             raise ValueError('Config file do not exist!')
 
         f_path, filename = os.path.split(path)
         if filename.startswith('configspec_'):
             config_path = self._get_config_path(path)
 
-            if self._config_exists(config_path):
+            if self.config_exists(config_path):
                 return self.load_config_and_spec(config_path)
 
             generate_file = parent_dir(f_path) == 'spec'
@@ -187,7 +187,7 @@ class ConfigManager:
 
         else:
             spec_path = self._get_spec_path(path)
-            if self._config_exists(spec_path):
+            if self.config_exists(spec_path):
                 return self.load_config_and_spec(path)
 
             return self.load_only_config(path)
@@ -212,7 +212,7 @@ class ConfigManager:
 
     @classmethod
     def generate_default_config(cls, cfg_path):
-        if cls._config_exists(cfg_path):
+        if cls.config_exists(cfg_path):
             return False
 
         vdt = Validator()
@@ -269,10 +269,10 @@ class ConfigManager:
             kwargs.update({'configspec': configspec})
         elif isinstance(configspec, str):
             spec_path = self._get_spec_path(configspec)
-            if self._config_exists(spec_path):  # when 'configspec' points to configuration file and configspec exists
+            if self.config_exists(spec_path):  # when 'configspec' points to configuration file and configspec exists
                 kwargs.update({'configspec': spec_path})
                 filename = configspec
-            elif self._config_exists(configspec):  # when 'configspec' points to configspec file
+            elif self.config_exists(configspec):  # when 'configspec' points to configspec file
                 kwargs.update({'configspec': configspec})
                 if parent_dir(configspec) == 'spec':
                     filename = self._get_config_path(configspec)

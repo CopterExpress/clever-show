@@ -9,9 +9,12 @@ from functools import partialmethod
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt, QUrl, QDir
 
+from config import ConfigManager
+
 # Additional custom roles to interact with various table data
 ModelDataRole = 998
 ModelStateRole = 999
+
 
 def get_git_version():  # TODO import from animation
     return subprocess.check_output("git log --pretty=format:%h -n 1").decode('UTF-8')
@@ -111,6 +114,7 @@ def check_pos(item):
         return False
     return not math.isnan(item[0])
 
+
 # @ModelChecks.column_check("last_task")
 # def check_task(item):
 #     return True
@@ -137,13 +141,13 @@ def check_start_pos(item, context):
 def get_position(position):
     if position != 'NO_POS' and position[0] != 'nan':  # float('nan')?
         return position
-    return [float('nan')]*3
+    return [float('nan')] * 3
 
 
 def get_distance(pos1, pos2):  # todo as common function
-    if any(math.isnan(x) for x in pos1+pos2):
+    if any(math.isnan(x) for x in pos1 + pos2):
         return float('nan')
-    return math.sqrt(sum(map(lambda p: p[0] - p[1], zip(pos1, pos2)))**2)  # point distance formula
+    return math.sqrt(sum(map(lambda p: p[0] - p[1], zip(pos1, pos2))) ** 2)  # point distance formula
 
 
 class CopterData:
@@ -234,6 +238,7 @@ class ModelFormatter:
     place_formatter = partialmethod(column_formatter, formatter_type=PLACE_FORMATTER)
     view_formatter = partialmethod(column_formatter, formatter_type=VIEW_FORMATTER)
 
+
 @ModelFormatter.place_formatter("copter_id")
 def place_id(value):
     value = str(value).strip()
@@ -261,6 +266,7 @@ def place_battery(value):
         if math.isnan(battery_v) or math.isnan(battery_p):
             return "NO_INFO"
     return value
+
 
 @ModelFormatter.view_formatter("battery")
 def view_battery(value):
@@ -315,6 +321,7 @@ def view_time_delta(value):
 class CopterDataModel(QtCore.QAbstractTableModel):
     columns_dict = {'copter_id': 'copter ID',
                     'git_version': 'version',
+                    'config_version': 'configuration',
                     'animation_id': ' animation ID ',
                     'battery': '  battery  ',
                     'fcu_status': 'FCU status',
@@ -325,7 +332,6 @@ class CopterDataModel(QtCore.QAbstractTableModel):
                     'start_position': '    start x y z     ',
                     'last_task': 'last task',
                     'time_delta': 'dt',
-                    'config_version': 'configuration',
                     }
 
     columns = list(columns_dict.keys())
@@ -385,7 +391,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
 
     def selected_check(self, f, selected=()):
         selected = selected or set(self.user_selected())
-        return bool(selected) and all(f(item) for item in selected) #selected.issubset(self.filter(f))
+        return bool(selected) and all(f(item) for item in selected)  # selected.issubset(self.filter(f))
 
     def get_row_data(self, index):
         row = index.row()
@@ -488,14 +494,14 @@ class CopterDataModel(QtCore.QAbstractTableModel):
         if index.column() == 0:
             roles |= Qt.ItemIsUserCheckable | Qt.ItemIsEditable
         if self.is_column(index, "config_version"):
-            roles |= Qt.ItemIsDragEnabled  # | Qt.ItemIsDropEnabled
+            roles |= Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
         return roles
 
     def supportedDropActions(self):
-        return QtCore.Qt.CopyAction
+        return Qt.CopyAction | Qt.MoveAction
 
     def mimeTypes(self):
-        return ['text/plain']
+        return ['text/uri-list']
 
     def mimeData(self, indexes):
         index = indexes[0]
@@ -513,9 +519,35 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             os.remove(path)
 
         self.data_contents[index.row()].client.get_file("config/client.ini", path, )
+        mimedata.setData("application/copter_row_info",
+                         bytes(self.data_contents[index.row()].copter_id, encoding="UTF-8"))
         mimedata.setUrls([QUrl.fromLocalFile(path)])
 
         return mimedata
+
+    def dropMimeData(self, mimedata, action, row, column, index):
+        if action == Qt.IgnoreAction:
+            return True
+
+        if self.is_column(index, "config_version"):
+            if not mimedata.hasUrls():
+                return False
+            if str(mimedata.data("application/copter_row_info")) == self.data_contents[index.row()].copter_id:
+                return False  # to protect from dropping to the same cell
+
+            # print(mimedata.hasUrls(), mimedata.urls, mimedata.formats())
+            return self.drop_config(mimedata.urls()[0].toLocalFile(), index.row())
+
+        return True
+
+    def drop_config(self, path, row):
+        if not ConfigManager.config_exists(path):
+            return False
+        config = ConfigManager()
+        config.load_only_config(path)
+        self.data_contents[row].client.send_message("config", kwargs={
+            "config": config.full_dict(include_defaults=False), "mode": "rewrite"})
+        return False
 
     # Thread-safe wrappers
     def add_client(self, **kwargs):
@@ -567,9 +599,10 @@ def flip_checks(copter_item):
         return False
     return True
 
+
 # for col in checklist:
-    #     if not copter_item.state[col]:  # ModelChecks.check(col, copter_item):
-    #         return False
+#     if not copter_item.state[col]:  # ModelChecks.check(col, copter_item):
+#         return False
 
 def calibrating_check(copter_item):
     return copter_item["calibration_status"] == "CALIBRATING"
@@ -637,14 +670,14 @@ if __name__ == '__main__':
     msg = "[{}]: Failure: {}".format("FCU connection2", "Angular velocities estimation is not available")
     msgs.append(msg)
 
-    #myModel._add_client(StatedCopterData(copter_id=1000, checked=0, selfcheck=msgs, time_utc=1))
-    #myModel._add_client(StatedCopterData(checked=2, selfcheck="OK", time_utc=2))
-    #myModel._add_client(StatedCopterData(checked=2, selfcheck="not ok", time_utc="no"))
+    # myModel._add_client(StatedCopterData(copter_id=1000, checked=0, selfcheck=msgs, time_utc=1))
+    # myModel._add_client(StatedCopterData(checked=2, selfcheck="OK", time_utc=2))
+    # myModel._add_client(StatedCopterData(checked=2, selfcheck="not ok", time_utc="no"))
     myModel.add_client(copter_id=1000, client=None, git_version='11318ca', selfcheck=msgs)
-    #myModel.setData(myModel.index(0, 1), "test")
+    # myModel.setData(myModel.index(0, 1), "test")
 
     # t = threading.Thread(target=timer, daemon=True)
-    #t.start()
+    # t.start()
     print(QtCore.QT_VERSION_STR)
     print(get_git_version())
     myModel.update_data(0, 3, [1, 2], role=Qt.EditRole)
