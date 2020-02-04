@@ -108,9 +108,15 @@ class ConfigManager:
             if not isinstance(result, dict):
                 item_d = {'__option__': True,
                           'value': value,
-                          'comments': comments.get(key, []),
-                          'inline_comment': inline_comments.get(key, None),
                           }
+                comment = comments.get(key, []),
+                if comment and comment != ['']:
+                    item.update({'comments': comment})
+
+                inline_comment = inline_comments.get(key, None)
+                if inline_comment:
+                    item.update({'inline_comment': inline_comments})
+
                 if include_defaults:
                     item_d.update({'default': default_values.get(key, None),
                                    'unchanged': key in defaults,
