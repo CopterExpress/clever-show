@@ -415,6 +415,20 @@ class HeaderEditDialog(QtWidgets.QDialog):
         self.setWindowTitle(f"Column preset editor - {self.widget.preset_widget.currentText()}"
                             + "*"*unsaved)
 
+    def closeEvent(self, event):
+        if not self.unsaved:
+            event.accept()
+            return
+
+        reply = QMessageBox.question(self, "Confirm exit", "There are unsaved changes in current preset. "
+                                                           "Are you sure you want to exit?",
+                                     QMessageBox.No | QMessageBox.Yes, QMessageBox.No)
+
+        if reply != QMessageBox.Yes:
+            event.ignore()
+        else:
+            event.accept()
+
 
 if __name__ == '__main__':
     import sys
