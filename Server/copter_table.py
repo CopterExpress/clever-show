@@ -145,6 +145,10 @@ class CopterTableWidget(QTableView):
         edit_config.triggered.connect(partial(self.edit_copter_config, item))
         menu.addAction(edit_config)
 
+        copy_config = QAction("Copy config to selected")
+        copy_config.triggered.connect(partial(self.copy_config, item))
+        menu.addAction(copy_config)
+
         if item is None:
             edit_config.setDisabled(True)
 
@@ -153,7 +157,20 @@ class CopterTableWidget(QTableView):
     @pyqtSlot()
     def edit_copter_config(self, copter):
         dialog = ConfigDialog()
-        copter.client.get_response("config", dialog.call_copter_dialog)
+        copter.client.get_response("config", dialog.call_copter_dialog, request_kwargs={'send_configspec': True})
+
+    @pyqtSlot()
+    def copy_config(self, copter):
+        def send_callback(client, value):
+            config = value["config"]
+            config.pop("PRIVATE", None)  # delete private section
+
+            for _copter in self.model.user_selected():
+                if _copter.client is client:
+                    continue  # don't send config back to the same copter
+                _copter.client.send_message("config", kwargs={"config": config, "mode": "modify"})
+
+        copter.client.get_response("config", send_callback, request_kwargs={'send_configspec': False})
 
     # def _selfcheck_shortener(self, data):  # TODO!!!
     #     shortened = []

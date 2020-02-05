@@ -216,8 +216,10 @@ def _command_config_write(*args, **kwargs):
 
 @messaging.request_callback("config")
 def _response_config(*args, **kwargs):
-    response = {"config": active_client.config.full_dict(),
-                "configspec": dict(active_client.config.config.configspec)}
+    send_configspec = kwargs.get("send_configspec", False)
+    response = {"config": active_client.config.full_dict()}
+    if send_configspec:
+        response.update({"configspec": dict(active_client.config.config.configspec)})
     return response
 
 @messaging.request_callback("id")
