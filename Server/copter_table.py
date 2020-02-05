@@ -183,6 +183,8 @@ class CopterTableWidget(QTableView):
 class HeaderListWidget(QListWidget):
     ColumnKeyRole = 998
 
+    dropped = QtCore.pyqtSignal(bool)
+
     def __init__(self, parent=None, default_items=None):
         super().__init__(parent)
         if default_items is not None:
@@ -206,6 +208,10 @@ class HeaderListWidget(QListWidget):
     def item_dict(self):
         return {self.item(i).data(HeaderListWidget.ColumnKeyRole): bool(self.item(i).checkState())
                 for i in range(self.count())}
+
+    def dropEvent(self, event: QtGui.QDropEvent):
+        super().dropEvent(event)
+        self.dropped.emit(True)
 
 
 class ActiveHeaderListWidget(HeaderListWidget):
@@ -241,6 +247,8 @@ class HeaderEditWidget(QtWidgets.QWidget):
     add_new_text = "< add new >"
     default = "DEFAULT"
 
+    saved_signal = QtCore.pyqtSignal(bool)
+
     def __init__(self, source, config, menu_mode=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # self.auto_apply = auto_apply
@@ -251,10 +259,12 @@ class HeaderEditWidget(QtWidgets.QWidget):
         self.preset_widget = QtWidgets.QComboBox()
         self.header_widget = ActiveHeaderListWidget(self.source) \
             if self.menu_mode else HeaderListWidget()
+        #self.header_widget.itemChanged.connect(partial(self.saved_signal.emit, False))
+        self.header_widget.model().dataChanged.connect(partial(self.saved_signal.emit, False))
+        self.header_widget.dropped.connect(partial(self.saved_signal.emit, False))
 
         self.previous = self.config.table_presets_current
         self.save = True
-        # self._dialog = None
 
         self.setupUi()
 
@@ -328,6 +338,7 @@ class HeaderEditWidget(QtWidgets.QWidget):
             self.source.set_column_order(list(items.keys()))
             self.config.table_presets_current = index
         self.header_widget.populate_items(items)
+        self.saved_signal.emit(True)
 
     def add_preset(self):
         name, ok = QInputDialog.getText(None, "Enter new preset name", "Name:",
@@ -365,6 +376,7 @@ class HeaderEditWidget(QtWidgets.QWidget):
         self.previous = self.default
         self.update_preset_list()
 
+    @pyqtSlot()
     def save_preset(self):
         if not self.save:  # don't save after calling dialog to avoid overrides
             return
@@ -372,7 +384,9 @@ class HeaderEditWidget(QtWidgets.QWidget):
         current = self.preset_widget.currentText()
         header_dict = self.header_widget.item_dict
         save_preset(self.config, current, header_dict)
+        self.saved_signal.emit(True)
 
+    @pyqtSlot()
     def apply_preset(self):
         self.config.table_presets_current = self.preset_widget.currentText()
         self.save_preset()
@@ -382,11 +396,24 @@ class HeaderEditWidget(QtWidgets.QWidget):
 class HeaderEditDialog(QtWidgets.QDialog):
     def __init__(self, source, config, parent=None):
         super(HeaderEditDialog, self).__init__(parent=None)
-        self.ui = HeaderEditWidget(source, config, menu_mode=False)
-        self.setWindowTitle("Column preset editor")
+        self.widget = HeaderEditWidget(source, config, menu_mode=False)
+        self.setupUI()
+        self.unsaved = False
+
+        self.widget.saved_signal.connect(self.update_title)
+        self.update_title(True)
+
+    def setupUI(self):
         layout = QVBoxLayout()
-        layout.addWidget(self.ui)
+        layout.addWidget(self.widget)
         self.setLayout(layout)
+
+    @pyqtSlot(bool)
+    def update_title(self, saved):
+        unsaved = not saved
+        self.unsaved = unsaved
+        self.setWindowTitle(f"Column preset editor - {self.widget.preset_widget.currentText()}"
+                            + "*"*unsaved)
 
 
 if __name__ == '__main__':
