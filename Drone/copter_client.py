@@ -770,7 +770,7 @@ class Telemetry:
     def update_telemetry_slow(self):
         self.animation_id = animation.get_id()
         self.git_version = self.get_git_version()
-        self.config_version = self.get_config_varsion()
+        self.config_version = self.get_config_version()
         try:
             self.cal_status = get_calibration_status()
             self.fcu_status = get_sys_status()
