@@ -131,8 +131,8 @@ def check_start_pos(item, context):
     if context.current_position is None:
         return item != 'NO_POS'  # maybe should return true
 
-    delta = get_distance(get_position(context.current_position),
-                         get_position(context.start_position))
+    delta = get_distance(get_position(context.current_position[:2]),
+                         get_position(context.start_position[:2]))
     if math.isnan(delta):
         return False
 
