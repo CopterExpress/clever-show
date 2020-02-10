@@ -141,7 +141,7 @@ def check_start_pos(item, context):
 
 def get_position(position):
     if position != 'NO_POS' and position[0] != 'nan':  # float('nan')?
-        return position[:2]
+        return position[:3]
     return [float('nan')] * 3
 
 
@@ -295,7 +295,7 @@ def view_selfcheck(value):
 
 
 @ModelFormatter.view_formatter("start_position")
-def view_selfcheck(value):
+def view_start_position(value):
     if isinstance(value, list):
         x, y, z = value
         return f"{x: .2f} {y: .2f} {z: .2f}"
