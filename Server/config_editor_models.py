@@ -462,14 +462,14 @@ class ConfigModel(QtCore.QAbstractItemModel):
             self.final_comment = '\n'.join(data.pop('final_comment', ['']))
 
         for key, item in data.items():
-            if item.get('__option__', False):
-                value = item['value']
+            if '__value__' in item:
+                value = item.get('__value__')
                 if convert_types:
                     value = convert_type(value)
 
                 default = item['default']
-                comments = '\n'.join(item['comments']) or ''
-                inline_comment = item['inline_comment'] or ''
+                comments = '\n'.join(item.get('comments', '')) or ''
+                inline_comment = item.get('inline_comment', '') or ''
 
                 if item['unchanged']:
                     state = 'unchanged'
@@ -522,13 +522,15 @@ class ConfigModel(QtCore.QAbstractItemModel):
                 else:
                     value = item.data(1)
 
-                d = {'__option__': True,
-                     'value': value,
-                     # 'default': item.default,
-                     # 'unchanged': False,
-                     'comments': (item.data(2) or '').split('\n'),
-                     'inline_comment': item.data(3) or ''
-                     }
+                d = {'__value__': value}
+
+                comment = item.data(2)
+                if comment:
+                    d.update({'comments': comment.split('\n')})
+
+                inline_comment = item.data(3)
+                if inline_comment:
+                    d.update({'inline_comment': inline_comment})
 
                 data[key] = d
 
