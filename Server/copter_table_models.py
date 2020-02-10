@@ -18,7 +18,7 @@ ModelStateRole = 999
 
 
 def get_git_version():  # TODO import from animation
-    return subprocess.check_output("git log --pretty=format:%h -n 1").decode('UTF-8')
+    return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True).decode('UTF-8')
 
 
 class CheckState:
