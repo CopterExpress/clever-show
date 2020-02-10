@@ -131,8 +131,8 @@ def check_start_pos(item, context):
     if context.current_position is None:
         return item != 'NO_POS'  # maybe should return true
 
-    delta = get_distance(get_position(context.current_position[:2]),
-                         get_position(context.start_position[:2]))
+    delta = get_distance(get_position(context.current_position),
+                         get_position(context.start_position))
     if math.isnan(delta):
         return False
 
@@ -141,7 +141,7 @@ def check_start_pos(item, context):
 
 def get_position(position):
     if position != 'NO_POS' and position[0] != 'nan':  # float('nan')?
-        return position
+        return position[:2]
     return [float('nan')] * 3
 
 
