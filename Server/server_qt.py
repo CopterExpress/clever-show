@@ -271,7 +271,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def update_table_data(self, client, telems: dict):
         for key, value in telems.items():
             try:
-                col = self.model.index(key)
+                col = self.model.columns.index(key)
             except ValueError:
                 logging.error(f"No column {key} present!")
             else:
