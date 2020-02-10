@@ -772,7 +772,7 @@ class Telemetry:
         self.git_version = self.get_git_version()
         self.config_version = self.get_config_version()
         try:
-            self.cal_status = get_calibration_status()
+            self.calibration_status = get_calibration_status()
             self.fcu_status = get_sys_status()
             self.battery = self.get_battery(self.ros_telemetry)
         except rospy.ServiceException:
@@ -795,7 +795,7 @@ class Telemetry:
 
     def reset_telemetry_values(self):
         self.battery = float('nan'), float('nan')
-        self.cal_status = 'NO_FCU'
+        self.calibration_status = 'NO_FCU'
         self.fcu_status = 'NO_FCU'
         self.mode = 'NO_FCU'
         self.selfcheck = ['NO_FCU']
