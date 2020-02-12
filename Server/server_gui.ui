@@ -426,7 +426,7 @@
      <x>0</x>
      <y>0</y>
      <width>1360</width>
-     <height>26</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">
@@ -463,7 +463,7 @@
    </widget>
    <widget class="QMenu" name="menuDrone_2">
     <property name="title">
-     <string>Drone</string>
+     <string>Selected drones</string>
     </property>
     <widget class="QMenu" name="menuSend">
      <property name="title">
@@ -481,48 +481,49 @@
     </widget>
     <widget class="QMenu" name="menuRestart">
      <property name="title">
-      <string>Restart</string>
+      <string>Restart service</string>
      </property>
      <addaction name="action_restart_chrony"/>
      <addaction name="action_restart_clever"/>
      <addaction name="action_restart_clever_show"/>
      <addaction name="separator"/>
-     <addaction name="action_reboot_all"/>
     </widget>
-    <widget class="QMenu" name="menuRetrive">
+    <widget class="QMenu" name="menuDeveloper_mode">
      <property name="title">
-      <string>Retrive</string>
+      <string>Developer mode</string>
      </property>
-     <addaction name="action_retrive_any_file"/>
+     <addaction name="action_update_client_repo"/>
     </widget>
     <addaction name="menuSend"/>
-    <addaction name="menuRetrive"/>
+    <addaction name="action_retrive_any_file"/>
     <addaction name="menuRestart"/>
     <addaction name="separator"/>
-    <addaction name="action_reset_z_offset"/>
-    <addaction name="action_set_z_offset_to_ground"/>
     <addaction name="action_set_start_to_current_position"/>
     <addaction name="action_reset_start"/>
+    <addaction name="action_set_z_offset_to_ground"/>
+    <addaction name="action_reset_z_offset"/>
     <addaction name="separator"/>
-    <addaction name="action_update_client_repo"/>
+    <addaction name="menuDeveloper_mode"/>
+    <addaction name="separator"/>
+    <addaction name="action_reboot_all"/>
    </widget>
+   <addaction name="menuDrone_2"/>
    <addaction name="menuOptions"/>
    <addaction name="menuTable"/>
-   <addaction name="menuDrone_2"/>
   </widget>
   <action name="action_send_animations">
    <property name="text">
-    <string>Send animations</string>
+    <string>Animations</string>
    </property>
   </action>
   <action name="action_send_configurations">
    <property name="text">
-    <string>Send configurations</string>
+    <string>Configuration</string>
    </property>
   </action>
   <action name="action_send_aruco_map">
    <property name="text">
-    <string>Send aruco map</string>
+    <string>Aruco map</string>
    </property>
   </action>
   <action name="action_update_client_repo">
@@ -537,17 +538,17 @@
   </action>
   <action name="action_send_launch_file">
    <property name="text">
-    <string>Send launch files</string>
+    <string>Launch files</string>
    </property>
   </action>
   <action name="action_restart_clever">
    <property name="text">
-    <string>Restart clever service</string>
+    <string>clever</string>
    </property>
   </action>
   <action name="action_restart_clever_show">
    <property name="text">
-    <string>Restart clever-show service</string>
+    <string>clever-show</string>
    </property>
   </action>
   <action name="action_select_all_rows">
@@ -580,12 +581,12 @@
   </action>
   <action name="action_select_music_file">
    <property name="text">
-    <string>Select music file</string>
+    <string>Select file</string>
    </property>
   </action>
   <action name="action_play_music">
    <property name="text">
-    <string>Play music</string>
+    <string>Play</string>
    </property>
   </action>
   <action name="action_test_music_after">
@@ -600,22 +601,22 @@
   </action>
   <action name="action_send_any_file">
    <property name="text">
-    <string>Send any file</string>
+    <string>File</string>
    </property>
   </action>
   <action name="action_send_any_command">
    <property name="text">
-    <string>Send any command</string>
+    <string>Command</string>
    </property>
   </action>
   <action name="action_stop_music">
    <property name="text">
-    <string>Stop music</string>
+    <string>Stop</string>
    </property>
   </action>
   <action name="action_remove_row">
    <property name="text">
-    <string>Remove drone</string>
+    <string>Remove selected drones</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Del</string>
@@ -623,22 +624,22 @@
   </action>
   <action name="action_send_calibrations">
    <property name="text">
-    <string>Send camera calibrations</string>
+    <string>Camera calibrations</string>
    </property>
   </action>
   <action name="action_reboot_all">
    <property name="text">
-    <string>Reboot system</string>
+    <string>Reboot</string>
    </property>
   </action>
   <action name="action_restart_chrony">
    <property name="text">
-    <string>Restart chrony</string>
+    <string>chrony</string>
    </property>
   </action>
   <action name="action_send_fcu_parameters">
    <property name="text">
-    <string>Send FCU parameters</string>
+    <string>FCU parameters</string>
    </property>
   </action>
   <action name="action_toggle_select">
@@ -676,13 +677,19 @@
    </property>
   </action>
   <action name="action_update_server_git">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Update server git</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="action_retrive_any_file">
    <property name="text">
-    <string>Retrive any file</string>
+    <string>Retrive file</string>
    </property>
   </action>
   <action name="action_restart_server">
@@ -693,6 +700,11 @@
   <action name="action_configure_columns">
    <property name="text">
     <string>Configure columns</string>
+   </property>
+  </action>
+  <action name="actionSomething">
+   <property name="text">
+    <string>something</string>
    </property>
   </action>
  </widget>
