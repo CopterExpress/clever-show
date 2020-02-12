@@ -96,6 +96,12 @@ class CopterTableWidget(QTableView):
         self.setDragDropMode(QAbstractItemView.DragDrop)
         self.setMouseTracking(True)
 
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        index = self.indexAt(event.pos())
+        if index.column() == -1 and index.row() == -1:
+            self.clearSelection()
+
     def mouseMoveEvent(self, event):
         self.cell_hover(self.indexAt(event.pos()))
         super().mouseMoveEvent(event)
