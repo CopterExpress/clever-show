@@ -168,7 +168,6 @@ class Client(object):
 
     def _process_connections(self):
         while True:
-            #self.server_connection.send_message("telemetry", kwargs={"value":{"time": time.time()}})
             events = self.selector.select(timeout=1)
             for key, mask in events:
                 connection = key.data
@@ -239,6 +238,18 @@ def _response_time(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    import threading
+    def mock_telem():
+        while True:
+            time.sleep(5)
+            #t = dict([('fcu_status', None), ('current_position', [-2.89, 2.12, 3.64, 15.22, 'aruco_map']), ('animation_id', 'two_drones_test'), ('selfcheck', 'OK'), ('battery', None), ('git_version', '01bf95e'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]), ('mode', 'MANUAL'), ('time_delta', 1581338473.438682), ('armed', False), ('config_version', None), ('last_task', 'No task')])
+            t = dict([('fcu_status', 'STANDBY'), ('current_position', [-1.17, 2.04, 3.45, 0, "11"]), ('animation_id', 'two_drones_test'), ('selfcheck', 'OK'), ('battery', [12.2, 1.0]), ('git_version', '42aee96'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]), ('mode', 'MANUAL'), ('time_delta', 1581342970.889573), ('armed', False), ('config_version', 'Copter config V0.0'), ('last_task', 'No task')])
+            if active_client.connected:
+                active_client.server_connection.send_message("telemetry", kwargs={"value": t})
+
     logging.basicConfig(level=logging.DEBUG)
     client = Client()
+    tr = threading.Thread(target=mock_telem)
+    tr.start()
     client.start()
+
