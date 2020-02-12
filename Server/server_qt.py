@@ -31,6 +31,7 @@ from copter_table import CopterTableWidget, HeaderEditDialog
 from visual_land_dialog import VisualLandDialog
 from config_editor_models import ConfigDialog
 
+startup_cwd = os.getcwd()
 
 def multi_glob(*patterns):
     return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
@@ -40,10 +41,14 @@ def b_partial(func, *args, **kwargs):  # call argument blocker partial
     return lambda *a: func(*args, **kwargs)
 
 
-def restart():  # move to core
-    # ANY prints will break restarting or opening new windows after restart
-    os.execl(sys.executable, os.path.abspath(__file__), *sys.argv)
-
+def restart():  # move to core 
+    args = sys.argv[:]
+    logging.info('Restarting {}'.format(args))
+    args.insert(0, sys.executable)
+    if sys.platform == 'win32':
+        args = ['"%s"' % arg for arg in args]
+    os.chdir(startup_cwd)
+    os.execv(sys.executable, args)
 
 def update_server():
     subprocess.call("git pull --rebase")
