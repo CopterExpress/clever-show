@@ -128,6 +128,10 @@ def check_time_delta(item):
 
 @ModelChecks.column_check("start_position", pass_context=True)
 def check_start_pos(item, context):
+
+    if ModelChecks.start_pos_delta_max == 0:
+        return True
+
     if context.current_position is None:
         return item != 'NO_POS'  # maybe should return true
 
