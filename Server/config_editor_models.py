@@ -229,10 +229,10 @@ def ensure_unique_names(item, include_self=True):
 class ConfigModel(QtCore.QAbstractItemModel):
     def __init__(self, parent=None, widget=None,
                  headers=("Option", "Value", 'Comment', 'Inline Comment')):
+        self.rootItem = ConfigModelItem(headers)
         super(ConfigModel, self).__init__(parent)
         self.widget = widget
 
-        self.rootItem = ConfigModelItem(headers)
         self.do_color = True
 
         self.initial_comment = ''
@@ -883,7 +883,12 @@ class ConfigDialog(QtWidgets.QDialog):
             on_restart()
         return True
 
-    def call_standalone_dialog(self):
+    @classmethod
+    def call_standalone_dialog(cls):
+        dialog = cls()
+        dialog._call_standalone_dialog()
+
+    def _call_standalone_dialog(self):
         path = QFileDialog.getOpenFileName(self, "Select configuration or specification file",
                                            filter="Config and spec files (*.ini)")[0]
         if not path:

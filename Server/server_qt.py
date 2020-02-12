@@ -139,7 +139,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_edit_any_config.triggered.connect(ConfigDialog.call_standalone_dialog)
         self.ui.action_edit_server_config.triggered.connect(self.edit_server_config)
 
-
         self.ui.action_restart_server.triggered.connect(restart)
         self.ui.action_update_server_git.triggered.connect(update_server)
 
