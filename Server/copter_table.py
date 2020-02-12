@@ -217,6 +217,7 @@ class CopterTableWidget(QTableView):
 
         if item is None:
             edit_config.setDisabled(True)
+            copy_config.setDisabled(True)
 
         menu.exec_(QCursor.pos())
 
