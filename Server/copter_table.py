@@ -2,11 +2,11 @@ from functools import partial
 from copy import deepcopy
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import Qt as Qt
+from PyQt5.QtCore import Qt as Qt, QObject, QEvent, QModelIndex
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QTableView, QMessageBox, QMenu, QAction, QWidgetAction, QListWidget, \
-    QAbstractItemView, QListWidgetItem, QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog, QLineEdit
+    QAbstractItemView, QListWidgetItem, QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog, QLineEdit, QApplication
 
 from config_editor_models import ConfigDialog
 import copter_table_models as table
@@ -23,7 +23,31 @@ def save_preset(config, current, header_dict):
     # config.write()
 
 
+class HeaderViewFilter(QObject):
+    def __init__(self, parent, header, *args):
+        super().__init__(parent, *args)
+        self.header = header
+        self._parent = parent
+
+    def eventFilter(self, object, event):
+        if event.type() == QEvent.Enter:
+            # logicalIndex = self.header.logicalIndexAt(event.pos())
+            self.parent().cellHover.emit(QModelIndex())
+
+        return True
+
+
 class CopterTableWidget(QTableView):
+    override_cursors = {
+        "copter_id": Qt.IBeamCursor,
+        "config_version": Qt.OpenHandCursor,
+        "selfcheck": Qt.PointingHandCursor,
+    }
+
+    cellHover = QtCore.pyqtSignal(QModelIndex)
+    cellEntered = QtCore.pyqtSignal(int, int)
+    cellExited = QtCore.pyqtSignal(int, int)
+
     def __init__(self, model: table.CopterDataModel, config):
         QTableView.__init__(self)
 
@@ -40,7 +64,16 @@ class CopterTableWidget(QTableView):
         self.columns = self.model.columns  # [header.strip() for header in self.model.headers]  # header keys
         self.current_columns = self.columns[:]
 
+        self._last_hover_index = QtCore.QModelIndex()
+        self._previous_cursor = None
+
+        self.cellHover.connect(self.cell_hover)
+        self.cellExited.connect(self.cell_exited)
+        self.cellEntered.connect(self.cell_entered)
+
         header = self.horizontalHeader()
+        self.filter = HeaderViewFilter(self, header)
+        header.installEventFilter(self.filter)
         header.setCascadingSectionResizes(False)
         header.setStretchLastSection(True)
         header.setSectionsMovable(True)
@@ -61,6 +94,39 @@ class CopterTableWidget(QTableView):
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.doubleClicked.connect(self.on_double_click)
         self.setDragDropMode(QAbstractItemView.DragDrop)
+        self.setMouseTracking(True)
+
+    def mouseMoveEvent(self, event):
+        self.cell_hover(self.indexAt(event.pos()))
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        self.cell_hover(QtCore.QModelIndex())
+
+    def dragEnterEvent(self, *args, **kwargs):
+        self.cell_hover(QtCore.QModelIndex())
+        super().dragEnterEvent(*args, **kwargs)
+
+    def cell_hover(self, index):
+        if index != self._last_hover_index:
+            self.cellExited.emit(self._last_hover_index.row(), self._last_hover_index.column())
+            self.cellEntered.emit(index.row(), index.column())
+
+            self._last_hover_index = QtCore.QPersistentModelIndex(index)
+
+    @pyqtSlot(int, int)
+    def cell_entered(self, row, column):
+        if column != -1 and self.columns[column] in self.override_cursors:
+            self._previous_cursor = QApplication.overrideCursor()
+            if self._previous_cursor is None:
+                QApplication.setOverrideCursor(self.override_cursors[self.columns[column]])
+
+    @pyqtSlot(int, int)
+    def cell_exited(self, row, column):
+        # if self._previous_cursor is not None:
+        #    QApplication.setOverrideCursor(self._previous_cursor)
+        if self._previous_cursor is None:
+            QApplication.restoreOverrideCursor()
 
     def moved(self, logical_index, old_index, new_index):
         name = self.current_columns.pop(old_index)
