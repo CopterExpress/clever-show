@@ -830,6 +830,7 @@ class ConfigDialog(QtWidgets.QDialog):
         return self.result()
 
     def validation_loop(self, cfg, configspec=None):  # modifies cfg object
+        filename = cfg.config.filename
         while True:
             if not self.run():
                 return False
@@ -845,6 +846,10 @@ class ConfigDialog(QtWidgets.QDialog):
 
             else:
                 return True
+
+            finally:
+                if filename is not None:
+                    cfg.config.filename = filename
 
     def call_copter_dialog(self, client, value):
         self.copter_editor_signal.emit(client, value)
