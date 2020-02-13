@@ -863,10 +863,10 @@ class ConfigDialog(QtWidgets.QDialog):
 
         def save_callback():
             edited_dict = cfg.full_dict(include_defaults=False)
-            client.send_message("config", {"config": edited_dict, "mode": "rewrite"})
+            client.send_message("config", kwargs={"config": edited_dict, "mode": "rewrite"})
 
         def restart_callback():
-            client.send_message("service_restart", {"name": "clever-show"})
+            client.send_message("service_restart", kwargs={"name": "clever-show"})
 
         if not self.call_config_dialog(cfg, save_callback, restart_callback, f"{client.copter_id}"):
             return False
