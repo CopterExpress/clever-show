@@ -287,7 +287,7 @@ def view_selfcheck(value):
 
 
 @ModelFormatter.view_formatter("current_position")
-def view_selfcheck(value):
+def view_current_position(value):
     if isinstance(value, list):
         x, y, z, yaw, frame = value
         return f"{x: .2f} {y: .2f} {z: .2f} {int(yaw): d} {frame}"
