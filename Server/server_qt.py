@@ -50,9 +50,11 @@ def restart():  # move to core
     os.chdir(startup_cwd)
     os.execv(sys.executable, args)
 
+
 def update_server():
     subprocess.call("git fetch && git pull --rebase", shell=True)
     restart()
+
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
