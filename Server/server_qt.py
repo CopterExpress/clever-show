@@ -322,7 +322,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
     def takeoff_selected(self):
         for copter in self.model.user_selected():
-            if self.model.checks.takeoff_checks(copter):
+            if table.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
                     copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int, merge commands
                 else:
