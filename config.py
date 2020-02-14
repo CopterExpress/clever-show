@@ -3,7 +3,7 @@ import copy
 import collections
 
 from configobj import ConfigObj, Section, flatten_errors
-from validate import Validator
+from validate import Validator, is_tuple, is_boolean, is_integer
 
 
 def modify_filename(path, pattern):  # TODO move to core
@@ -21,6 +21,11 @@ def parent_path(path, levels=1):
 
 def parent_dir(path):
     return os.path.basename(os.path.normpath(path))
+
+
+def is_preset_param(value):
+    parsed = is_tuple(value, min=2, max=2)
+    return is_boolean(parsed[0]), is_integer(parsed[1], min=0)
 
 
 class ValidationError(ValueError):
@@ -84,7 +89,7 @@ class ConfigManager:
 
     def validate_config(self, config=None, copy_defaults=False):
         config = self.config if config is None else config
-        vdt = Validator()
+        vdt = Validator({"preset_param": is_preset_param})
 
         test = config.validate(vdt, copy=copy_defaults, preserve_errors=True)
         if test != True:  # Important syntax, do no change
@@ -306,9 +311,13 @@ class ConfigManager:
 
 if __name__ == '__main__':
     cfg = ConfigManager()
-    cfg.load_from_file('Server/config/server.ini')
+    cfg.load_from_file('Drone/config/client.ini')
+    # cfg.load_from_file('Server/config/server.ini')
     #cfg.load_from_file('Drone/config/spec/configspec_client.ini')
     print(dict(cfg.full_dict(include_defaults=True)))
+    cfg.config.pop("PRIVATE", None)
+    print(cfg.config)
+
 
     # cfg.load_config_and_spec('Drone/config/client.ini')
     # #print(cfg.config.comments)

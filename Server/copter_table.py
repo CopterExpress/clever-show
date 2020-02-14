@@ -16,7 +16,7 @@ def save_preset(config, current, header_dict):
     presets = config.table_presets
 
     for key in presets[HeaderEditWidget.default]:
-        if key not in presets[current] and not header_dict[key]:
+        if key not in presets[current] and not header_dict[key][0]:
             header_dict.pop(key)
 
     presets[current] = header_dict
@@ -33,7 +33,8 @@ class HeaderViewFilter(QObject):
         if event.type() == QEvent.Enter:
             # logicalIndex = self.header.logicalIndexAt(event.pos())
             self.parent().cellHover.emit(QModelIndex())
-
+        else:
+            return False
         return True
 
 
@@ -147,20 +148,36 @@ class CopterTableWidget(QTableView):
             if index_to != index_from:
                 self.horizontalHeader().moveSection(index_from, index_to)
 
-    def load_columns(self, item_dict: dict=None):
+    def load_columns(self, item_dict: dict = None):
         presets = self.config.table_presets
         if item_dict is None:
             item_dict = presets[self.config.table_presets_current]
 
-        item_dict.update({key: False for key in presets[HeaderEditWidget.default] if key not in item_dict})
+        item_dict.update({key: (False, presets[HeaderEditWidget.default][key][1])
+                          for key in presets[HeaderEditWidget.default] if key not in item_dict})
 
-        self.set_column_order(list(item_dict.keys()))
-        for name, show in item_dict.items():         # for index, name in enumerate(self.columns):
-            self.setColumnHidden(self.columns.index(name), not show)  # self.setColumnHidden(index, not item_dict.get(name, False))
+        self.set_column_order(item_dict.keys())
+        # self.set_column_widths({key: val[1] for key, val in item_dict.items()})
+
+        for name, value in item_dict.items():  # for index, name in enumerate(self.columns):
+            index = self.columns.index(name)
+            show, width = value
+            self.setColumnHidden(index, not show)  # self.setColumnHidden(index, not item_dict.get(name, False))
+            self.setColumnWidth(index, width)
+
+    def _get_column_item(self, column):
+        index = self.columns.index(column)
+        presets = self.config.table_presets
+        show = not self.isColumnHidden(index)
+        # columnWidth is 0 when hidden, trying to get previous width from config or default
+        width = self.columnWidth(index) or \
+                presets[self.config.table_presets_current].get(column, 0)[1] or \
+                presets[HeaderEditWidget.default][column][1]
+        return show, width
 
     @property
     def item_dict(self):
-        return {column: not self.isColumnHidden(self.columns.index(column)) for column in self.current_columns}
+        return {column: self._get_column_item(column) for column in self.current_columns}
 
     def save_columns(self):
         current = self.config.table_presets_current
@@ -180,8 +197,7 @@ class CopterTableWidget(QTableView):
 
     @pyqtSlot(QtCore.QModelIndex)
     def on_double_click(self, index):
-        col = index.column()
-        if col == 7:
+        if self.model.is_column(index, "selfcheck"):
             data = self.proxy_model.data(index, role=table.ModelDataRole)
             if data and data != "OK":
                 self._show_info("Selfcheck info", data)
@@ -254,7 +270,8 @@ class CopterTableWidget(QTableView):
 
 
 class HeaderListWidget(QListWidget):
-    ColumnKeyRole = 998
+    ColumnKeyRole = Qt.UserRole + 1000
+    ColumnWidthRole = Qt.UserRole + 1001
 
     dropped = QtCore.pyqtSignal(bool)
 
@@ -268,18 +285,21 @@ class HeaderListWidget(QListWidget):
 
     def populate_items(self, item_dict: dict):
         self.clear()
-        for name, visible in item_dict.items():
+        for name, value in item_dict.items():
+            visible, width = value
             flags = Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsEnabled
             state = Qt.Checked if visible else Qt.Unchecked
 
             item = QListWidgetItem(table.CopterDataModel.columns_dict.get(name, "").strip() or name, self)
             item.setFlags(flags)
             item.setCheckState(state)
-            item.setData(HeaderListWidget.ColumnKeyRole, name)
+            item.setData(self.ColumnKeyRole, name)
+            item.setData(self.ColumnWidthRole, width)
 
     @property
     def item_dict(self):
-        return {self.item(i).data(HeaderListWidget.ColumnKeyRole): bool(self.item(i).checkState())
+        return {self.item(i).data(self.ColumnKeyRole):
+                    (bool(self.item(i).checkState()), self.item(i).data(self.ColumnWidthRole))
                 for i in range(self.count())}
 
     def dropEvent(self, event: QtGui.QDropEvent):
@@ -307,8 +327,7 @@ class ActiveHeaderListWidget(HeaderListWidget):
         key = item.data(HeaderListWidget.ColumnKeyRole)
         if key is None:
             return
-        self.source_widget.setColumnHidden(self.columns.index(key),
-                                           not bool(item.checkState()))
+        self.source_widget.setColumnHidden(self.columns.index(key), not bool(item.checkState()))
 
     def dropEvent(self, event: QtGui.QDropEvent):
         super().dropEvent(event)
@@ -332,7 +351,7 @@ class HeaderEditWidget(QtWidgets.QWidget):
         self.preset_widget = QtWidgets.QComboBox()
         self.header_widget = ActiveHeaderListWidget(self.source) \
             if self.menu_mode else HeaderListWidget()
-        #self.header_widget.itemChanged.connect(partial(self.saved_signal.emit, False))
+        # self.header_widget.itemChanged.connect(partial(self.saved_signal.emit, False))
         self.header_widget.model().dataChanged.connect(partial(self.saved_signal.emit, False))
         self.header_widget.dropped.connect(partial(self.saved_signal.emit, False))
 
@@ -404,13 +423,17 @@ class HeaderEditWidget(QtWidgets.QWidget):
 
         self.previous = index
         presets = self.config.table_presets
-        items = {key: value for key, value in presets[index].items()}
-        items.update({key: False for key in presets[self.default] if key not in items})
+        item_dict = {key: value for key, value in presets[index].items()}
+        item_dict.update({key: (False, presets[self.default][key][1])
+                          for key in presets[self.default] if key not in item_dict})
 
         if self.menu_mode:
-            self.source.set_column_order(list(items.keys()))
+            self.source.set_column_order(list(item_dict.keys()))  # hidden\shown is hold by header widget's itemChanged
+            for name, value in item_dict.items():
+                self.source.setColumnWidth(self.source.columns.index(name), value[1])
+
             self.config.table_presets_current = index
-        self.header_widget.populate_items(items)
+        self.header_widget.populate_items(item_dict)
         self.saved_signal.emit(True)
 
     def add_preset(self):
@@ -438,7 +461,7 @@ class HeaderEditWidget(QtWidgets.QWidget):
             return
 
         reply = QMessageBox.question(None, "Action can't be undone", "Remove anyway?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
         if reply != QMessageBox.Yes:
             return
@@ -486,7 +509,7 @@ class HeaderEditDialog(QtWidgets.QDialog):
         unsaved = not saved
         self.unsaved = unsaved
         self.setWindowTitle(f"Column preset editor - {self.widget.preset_widget.currentText()}"
-                            + "*"*unsaved)
+                            + "*" * unsaved)
 
     def closeEvent(self, event):
         if not self.unsaved:
@@ -506,8 +529,11 @@ class HeaderEditDialog(QtWidgets.QDialog):
 if __name__ == '__main__':
     import sys
 
+
     def except_hook(cls, exception, traceback):
         sys.__excepthook__(cls, exception, traceback)
+
+
     sys.excepthook = except_hook  # for debugging (exceptions traceback)
 
     app = QtWidgets.QApplication(sys.argv)
@@ -518,12 +544,14 @@ if __name__ == '__main__':
     #     model.add_client(copter_table_models.StatedCopterData())
 
     import config
+
     c = config.ConfigManager()
     c.load_config_and_spec("config\server.ini")
-    #print(c.config)
-    #print(c._name_dict)
+    # print(c.config)
+    # print(c._name_dict)
     w1 = CopterTableWidget(model, c)
     w = HeaderEditWidget(w1, c)
+    print(w1.item_dict)
     # print(*w1.current_columns, sep='\n')
-    w.show()
+    # w.show()
     app.exec()
