@@ -357,8 +357,8 @@ class Client(messaging.ConnectionManager):
 
     @classmethod
     @requires_any_connected
-    def broadcast_message(cls, command, args=None, force_all=False):
-        cls.broadcast(messaging.MessageManager.create_action_message(command, args), force_all)
+    def broadcast_message(cls, command, args=(), kwargs=None, force_all=False):
+        cls.broadcast(messaging.MessageManager.create_action_message(command, args, kwargs), force_all)
 
 
 if __name__ == '__main__':
