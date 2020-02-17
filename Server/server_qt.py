@@ -91,6 +91,7 @@ class ServerQt(Server):
     def load_config(self):
         super().load_config()
         table.ModelChecks.battery_min = self.config.checks_battery_min
+        table.ModelChecks.check_current_pos = self.config.checks_check_current_position
         table.ModelChecks.start_pos_delta_max = self.config.checks_start_pos_delta_max
         table.ModelChecks.time_delta_max = self.config.checks_time_delta_max
 
