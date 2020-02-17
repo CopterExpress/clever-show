@@ -45,6 +45,8 @@ class ModelChecks:
     battery_min = 50.0
     start_pos_delta_max = 1.0
     time_delta_max = 1.0
+    check_current_pos = True
+    check_git = True
 
     @classmethod
     def column_check(cls, column, pass_context=False):
@@ -74,6 +76,8 @@ class ModelChecks:
 
 @ModelChecks.column_check("git_version")
 def check_ver(item):
+    if not ModelChecks.check_git:
+        return True
     return get_git_version() == item
 
 
@@ -111,6 +115,8 @@ def check_selfcheck(item):
 
 @ModelChecks.column_check("current_position")
 def check_pos(item):
+    if not ModelChecks.check_current_pos:
+        return True
     if item == 'NO_POS':
         return False
     return not math.isnan(item[0])
