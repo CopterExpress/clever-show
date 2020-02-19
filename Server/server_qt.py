@@ -680,7 +680,7 @@ if __name__ == "__main__":
 
         server.start()
 
-        window.show()
+        window.showMaximized()
         splash.close()
 
         loop.run_forever()
