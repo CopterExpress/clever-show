@@ -305,8 +305,8 @@ class Client(messaging.ConnectionManager):
 
         self.connected = True
 
-        if self.copter_id is None:
-            self.get_response("id", self._got_id)
+        #if self.copter_id is None:
+        self.get_response("id", self._got_id)
 
         if self.on_connect:
             self.on_connect(self)
