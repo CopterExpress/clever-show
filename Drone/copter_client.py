@@ -252,14 +252,15 @@ def _response_id(*args, **kwargs):
         old_id = client.active_client.client_id
         if new_id != old_id:
             client.active_client.config.set('PRIVATE', 'id', new_id, write=True)
+            client.active_client.client_id = new_id
             if new_id != '/hostname':
-                if client.active_client.system_restart_after_rename:
+                if client.active_client.config.system_restart_after_rename:
                     hostname = client.active_client.client_id
                     configure_hostname(hostname)
                     configure_hosts(hostname)
                     configure_bashrc(hostname)
                     configure_motd(hostname)
-                    execute_command("reboot")
+                    execute_command("systemctl stop clever-show & reboot")
                     # execute_command("hostname {}".format(hostname))
                     # restart_service("dhcpcd")
                     # restart_service("avahi-daemon")
