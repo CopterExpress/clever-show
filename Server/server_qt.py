@@ -306,8 +306,9 @@ class MainWindow(QtWidgets.QMainWindow):
             music_dt = self.ui.music_delay_spin.value()
             asyncio.ensure_future(self.play_music_at_time(music_dt + time_now), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
-        # self.selfcheck_selected()
-        for copter in filter(lambda copter: copter.all_checks, self.model.user_selected()):
+        # This filter constraints takeoff in real world, when copter state was normal and then some checks were failed for a while
+        # for copter in filter(lambda copter: copter.states.all_checks, self.model.user_selected()):
+        for copter in self.model.user_selected():
             server.send_starttime(copter.client, dt + time_now)
 
     @pyqtSlot()
@@ -326,7 +327,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for copter in self.model.user_selected():
             if table.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
-                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int, merge commands
+                    copter.client.send_message("takeoff_z", kwargs={"z": str(self.ui.z_spin.value())})  # todo int, merge commands
                 else:
                     copter.client.send_message("takeoff")
 
