@@ -238,7 +238,20 @@ def _response_time(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    startup_cwd = os.getcwd()
+
     import threading
+
+
+    def restart():  # move to core
+        args = sys.argv[:]
+        logging.info('Restarting {}'.format(args))
+        args.insert(0, sys.executable)
+        if sys.platform == 'win32':
+            args = ['"%s"' % arg for arg in args]
+        os.chdir(startup_cwd)
+        os.execv(sys.executable, args)
+
     def mock_telem():
         while True:
             time.sleep(5)
