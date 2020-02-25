@@ -51,6 +51,8 @@ class Client(object):
             self.client_id = socket.gethostname()
         elif config_id == '/ip':
             self.client_id = messaging.get_ip_address()
+        else:
+            self.client_id = config_id
 
         logger.info("Config loaded")
 

@@ -486,9 +486,7 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             self.data_contents[row][col] = formatted_value
 
             if col == 0:
-                self.data_contents[row].client.send_message("id", {"new_id": formatted_value})
-                self.data_contents[row].client.remove()  # TODO change
-                self._remove_row(row)
+                self.data_contents[row].client.send_message("id", kwargs={"new_id": formatted_value})
 
         elif role == ModelDataRole:  # For inner setting\editing of raw data
             self.data_contents[row][col] = value
