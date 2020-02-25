@@ -21,7 +21,7 @@ def get_git_version():  # TODO import from animation
     try:
         return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True).decode('UTF-8')
     except subprocess.CalledProcessError:  # when no git repository info present
-        return True  # todo probably add special file
+        return None  # todo probably add special file
 
 
 class CheckState:
@@ -81,7 +81,11 @@ class ModelChecks:
 def check_ver(item):
     if not ModelChecks.check_git:
         return True
-    return get_git_version() == item
+    
+    version = get_git_version()
+    if version is not None:
+        return version == item
+    return True
 
 
 @ModelChecks.column_check("animation_id")
