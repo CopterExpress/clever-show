@@ -67,6 +67,7 @@ class VisualLandDialog(QtWidgets.QDialog):
         if self.row_min == self.row_max:
             # self.ui.one_button.setDisabled(True)  # maybe?
             # self.ui.two_button.setDisabled(True)
+            self.send_to_selected("land")
             return
 
         if choice == 1:
