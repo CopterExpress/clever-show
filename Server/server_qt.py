@@ -31,6 +31,8 @@ from copter_table import CopterTableWidget, HeaderEditDialog
 from visual_land_dialog import VisualLandDialog
 from config_editor_models import ConfigDialog
 
+from lib import b_partial
+
 startup_cwd = os.getcwd()
 
 def multi_glob(*patterns):
