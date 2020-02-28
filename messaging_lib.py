@@ -315,21 +315,23 @@ class ConnectionManager(object):
     def read(self):
         self._read()
         while self._recv_buffer:
+            # add new message object if queue is empty or last message already processed
             if not self._received_queue or (self._received_queue[0].content is not None):
                 self._received_queue.appendleft(MessageManager())
 
-            self._received_queue[0].income_raw += self._recv_buffer
+            last_message = self._received_queue[0]
+
+            last_message.income_raw += self._recv_buffer
             self._recv_buffer = b''
-            self._received_queue[0].process_message()
+            last_message.process_message()
 
             # if something left after processing message - put it back
-            if self._received_queue[0].content and self._received_queue[0].income_raw:
-                self._recv_buffer = self._received_queue[0].income_raw + self._recv_buffer
-                self._received_queue[0].income_raw = b''
+            if last_message.content is not None and last_message.income_raw:
+                self._recv_buffer = last_message.income_raw + self._recv_buffer
+                last_message.income_raw = b''
 
-            if self._received_queue:
-                if self._received_queue[0].content:
-                    self.process_received(self._received_queue.popleft())
+            if self._received_queue and last_message.content is not None:
+                self.process_received(self._received_queue.popleft())
 
     def _read(self):
         try:
@@ -378,6 +380,7 @@ class ConnectionManager(object):
             callback(self, *args, **kwargs)
         except Exception as error:
             logger.error("Error during action {} execution: {}".format(action, error))
+            traceback.print_exc()
 
     def _process_request(self, message):
         requested_value = message.content["requested_value"]
