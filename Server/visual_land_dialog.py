@@ -8,6 +8,7 @@ import logging
 import sys
 from functools import partial
 
+from server_qt import b_partial
 
 #  TODO: previous step and reset
 class VisualLandDialog(QtWidgets.QDialog):
@@ -26,8 +27,8 @@ class VisualLandDialog(QtWidgets.QDialog):
         self.ui.setupUi(self)
         self.ui.one_button.clicked.connect(partial(self.selection_choice, 1))
         self.ui.two_button.clicked.connect(partial(self.selection_choice, 2))
-        self.ui.land_emergency_button.clicked.connect(partial(self.send_to_selected, "land", None))
-        self.ui.disarm_emergency_button.clicked.connect(partial(self.send_to_selected, "disarm", None))
+        self.ui.land_emergency_button.clicked.connect(b_partial(self.send_to_selected, "land"))
+        self.ui.disarm_emergency_button.clicked.connect(b_partial(self.send_to_selected, "disarm"))
 
         self.ui.one_button.setShortcut(QKeySequence("1"))
         self.ui.two_button.setShortcut(QKeySequence("2"))
@@ -83,9 +84,9 @@ class VisualLandDialog(QtWidgets.QDialog):
         self.send_led_indication()
 
     @pyqtSlot()
-    def send_to_selected(self, message, args=None):
+    def send_to_selected(self, message, args=(), kwargs=None):
         for row in range(self.row_min, self.row_max + 1):
-            self.send_to_row(row, message, args)
+            self.send_to_row(row, message, args, kwargs)
 
         self._finished = True
         self.close()
