@@ -38,10 +38,10 @@ class VisualLandDialog(QtWidgets.QDialog):
     def row_mid(self):
         return int(math.ceil((self.row_min + self.row_max) / 2.0))
 
-    def send_to_row(self, row, message, args=None):
-        logging.debug(f"Send {message}: {args} to {row}")
-        self.model.data_contents[row].client.send_message(message, args)
-        # test[row] = args  # for testing
+    def send_to_row(self, row, message, args=(), kwargs=None):
+        logging.debug(f"Send {message}: {args}, {kwargs} to {row}")
+        self.model.data_contents[row].client.send_message(message, args=args, kwargs=kwargs)
+        # test[row] = args, kwargs  # for testing
         # print(test)
 
     def clear_leds(self, rows):
@@ -56,10 +56,10 @@ class VisualLandDialog(QtWidgets.QDialog):
 
     def send_led_indication(self):
         for row in range(self.row_min, self.row_mid):
-            self.send_to_row(row, "led_fill", {"green": 255})
+            self.send_to_row(row, "led_fill", kwargs={"green": 255})
 
         for row in range(self.row_mid, self.row_max + 1):
-            self.send_to_row(row, "led_fill", {"red": 255})
+            self.send_to_row(row, "led_fill", kwargs={"red": 255})
 
     @pyqtSlot()
     def selection_choice(self, choice):
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     import copter_table_models
     model = copter_table_models.CopterDataModel()
     for i in range(10):
-        model.add_client(copter_table_models.StatedCopterData())
+        model.add_client()
 
     dialog = VisualLandDialog(model)
     test = list(range(10))
