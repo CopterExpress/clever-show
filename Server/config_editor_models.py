@@ -812,11 +812,17 @@ class ConfigDialog(QtWidgets.QDialog):
         return reply == QMessageBox.Yes
 
     def save_as(self):
-        save_path = QFileDialog.getSaveFileName(self, "Save as configuration file",
+        save_path = QFileDialog.getSaveFileName(self, "Save as configuration file (.ini)",
                                                 directory=self.filename,
-                                                filter="Config files (*.ini)")[0]
+                                                options=QFileDialog.DontConfirmOverwrite,
+                                                filter="Config files (*.ini);;All files (*.*)")[0]
         if not save_path:
             return
+
+        split_path = save_path.split('.')
+
+        if not (len(split_path) > 1 and split_path[-1] == 'ini'):
+            save_path += '.ini'
 
         cfg = config.ConfigManager()
         cfg.load_from_dict(self.model.to_config_dict())
