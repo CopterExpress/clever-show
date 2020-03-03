@@ -531,7 +531,7 @@ class MainWindow(QtWidgets.QMainWindow):
         text, ok = QInputDialog.getText(self, "Enter command to send on copter",
                                         "Command:", QLineEdit.Normal, "")
         if ok and text:
-            self.send_to_selected("execute", kwargs={"command": text})
+            self.send_to_selected("execute", command_kwargs={"command": text})
 
     @pyqtSlot()
     def restart_clever_show(self):
