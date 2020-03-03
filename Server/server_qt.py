@@ -320,7 +320,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.pause_button.setText('Resume')
         else:
             time_gap = 0.1  # TODO config? automatic delay detection?
-            self.send_to_selected("resume", kwargs={"time": server.time_now() + time_gap})
+            self.send_to_selected("resume", command_kwargs={"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
