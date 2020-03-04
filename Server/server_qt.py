@@ -216,7 +216,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.copter_table.load_columns()
         super().show()
 
-    def showMaximized(self):
+    def showMaximized(self):  # TODO move to widget
         self.ui.copter_table.load_columns()
         super().showMaximized()
 
@@ -250,8 +250,12 @@ class MainWindow(QtWidgets.QMainWindow):
             command, command_args, command_kwargs)))
 
     def new_client_connected(self, client: Client):
-        logging.debug("Added client {}".format(client))
+        if self.model.get_row_by_attr('client', client) is not None:
+            logging.warning("Client is already in table! {}".format(client))
+            return
+
         self.model.add_client(copter_id=client.copter_id, client=client)
+        logging.debug("Added client {}".format(client))
 
     def client_connection_changed(self, client: Client):
         logging.debug("Connection {} changed {}".format(client, client.connected))
