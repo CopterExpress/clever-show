@@ -51,7 +51,7 @@ class ConfigModelItem:
         self.state = state
         self.type = item_type
 
-        if isinstance(self.data(1), list):
+        if isinstance(self.data(1), (list, tuple)):
             self.type = 'list'
 
         self.default_values = deepcopy(self.itemData)
