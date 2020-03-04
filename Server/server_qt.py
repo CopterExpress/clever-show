@@ -166,7 +166,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_retrive_any_file.triggered.connect(b_partial(self.request_any_file, client_path=None))
 
         self.ui.action_restart_clever.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", kwargs={"name": "clever"}))
+            b_partial(self.send_to_selected, "service_restart", command_kwargs={"name": "clever"}))
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
@@ -323,7 +323,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.pause_button.setText('Resume')
         else:
             time_gap = 0.1  # TODO config? automatic delay detection?
-            self.send_to_selected("resume", kwargs={"time": server.time_now() + time_gap})
+            self.send_to_selected("resume", command_kwargs={"time": server.time_now() + time_gap})
             self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
@@ -534,7 +534,7 @@ class MainWindow(QtWidgets.QMainWindow):
         text, ok = QInputDialog.getText(self, "Enter command to send on copter",
                                         "Command:", QLineEdit.Normal, "")
         if ok and text:
-            self.send_to_selected("execute", kwargs={"command": text})
+            self.send_to_selected("execute", command_kwargs={"command": text})
 
     @pyqtSlot()
     def restart_clever_show(self):
