@@ -216,6 +216,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.copter_table.load_columns()
         super().show()
 
+    def showMaximized(self):
+        self.ui.copter_table.load_columns()
+        super().showMaximized()
+
     def closeEvent(self, event):
         if not any(copter.connected for copter in Client.clients.values()):
             event.accept()
