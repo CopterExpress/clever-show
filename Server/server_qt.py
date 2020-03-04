@@ -38,11 +38,6 @@ startup_cwd = os.getcwd()
 def multi_glob(*patterns):
     return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
 
-
-def b_partial(func, *args, **kwargs):  # call argument blocker partial
-    return lambda *a: func(*args, **kwargs)
-
-
 def restart():  # move to core 
     args = sys.argv[:]
     logging.info('Restarting {}'.format(args))
