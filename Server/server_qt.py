@@ -38,7 +38,11 @@ startup_cwd = os.getcwd()
 def multi_glob(*patterns):
     return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
 
-def restart():  # move to core 
+def restart():  # move to core
+    window.server.stop()
+    window.on_quit()
+    QApplication.quit()
+
     args = sys.argv[:]
     logging.info('Restarting {}'.format(args))
     args.insert(0, sys.executable)
