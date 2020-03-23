@@ -590,6 +590,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error("No media file")
             return
         self.player.stop()
+        self.ui.action_play_music.setText("Play music")
 
     @asyncio.coroutine
     def play_music_at_time(self, t):
