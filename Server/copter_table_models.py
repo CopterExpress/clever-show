@@ -559,8 +559,11 @@ class CopterDataModel(QtCore.QAbstractTableModel):
             return False
         config = ConfigManager()
         config.load_only_config(path)
+        config_dict = config.full_dict(include_defaults=False)
+        config_dict.pop("PRIVATE", None)
+
         self.data_contents[row].client.send_message("config", kwargs={
-            "config": config.full_dict(include_defaults=False), "mode": "rewrite"})
+            "config": config_dict, "mode": "rewrite"})
         return False
 
     # Thread-safe wrappers
