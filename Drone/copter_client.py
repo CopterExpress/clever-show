@@ -4,7 +4,13 @@ import time
 import math
 import rospy
 import numpy
-from clever import srv
+
+# for backward compatibility with clever
+try:
+    from clever import srv
+except ImportError:
+    from clover import srv
+
 import datetime
 import logging
 import threading
@@ -13,7 +19,6 @@ import subprocess
 from collections import namedtuple
 
 from FlightLib import FlightLib
-from FlightLib import LedLib
 
 import client
 
@@ -86,6 +91,7 @@ class CopterClient(client.Client):
         rospy.loginfo("Init ROS node")
         rospy.init_node('clever_show_client')
         if self.config.led_use:
+            from FlightLib import LedLib
             LedLib.init_led(self.config.led_pin)
         task_manager_instance.start()  # TODO move to self
         if self.config.copter_frame_id == "floor":

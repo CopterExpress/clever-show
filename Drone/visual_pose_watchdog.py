@@ -5,7 +5,13 @@ import time
 import math
 import logging
 import threading
-from clever.srv import SetAttitude
+
+# for backward compatibility with clever
+try:
+    from clever import SetAttitude
+except ImportError:
+    from clover import SetAttitude
+
 from sensor_msgs.msg import Range
 from mavros_msgs.msg import State, PositionTarget
 from mavros_msgs.srv import SetMode, CommandBool
@@ -16,7 +22,7 @@ from geometry_msgs.msg import PoseStamped
 import inspect  # Add parent dir to PATH to import messaging_lib
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir) 
+sys.path.insert(0, parent_dir)
 
 from config import ConfigManager
 
