@@ -128,6 +128,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.pause_button.clicked.connect(self.pause_resume_selected)
 
         self.ui.z_checkbox.clicked.connect(self.ui.z_spin.setEnabled)
+        self.ui.z_spin.setEnabled(False)
 
         self.ui.land_all_button.clicked.connect(b_partial(Client.broadcast_message, "land"))
         self.ui.land_selected_button.clicked.connect(b_partial(self.send_to_selected, "land"))
