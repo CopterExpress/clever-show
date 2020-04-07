@@ -8,6 +8,7 @@ import random
 import logging
 import threading
 import collections
+import platform
 import traceback
 
 from contextlib import closing
@@ -43,6 +44,30 @@ def get_ip_address():
     except OSError:
         logger.warning("No network connection detected, using localhost")
         return "localhost"
+
+
+def set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
+    current_platform = platform.system()  # could be empty
+    if current_platform == "Linux":
+        return _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
+    if current_platform == "Windows":
+        return _set_keepalive_windows(sock, after_idle_sec, interval_sec)
+    if current_platform == "Darwin":
+        return _set_keepalive_osx(sock, interval_sec)
+
+def _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails):
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
+
+def _set_keepalive_windows(sock, after_idle_sec, interval_sec):
+    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec*1000, interval_sec*1000))
+
+def _set_keepalive_osx(sock, interval_sec):
+    TCP_KEEPALIVE = 0x10
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    sock.setsockopt(socket.IPPROTO_TCP, TCP_KEEPALIVE, interval_sec)
 
 
 class _Singleton(type):
