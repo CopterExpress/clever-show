@@ -54,7 +54,7 @@ class TaskManager(object):
         self._wait_interrupt_event.set()
         self._running_event.clear()
 
-        task = Task(task_function, task_args, task_kwargs, task_delayable)                
+        task = Task(task_function, task_args, task_kwargs, task_delayable)
 
         count = next(self._counter)
         entry = (timestamp, priority, count, task)
@@ -64,21 +64,21 @@ class TaskManager(object):
                 entry_old = self.task_queue[0]
             else:
                 entry_old = entry
-        
+
             heapq.heappush(self.task_queue, entry)
 
             if self.task_queue[0] != entry_old:
                 self._task_interrupt_event.set()
                 #print("Task queue updated with more priority task")
-            
+
             if self._reset_event.is_set():
                 self._task_interrupt_event.set()
                 self._reset_event.clear()
                 #print("Task queue updated after reset")
-       
+
         self._wait_interrupt_event.clear()
         self._running_event.set()
-        
+
         # #print(self.task_queue)
 
     def pop_task(self):
@@ -89,7 +89,7 @@ class TaskManager(object):
 
     def get_last_task_name(self):
         return self._last_task
-    
+
     def get_current_task(self):
         try:
             start_time, priority, count, task = self.task_queue[0]
@@ -134,7 +134,7 @@ class TaskManager(object):
         if self.task_queue:
             next_task_time = self.task_queue[0][0]
             if time_to_start_next_task > next_task_time:
-                self._timeshift = time_to_start_next_task - next_task_time 
+                self._timeshift = time_to_start_next_task - next_task_time
         self._wait_interrupt_event.clear()
         self._task_interrupt_event.clear()
         self._running_event.set()
@@ -178,7 +178,7 @@ class TaskManager(object):
             #print("Interrupter is set: {}".format(self._task_interrupt_event.is_set()))
             try:
                 task.func(*task.args, interrupter=self._task_interrupt_event, **task.kwargs)
-            
+
             except Exception as e:
                 logger.error("Error '{}' occurred in task {}".format(e, task))
                 #print("Error '{}' occurred in task {}".format(e, task))
@@ -211,10 +211,10 @@ class TaskManager(object):
                 #try:
                     #print("Pop {} function!".format(task.func.__name__))
                 #except Exception as e:
-                    #print("Pop something!") 
+                    #print("Pop something!")
 
         if self._task_interrupt_event.is_set():
-            self._task_interrupt_event.clear()     
+            self._task_interrupt_event.clear()
 
         logger.info("Execution done")
         #print("Execution done")

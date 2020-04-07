@@ -63,7 +63,7 @@ def calibrate(sensor):
             return False
         # Make calibration message
         calibration_message = calibration_msg(sensor)
-        # Send mavlink calibration command 
+        # Send mavlink calibration command
         send_command_long(False, mavlink.MAV_CMD_PREFLIGHT_CALIBRATION, 0, *calibration_message)
         rospy.loginfo('Send {} calibration message'.format(sensor))
         # Wait until system status to uninit (during calibration on px4)
@@ -87,7 +87,7 @@ def get_calibration_status():
     if mag_status.value.integer == 0 and mag_status.success:
         status_text += "mag: uncalibrated; "
     if acc_status.value.integer == 0 and acc_status.success:
-        status_text += "acc: uncalibrated; "    
+        status_text += "acc: uncalibrated; "
     if status_text == "":
         if not gyro_status.success or not mag_status.success or not acc_status.success:
             status_text = "NO_INFO"

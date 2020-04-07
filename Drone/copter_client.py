@@ -303,7 +303,7 @@ def _response_animation_id(*args, **kwargs):
     if result != 'No animation':
         logger.debug("Saving corrected animation")
         offset = numpy.array(client.active_client.config.private_offset) + numpy.array(client.active_client.config.copter_common_offset)
-        frames = animation.load_animation(os.path.abspath("animation.csv"), client.active_client.config.animation_frame_delay, 
+        frames = animation.load_animation(os.path.abspath("animation.csv"), client.active_client.config.animation_frame_delay,
                                             offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
         # Correct start and land frames in animation
         corrected_frames, start_action, start_delay = animation.correct_animation(frames,
@@ -390,10 +390,10 @@ def _command_move_start_to_current_position(*args, **kwargs):
         telem = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
         logger.debug("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
         if not math.isnan(telem.x):
-            client.active_client.config.set('PRIVATE', 'offset', 
+            client.active_client.config.set('PRIVATE', 'offset',
                                             [telem.x - x_start, telem.y - y_start, client.active_client.config.private_offset[2]],
                                             write=True)
-            logger.info("Set start delta: {:.2f} {:.2f}".format(client.active_client.config.private_offset[0], 
+            logger.info("Set start delta: {:.2f} {:.2f}".format(client.active_client.config.private_offset[0],
                                                                 client.active_client.config.private_offset[1]))
         else:
             logger.debug("Wrong telemetry")
@@ -403,17 +403,17 @@ def _command_move_start_to_current_position(*args, **kwargs):
 
 @messaging.message_callback("reset_start")
 def _command_reset_start(*args, **kwargs):
-    client.active_client.config.set('PRIVATE', 'offset', 
+    client.active_client.config.set('PRIVATE', 'offset',
                                     [0, 0, client.active_client.config.private_offset[2]],
                                     write=True)
-    logger.info("Reset start to {:.2f} {:.2f}".format(client.active_client.config.private_offset[0], 
+    logger.info("Reset start to {:.2f} {:.2f}".format(client.active_client.config.private_offset[0],
                                                     client.active_client.config.private_offset[1]))
 
 
 @messaging.message_callback("set_z_to_ground")
 def _command_set_z(*args, **kwargs):
     telem = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
-    client.active_client.config.set('PRIVATE', 'offset', 
+    client.active_client.config.set('PRIVATE', 'offset',
                                     [client.active_client.config.private_offset[0], client.active_client.config.private_offset[1], telem.z],
                                     write=True)
     logger.info("Set z offset to {:.2f}".format(client.active_client.config.private_offset[2]))
@@ -421,7 +421,7 @@ def _command_set_z(*args, **kwargs):
 
 @messaging.message_callback("reset_z_offset")
 def _command_reset_z(*args, **kwargs):
-    client.active_client.config.set('PRIVATE', 'offset', 
+    client.active_client.config.set('PRIVATE', 'offset',
                                     [client.active_client.config.private_offset[0], client.active_client.config.private_offset[1], 0],
                                     write=True)
     logger.info("Reset z offset to {:.2f}".format(client.active_client.config.private_offset[2]))
