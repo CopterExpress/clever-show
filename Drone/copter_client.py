@@ -74,6 +74,10 @@ flightlib_logger = logging.getLogger('FlightLib')
 flightlib_logger.setLevel(logging.INFO)
 flightlib_logger.addHandler(handler)
 
+mavros_mavlink_logger = logging.getLogger('mavros_mavlink')
+mavros_mavlink_logger.setLevel(logging.INFO)
+mavros_mavlink_logger.addHandler(handler)
+
 
 class CopterClient(client.Client):
     def __init__(self, config_path="config/client.ini"):
@@ -89,7 +93,7 @@ class CopterClient(client.Client):
 
     def start(self, task_manager_instance):
         rospy.loginfo("Init ROS node")
-        rospy.init_node('clever_show_client')
+        rospy.init_node('clever_show_client', anonymous=True)
         if self.config.led_use:
             from FlightLib import LedLib
             LedLib.init_led(self.config.led_pin)

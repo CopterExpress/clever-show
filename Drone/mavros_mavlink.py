@@ -6,6 +6,8 @@ from mavros_msgs.srv import ParamGet, ParamSet
 from mavros_msgs.msg import State, ParamValue
 from pymavlink.dialects.v20 import common as mavlink
 
+logger = logging.getLogger(__name__)
+
 send_command_long = rospy.ServiceProxy('/mavros/cmd/command', CommandLong)
 get_param = rospy.ServiceProxy('/mavros/param/get', ParamGet)
 set_param = rospy.ServiceProxy('/mavros/param/set', ParamSet)
@@ -127,23 +129,45 @@ def stop_subscriber():
 
 def load_param_file(px4_file):
     result = True
+    err_lines = ""
+    err_params = ""
+    lines_commented = ""
+    params_loaded = ""
     try:
         px4_params = open(px4_file)
     except IOError:
-        logging.error("File {} can't be opened".format(filepath))
+        logger.error("File {} can't be opened".format(filepath))
         result = False
-    else:    
+    else:
         with open(px4_file) as px4_params:
+            row = 0
             for line in px4_params:
-                param_str_array = line[:-1].split('\t')
-                param_name = param_str_array[2]
-                param_value_str = param_str_array[3]
-                param_type = param_str_array[4]
-                if param_type == '6':
-                    param_value = ParamValue(integer=int(param_value_str))
+                row += 1
+                param_str_array = line.split('\t')
+                if len(param_str_array) == 5 and '#' not in param_str_array[0]:
+                    param_name = param_str_array[2]
+                    param_value_str = param_str_array[3]
+                    param_type = int(param_str_array[4])
+                    if param_type == 6:
+                        param_value = ParamValue(integer=int(param_value_str))
+                    else:
+                        param_value = ParamValue(real=float(param_value_str))
+                    if not set_param(param_name, param_value):
+                        err_params += "{} ,".format(row)
+                        result = False
+                    else:
+                        params_loaded += "{} ,".format(row)
+                elif '#' in param_str_array[0]:
+                    lines_commented += "{} ,".format(row)
                 else:
-                    param_value = ParamValue(real=float(param_value_str))
-                if not set_param(param_name, param_value):
-                    result = False
+                    err_lines += "{} ,".format(row)
+    if err_lines:
+        logger.info("Can't parse lines: {}".format(err_lines[:-1]))
+    if err_params:
+        logger.info("Can't set params from lines: {}".format(err_params[:-1]))
+    if lines_commented:
+        logger.info("Lines commented: {}".format(lines_commented[:-1]))
+    if params_loaded:
+        logger.info("Params are successfully loaded from lines: {}".format(params_loaded[:-1]))
     return result
 
