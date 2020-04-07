@@ -13,7 +13,7 @@ from contextlib import closing
 import inspect  # Add parent dir to PATH to import messaging_lib
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir) 
+sys.path.insert(0, parent_dir)
 
 logger = logging.getLogger(__name__)
 

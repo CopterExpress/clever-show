@@ -2,7 +2,7 @@
 
 # $1 - ssid, $2 - password of wifi router
 # $3 - hostname of rpi
-# $4 - server ip 
+# $4 - server ip
 
 if [ $(whoami) != "root" ]; then
   echo -e "\nThis should be run as root!\n"
@@ -38,7 +38,7 @@ country=GB
 network={
     ssid="$1"
     psk="$2"
-    scan_ssid=1    
+    scan_ssid=1
 }
 EOF
 

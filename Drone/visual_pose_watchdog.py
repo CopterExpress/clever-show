@@ -5,7 +5,13 @@ import time
 import math
 import logging
 import threading
-from clever.srv import SetAttitude
+
+# for backward compatibility with clever
+try:
+    from clever import SetAttitude
+except ImportError:
+    from clover import SetAttitude
+
 from sensor_msgs.msg import Range
 from mavros_msgs.msg import State, PositionTarget
 from mavros_msgs.srv import SetMode, CommandBool
@@ -16,7 +22,7 @@ from geometry_msgs.msg import PoseStamped
 import inspect  # Add parent dir to PATH to import messaging_lib
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir) 
+sys.path.insert(0, parent_dir)
 
 from config import ConfigManager
 
@@ -138,7 +144,7 @@ def laser_callback(data):
     laser_range = data.range
 
 def emergency_land(disarm_if_timeout = True):
-    global emergency_land_thrust, laser_range 
+    global emergency_land_thrust, laser_range
     current_thrust = emergency_land_thrust
     action_timestamp = time.time()
     while armed:
@@ -147,13 +153,13 @@ def emergency_land(disarm_if_timeout = True):
             try:
                 set_attitude(thrust = current_thrust, yaw = 0, frame_id = 'body', auto_arm = True)
             except rospy.ServiceException as e:
-                logger.info(e) 
+                logger.info(e)
         delta = time.time() - action_timestamp
         if delta > timeout_to_disarm and disarm_if_timeout:
             try:
                 arming(False)
             except rospy.ServiceException as e:
-                logger.info(e)  
+                logger.info(e)
         if (laser_range < 0.1 or delta > emergency_land_decrease_thrust_after) and current_thrust >= 0.:
             current_thrust -= 0.02
             if current_thrust <= 0.03:
@@ -161,7 +167,7 @@ def emergency_land(disarm_if_timeout = True):
                 try:
                     arming(False)
                 except rospy.ServiceException as e:
-                    logger.info(e) 
+                    logger.info(e)
         rate.sleep()
 
 def emergency_land_service(request):
@@ -175,7 +181,7 @@ def emergency_land_service(request):
         responce.success = False
         responce.message = "Copter is disarmed, no need for emergency landing!"
         emergency_land_called = False
-    return responce  
+    return responce
 
 def watchdog_callback(event):
     global visual_pose_last_timestamp, armed, mode, watchdog_action, laser_range
@@ -218,7 +224,7 @@ def watchdog_callback(event):
                                 try:
                                     arming(False)
                                 except rospy.ServiceException as e:
-                                    logger.info(e)   
+                                    logger.info(e)
                             rate.sleep()
                     elif watchdog_action == 'disarm':
                         logger.info('Visual pose data is too old, copter is armed, disarming...')
@@ -226,15 +232,15 @@ def watchdog_callback(event):
                             try:
                                 arming(False)
                             except rospy.ServiceException as e:
-                                logger.info(e)   
-                            rate.sleep() 
+                                logger.info(e)
+                            rate.sleep()
                     elif watchdog_action == 'emergency_land':
                         if visual_pose_dt > visual_pose_timeout:
                             logger.info('Visual pose data is too old, copter is armed, emergency landing...')
                         if pos_delta > pos_delta_max:
                             logger.info('Position delta is {} m, copter is armed, emergency landing...'.format(pos_delta))
                         emergency_land()
-                    logger.info('Disarmed') 
+                    logger.info('Disarmed')
                     emergency = False
             if emergency_land_called:
                 emergency = True
