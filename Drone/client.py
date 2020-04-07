@@ -98,7 +98,7 @@ class Client(object):
             try:
                 self.client_socket = socket.socket()
                 self.client_socket.settimeout(timeout)
-                self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                messaging.set_keepalive(self.client_socket)
                 self.client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self.client_socket.connect((self.config.server_host, self.config.server_port))
             except socket.error as error:
