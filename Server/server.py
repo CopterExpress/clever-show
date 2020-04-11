@@ -190,7 +190,7 @@ class Server(messaging.Singleton):
         msg = messaging.MessageManager.create_action_message(
             "server_ip", kwargs={"host": self.ip, "port": str(self.config.server_port), "id": self.id,
                                  "start_time": str(self.time_started)})
-        logging.debug("Formed broadcast message: {}".format(msg))
+        logging.debug("Formed broadcast message to {}:{}: {}".format(self.config.broadcast_send_ip, self.config.broadcast_port, msg))
 
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -200,7 +200,7 @@ class Server(messaging.Singleton):
             while self.broadcast_thread_running.is_set():
                 self.broadcast_thread_interrupt.wait(timeout=self.config.broadcast_delay)
                 try:
-                    broadcast_sock.sendto(msg, ('255.255.255.255', self.config.broadcast_port))
+                    broadcast_sock.sendto(msg, (self.config.broadcast_send_ip, self.config.broadcast_port))
                 except OSError as e:
                     logging.error(f"Cannot send broadcast due error {e}")
                 else:
