@@ -1,43 +1,65 @@
 import os
+import re
+import sys
 import glob
-import math
 import time
+import logging
 import asyncio
-import functools
+import platform
+import itertools
+import subprocess
+from functools import partial, wraps
 
-from PyQt5 import QtWidgets, QtMultimedia
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject, QUrl
+from PyQt5 import QtWidgets, QtMultimedia, QtCore
+from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtCore import Qt, pyqtSlot, QUrl
 
-from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QWidget, QInputDialog, QLineEdit
-from quamash import QEventLoop, QThreadExecutor
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QInputDialog, QLineEdit, QStatusBar, \
+    QSplashScreen, QProgressBar
+from quamash import QEventLoop
 
 # Importing gui form
 from server_gui import Ui_MainWindow
 
-from server import *
+from server import Server, Client, now
+
 import messaging_lib as messaging
-from copter_table_models import *
+import config as cfg
+
+import copter_table_models as table
+from copter_table import CopterTableWidget, HeaderEditDialog
 from visual_land_dialog import VisualLandDialog
+from config_editor_models import ConfigDialog
 
-import threading
+from lib import b_partial
+
+startup_cwd = os.getcwd()
+
+def multi_glob(*patterns):
+    return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
+
+def restart():  # move to core
+    window.server.stop()
+    window.on_quit()
+    QApplication.quit()
+
+    args = sys.argv[:]
+    logging.info('Restarting {}'.format(args))
+    args.insert(0, sys.executable)
+    if sys.platform == 'win32':
+        args = ['"%s"' % arg for arg in args]
+    os.chdir(startup_cwd)
+    os.execv(sys.executable, args)
 
 
-def wait(end, interrupter=threading.Event(), maxsleep=0.1):
-    # Added features to interrupter sleep and set max sleeping interval
-
-    while not interrupter.is_set():  # Basic implementation of pause module until()
-        now = time.time()
-        diff = min(end - now, maxsleep)
-        if diff <= 0:
-            break
-        else:
-            time.sleep(diff / 2)
+def update_server():
+    subprocess.call("git fetch && git pull --rebase", shell=True)
+    restart()
 
 
 def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     def inner(f):
-        @functools.wraps(f)
+        @wraps(f)
         def wrapper(*args, **kwargs):
             reply = QMessageBox.question(
                 args[0], label,
@@ -55,42 +77,124 @@ def confirmation_required(text="Are you sure?", label="Confirm operation?"):
     return inner
 
 
-# noinspection PyArgumentList,PyCallByClass
+class ExitMsgbox(logging.Handler):
+    def emit(self, record):
+        loop.call_soon_threadsafe(self._emit, record)  # TODO replace loop call
+
+    def _emit(self, record):
+        # window.close()
+        QMessageBox.warning(None, "Critical error in {}: {}". format(record.name, record.threadName), record.msg)
+        QApplication.quit()
+        sys.exit(record.msg)
+
+
+class ServerQt(Server):
+    def load_config(self):
+        super().load_config()
+        table.ModelChecks.check_git = self.config.checks_check_git_version
+        table.ModelChecks.check_current_pos = self.config.checks_check_current_position
+        table.ModelChecks.battery_min = self.config.checks_battery_min
+        table.ModelChecks.start_pos_delta_max = self.config.checks_start_pos_delta_max
+        table.ModelChecks.time_delta_max = self.config.checks_time_delta_max
+
+
+# noinspection PyCallByClass,PyArgumentList
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, server):
         super(MainWindow, self).__init__()
+
+        self.server = server
+        self.model = table.CopterDataModel()
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.init_ui()
 
-        self.model = CopterDataModel()
-        self.proxy_model = CopterProxyModel()
-        self.signals = SignalManager()
-        self.player = QtMultimedia.QMediaPlayer()
-
         self.init_model()
 
-        self.show()
+        # self.statusBar = QStatusBar()
+        # self.setStatusBar(self.statusBar)
+        # self.statusBar.showMessage("Hey", 2000)
+
+        self.register_callbacks()
+        self.player = QtMultimedia.QMediaPlayer()
+
+    def init_ui(self):
+        self.init_table()
+
+        # Connecting
+        self.ui.check_button.clicked.connect(self.selfcheck_selected)
+        self.ui.start_button.clicked.connect(self.send_start_time_selected)
+        self.ui.pause_button.clicked.connect(self.pause_resume_selected)
+
+        self.ui.z_checkbox.clicked.connect(self.ui.z_spin.setEnabled)
+        self.ui.z_spin.setEnabled(False)
+
+        self.ui.land_all_button.clicked.connect(b_partial(Client.broadcast_message, "land"))
+        self.ui.land_selected_button.clicked.connect(b_partial(self.send_to_selected, "land"))
+        self.ui.disarm_all_button.clicked.connect(b_partial(Client.broadcast_message, "disarm"))
+        self.ui.disarm_selected_button.clicked.connect(b_partial(self.send_to_selected, "disarm"))
+        self.ui.visual_land_button.clicked.connect(self.visual_land)
+        self.ui.emergency_land_button.clicked.connect(b_partial(self.send_to_selected, "emergency_land"))
+        self.ui.leds_button.clicked.connect(b_partial(self.send_to_selected, "led_test"))
+        self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
+        self.ui.flip_button.clicked.connect(self.flip_selected)
+        self.ui.reboot_fcu.clicked.connect(b_partial(self.send_to_selected, "reboot_fcu"))
+        self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
+        self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
+
+        self.ui.action_select_music_file.triggered.connect(self.select_music_file)
+        self.ui.action_play_music.triggered.connect(self.play_music)
+        self.ui.action_stop_music.triggered.connect(self.stop_music)
+
+        self.ui.action_edit_any_config.triggered.connect(ConfigDialog.call_standalone_dialog)
+        self.ui.action_edit_server_config.triggered.connect(self.edit_server_config)
+
+        self.ui.action_restart_server.triggered.connect(restart)
+        self.ui.action_update_server_git.triggered.connect(update_server)
+
+        self.ui.action_select_all.triggered.connect(partial(self.ui.copter_table.select_all, Qt.Checked))
+        self.ui.action_deselect_all.triggered.connect(partial(self.ui.copter_table.select_all, Qt.Unchecked))
+        self.ui.action_toggle_select.triggered.connect(self.ui.copter_table.toggle_select)
+        self.ui.action_remove_row.triggered.connect(self.remove_selected)
+        self.ui.action_configure_columns.triggered.connect(self.configure_columns)
+
+        self.ui.action_send_animations.triggered.connect(self.send_animations)
+        self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
+        self.ui.action_send_configurations.triggered.connect(self.send_config)
+        self.ui.action_send_aruco_map.triggered.connect(self.send_aruco)
+        self.ui.action_send_launch_file.triggered.connect(self.send_launch)
+        self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
+        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
+        self.ui.action_send_any_command.triggered.connect(self.send_any_command)
+
+        self.ui.action_retrive_any_file.triggered.connect(b_partial(self.request_any_file, client_path=None))
+
+        self.ui.action_restart_clever.triggered.connect(
+            b_partial(self.send_to_selected, "service_restart", command_kwargs={"name": "clever"}))
+        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
+        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
+        self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
+
+        self.ui.action_set_start_to_current_position.triggered.connect(b_partial(self.send_to_selected, "move_start"))
+        self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
+        self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
+        self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
+
+        self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
+
+    def init_table(self):
+        # Remove standard table widget
+        self.ui.horizontalLayout.removeWidget(self.ui.tableView)
+        self.ui.tableView.close()
+        # Init our custom widget
+        self.ui.copter_table = CopterTableWidget(self.model, self.server.config)
+        self.ui.copter_table.setObjectName("copter_table")
+        # Insert to layout at right
+        self.ui.horizontalLayout.insertWidget(0, self.ui.copter_table, 0)
+        self.ui.copter_table.setFocus()
 
     def init_model(self):
-        # self.model.on_id_changed = self.set_copter_id
-
-        self.proxy_model.setDynamicSortFilter(True)
-        self.proxy_model.setSourceModel(self.model)
-
-        # Initiate table and table self.model
-        self.ui.tableView.setModel(self.proxy_model)
-        self.ui.tableView.resizeColumnsToContents()
-
-        self.ui.tableView.doubleClicked.connect(self.selfcheck_info_dialog)
-
-        # Connect signals to manipulate model from threads
-        self.signals.update_data_signal.connect(self.model.update_item)
-        self.signals.add_client_signal.connect(self.model.add_client)
-        self.signals.remove_row_signal.connect(self.model.remove_row)
-        self.signals.remove_client_signal.connect(self.model.remove_row_data)
-
         # Connect model signals to UI
         self.model.selected_ready_signal.connect(self.ui.start_button.setEnabled)
         self.model.selected_takeoff_ready_signal.connect(self.ui.takeoff_button.setEnabled)
@@ -98,245 +202,162 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect calibrating signal (testing)
         self.model.selected_calibrating_signal.connect(self.ui.check_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.pause_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.land_selected_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.land_all_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.visual_land_button.setDisabled)
-        self.model.selected_calibrating_signal.connect(self.ui.emergency_land_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.land_selected_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.disarm_selected_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.disarm_all_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.visual_land_button.setDisabled)
+        self.model.selected_calibrating_signal.connect(self.ui.emergency_land_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.leds_button.setDisabled)
         self.model.selected_calibrating_signal.connect(self.ui.reboot_fcu.setDisabled)
+
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_gyro.setEnabled)
         self.model.selected_calibration_ready_signal.connect(self.ui.calibrate_level.setEnabled)
 
-        self.ui.action_select_all_rows.triggered.connect(self.model.select_all)
+        # Set most safety-important buttons disabled
+        self.model.emit_signals()
+
+    def show(self):
+        self.ui.copter_table.load_columns()
+        super().show()
+
+    def showMaximized(self):  # TODO move to widget
+        self.ui.copter_table.load_columns()
+        super().showMaximized()
+
+    def closeEvent(self, event):
+        if not any(copter.connected for copter in Client.clients.values()):
+            event.accept()
+            return
+
+        reply = QMessageBox.question(self, "Confirm exit", "There are copters connected to the server. "
+                                     "Are you sure you want to exit?",
+                                     QMessageBox.No | QMessageBox.Yes, QMessageBox.No)
+
+        if reply != QMessageBox.Yes:
+            event.ignore()
+        else:
+            event.accept()
+            QApplication.quit()
+
+    def on_quit(self):
+        self.ui.copter_table.save_columns()
+        self.server.config.write()
+        logging.info("Exit actions completed: config saved")
+
+    def iterate_selected(self, f, *args, **kwargs):
+        for copter in self.model.user_selected():
+            yield f(copter, *args, **kwargs)
+
+    @pyqtSlot()
+    def send_to_selected(self, command, command_args=(), command_kwargs=None):
+        return list(self.iterate_selected(lambda copter: copter.client.send_message(
+            command, command_args, command_kwargs)))
 
     def new_client_connected(self, client: Client):
+        if self.model.get_row_by_attr('client', client) is not None:
+            logging.warning("Client is already in table! {}".format(client))
+            return
+
+        self.model.add_client(copter_id=client.copter_id, client=client)
         logging.debug("Added client {}".format(client))
-        self.signals.add_client_signal.emit(StatedCopterData(copter_id=client.copter_id, client=client))
 
     def client_connection_changed(self, client: Client):
-        logging.debug("Connection {} changed {}".format(client, client.connected), )
+        logging.debug("Connection {} changed {}".format(client, client.connected))
         row_data = self.model.get_row_by_attr("client", client)
 
         if row_data is None:
             logging.error("No row for client presented")
             return
 
-        if Server().remove_disconnected and (not client.connected):
+        if self.server.config.table_remove_disconnected and (not client.connected):
             client.remove()
-            self.signals.remove_client_signal.emit(row_data)
+            self.model.remove_client_data(row_data)
             logging.debug("Removing from table")
         else:
             row_num = self.model.get_row_index(row_data)
             if row_num is not None:
-                self.signals.update_data_signal.emit(row_num, 0, client.connected, ModelStateRole)
-                logging.debug("DATA: connected")
-
-    def init_ui(self):
-        # Connecting
-        self.ui.check_button.clicked.connect(self.selfcheck_selected)
-        self.ui.start_button.clicked.connect(self.send_starttime_selected)
-        self.ui.pause_button.clicked.connect(self.pause_resume_selected)
-
-        self.ui.land_selected_button.clicked.connect(self.land_selected)
-        self.ui.land_all_button.clicked.connect(self.land_all)
-
-        self.ui.visual_land_button.clicked.connect(self.visual_land)
-        self.ui.emergency_land_button.clicked.connect(self.emergency_land_selected)
-
-        self.ui.disarm_selected_button.clicked.connect(self.disarm_selected)
-        self.ui.disarm_all_button.clicked.connect(self.disarm_all)
-
-        self.ui.leds_button.clicked.connect(self.test_leds_selected)
-        self.ui.takeoff_button.clicked.connect(self.takeoff_selected)
-        self.ui.flip_button.clicked.connect(self.flip_selected)
-
-        self.ui.reboot_fcu.clicked.connect(self.reboot_selected)
-        self.ui.calibrate_gyro.clicked.connect(self.calibrate_gyro_selected)
-        self.ui.calibrate_level.clicked.connect(self.calibrate_level_selected)
-
-        self.ui.action_remove_row.triggered.connect(self.remove_selected)
-
-        self.ui.action_send_animations.triggered.connect(self.send_animations)
-        self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
-        self.ui.action_send_configurations.triggered.connect(self.send_configurations)
-        self.ui.action_send_Aruco_map.triggered.connect(self.send_aruco)
-        self.ui.action_send_launch_file.triggered.connect(self.send_launch)
-        self.ui.action_send_fcu_parameters.triggered.connect(self.send_fcu_parameters)
-        self.ui.action_send_any_file.triggered.connect(self.send_any_file)
-        self.ui.action_send_any_command.triggered.connect(self.send_any_command)
-        self.ui.action_restart_clever.triggered.connect(self.restart_clever)
-        self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
-        self.ui.action_update_client_repo.triggered.connect(self.update_client_repo)
-        self.ui.action_reboot_all.triggered.connect(self.reboot_all_on_selected)
-        self.ui.action_set_start_to_current_position.triggered.connect(self.update_start_to_current_position)
-        self.ui.action_reset_start.triggered.connect(self.reset_start)
-        self.ui.action_set_z_offset_to_ground.triggered.connect(self.set_z_offset_to_ground)
-        self.ui.action_reset_z_offset.triggered.connect(self.reset_z_offset)
-        self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
-        self.ui.action_select_music_file.triggered.connect(self.select_music_file)
-        self.ui.action_play_music.triggered.connect(self.play_music)
-        self.ui.action_stop_music.triggered.connect(self.stop_music)
-
-        # Set most safety-important buttons disabled
-        self.ui.start_button.setEnabled(False)
-        self.ui.takeoff_button.setEnabled(False)
-        self.ui.flip_button.setEnabled(False)
+                self.model.update_data(row_num, 0, client.connected, table.ModelStateRole)
+                logging.debug("Client status updated")
 
     @pyqtSlot()
     def selfcheck_selected(self):
-        for copter_data_row in self.model.user_selected():
-            client = copter_data_row.client
-            client.get_response("telemetry", self.update_table_data)
+        for copter in self.model.user_selected():
+            copter.client.get_response("telemetry", self.update_table_data)
 
     @pyqtSlot(object, dict)
     def update_table_data(self, client, telems: dict):
-        cols_dict = {
-            "git_version": 1,
-            "animation_id": 2,
-            "battery": 3,
-            "system_status": 4,
-            "calibration_status": 5,
-            "mode": 6,
-            "selfcheck": 7,
-            "current_position": 8,
-            "start_position": 9,
-            "time": 10,
-        }
-
         for key, value in telems.items():
-            col = cols_dict.get(key, None)
-            if col is None:
-                logging.error("No column {} present!".format(key))
-                continue
-
-            row_data = self.model.get_row_by_attr("client", client)
-            row_num = self.model.get_row_index(row_data)
-            if row_num is not None:
-                self.signals.update_data_signal.emit(row_num, col, value, Qt.EditRole)
-
-    @pyqtSlot(QtCore.QModelIndex)
-    def selfcheck_info_dialog(self, index):
-        col = index.column()
-        if col == 7:
-            data = self.proxy_model.data(index, role=ModelDataRole)
-            if data and data != "OK":
-                dialog = QMessageBox()
-                dialog.setIcon(QMessageBox.NoIcon)
-                dialog.setStandardButtons(QMessageBox.Ok)
-                dialog.setWindowTitle("Selfcheck info")
-                dialog.setText("\n".join(data[:10]))
-                dialog.setDetailedText("\n".join(data))
-                dialog.exec()
-
-    def _selfcheck_shortener(self, data):  # TODO!!!
-        shortened = []
-        for line in data:
-            if len(line) > 89:
-                pass
-        return shortened
+            try:
+                col = self.model.columns.index(key)
+            except ValueError:
+                logging.error(f"No column {key} present!")
+            else:
+                row_data = self.model.get_row_by_attr("client", client)
+                row_num = self.model.get_row_index(row_data)
+                if row_num is not None:
+                    self.model.update_data(row_num, col, value, Qt.EditRole)
 
     @pyqtSlot()
     def remove_selected(self):
         for copter in self.model.user_selected():
             copter.client.remove()
-
-            if not Server().remove_disconnected:
-                self.signals.remove_client_signal.emit(copter)
+            if not self.server.config.table_remove_disconnected:
+                self.model.remove_client_data(copter)
             logging.info("Client removed from table!")
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff selected copters with delay and start animation. Proceed?")
-    def send_starttime_selected(self, **kwargs):
+    def send_start_time_selected(self):
         time_now = server.time_now()
+        time_lag = 0.1
         dt = self.ui.start_delay_spin.value()
         logging.info('Wait {} seconds to start animation'.format(dt))
         if self.ui.music_checkbox.isChecked():
             music_dt = self.ui.music_delay_spin.value()
-            asyncio.ensure_future(self.play_music_at_time(music_dt + time_now), loop=loop)
+            asyncio.ensure_future(self.play_music_at_time(music_dt + time_now + time_lag), loop=loop)
             logging.info('Wait {} seconds to play music'.format(music_dt))
-        # self.selfcheck_selected()
+        # This filter constraints takeoff in real world, when copter state was normal and then some checks were failed for a while
+        # for copter in filter(lambda copter: copter.states.all_checks, self.model.user_selected()):
         for copter in self.model.user_selected():
-            if self.model.checks.all_checks(copter):
-                server.send_starttime(copter.client, dt + time_now)
+            server.send_starttime(copter.client, dt + time_now + time_lag)
 
     @pyqtSlot()
     def pause_resume_selected(self):
         if self.ui.pause_button.text() == 'Pause':
-            for copter in self.model.user_selected():
-                copter.client.send_message("pause")
+            self.send_to_selected("pause")
             self.ui.pause_button.setText('Resume')
         else:
-            self._resume_selected()
-
-    def _resume_selected(self, **kwargs):
-        time_gap = 0.1
-        for copter in self.model.user_selected():
-            copter.client.send_message('resume', {"time": server.time_now() + time_gap})
-        self.ui.pause_button.setText('Pause')
-
-
-    @pyqtSlot()
-    def land_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("land")
-
-    @pyqtSlot()
-    def land_all(self):
-        Client.broadcast_message("land")
-
-    @pyqtSlot()
-    def emergency_land_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("emergency_land")
-
-    @pyqtSlot()
-    def disarm_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("disarm")
-    
-    @pyqtSlot()
-    def disarm_all(self):
-        Client.broadcast_message("disarm")
-
-
-    @pyqtSlot()
-    def test_leds_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("led_test")
+            time_gap = 0.1  # TODO config? automatic delay detection?
+            self.send_to_selected("resume", command_kwargs={"time": server.time_now() + time_gap})
+            self.ui.pause_button.setText('Pause')
 
     @pyqtSlot()
     @confirmation_required("This operation will takeoff copters immediately. Proceed?")
-    def takeoff_selected(self, **kwargs):
+    def takeoff_selected(self):
         for copter in self.model.user_selected():
-            if self.model.checks.takeoff_checks(copter):
+            if table.takeoff_checks(copter):
                 if self.ui.z_checkbox.isChecked():
-                    copter.client.send_message("takeoff_z", {"z": str(self.ui.z_spin.value())})  # todo int
+                    copter.client.send_message("takeoff_z", kwargs={"z": str(self.ui.z_spin.value())})  # todo int, merge commands
                 else:
                     copter.client.send_message("takeoff")
 
     @pyqtSlot()
     @confirmation_required("This operation will flip(!!!) copters immediately. Proceed?")
-    def flip_selected(self, **kwargs):
+    def flip_selected(self):
         for copter in self.model.user_selected():
-            if flip_checks(copter):
+            if table.flip_checks(copter):
                 copter.client.send_message("flip")
 
     @pyqtSlot()
-    def reboot_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("reboot_fcu")
-
-    @pyqtSlot()
-    def calibrate_gyro_selected(self):
+    def calibrate_gyro_selected(self):  # TODO merge commands
         for copter_data_row in self.model.user_selected():
             client = copter_data_row.client
             # Update calibration status
             row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
+            self.model.update_data(row, col, data, table.ModelDataRole)
             # Send request
             client.get_response("calibrate_gyro", self._get_calibration_info)
 
@@ -348,7 +369,7 @@ class MainWindow(QtWidgets.QMainWindow):
             row = self.model.get_row_index(copter_data_row)
             col = 5
             data = 'CALIBRATING'
-            self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
+            self.model.update_data(row, col, data, table.ModelDataRole)
             # Send request
             client.get_response("calibrate_level", self._get_calibration_info)
 
@@ -358,162 +379,192 @@ class MainWindow(QtWidgets.QMainWindow):
         row = self.model.get_row_index(row_data)
         if row is not None:
             data = str(value)
-            self.signals.update_data_signal.emit(row, col, data, ModelDataRole)
+            self.model.update_data(row, col, data, table.ModelDataRole)
 
-    @pyqtSlot()
-    def send_animations(self):
-        path = str(QFileDialog.getExistingDirectory(self, "Select Animation Directory"))
+    def _send_files(self, files, copters=None, client_path="", client_filename="", match_id=False, callback=None):
+        if copters is None:
+            copters = self.model.user_selected()
+        copters = list(copters)
 
-        if path:
-            print("Selected directory:", path)
-            files = [file for file in glob.glob(path + '/*.csv')]
-            names = [os.path.basename(file).split(".")[0] for file in files]
-            for file, name in zip(files, names):
-                for copter in self.model.user_selected():
-                    if name == copter.copter_id:
-                        copter.client.send_file(file, "animation.csv")  # TODO config
-                else:
-                    logging.info("Filename has no matches with any drone selected")
+        for num, file in enumerate(files):
+            filepath, filename = os.path.split(file)
+            logging.info("Preparing file for sending: {} {}".format(filepath, filename))
 
-    @pyqtSlot()
-    def send_calibrations(self):
-        path = str(QFileDialog.getExistingDirectory(self, "Select directory with calibration files"))
+            if match_id:
+                name = os.path.splitext(filename)[0]
+                to_send = [copter for copter in copters if re.fullmatch(name, copter.copter_id)]
+            else:
+                to_send = copters
 
-        if path:
-            print("Selected directory:", path)
-            files = [file for file in glob.glob(path + '/*.yaml')]
-            names = [os.path.basename(file).split(".")[0] for file in files]
-            # print(files)
-            for file, name in zip(files, names):
-                for copter in self.model.user_selected():
-                    if name == copter.copter_id:
-                        copter.client.send_file(file,
-                                                "/home/pi/catkin_ws/src/clever/clever/camera_info/calibration.yaml")
-                else:
-                    logging.info("Filename has no matches with any drone selected")
+            if not to_send:
+                logging.error(f"No copters to send file {filename} to")
+                continue
 
-    @pyqtSlot()
-    def send_configurations(self):
-        path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt .cfg)")[0]
-        if path:
-            print("Selected file:", path)
-            sendable_config = configparser.ConfigParser()
-            sendable_config.read(path)
-            options = []
-            for section in sendable_config.sections():
-                for option in dict(sendable_config.items(section)):
-                    value = sendable_config[section][option]
-                    logging.debug("Got item from config: {} {} {}".format(section, option, value))
-                    options.append(ConfigOption(section, option, value))
+            logging.info(f"Sending file {filename} to clients: {to_send}")
+            filename = client_filename.format(num, filename) or filename
 
-            for copter in self.model.user_selected():
-                copter.client.send_config_options(*options)
+            for copter in to_send:
+                copter.client.send_file(file, os.path.join(client_path, filename))
+                if callback is not None:
+                    callback(copter)
 
-    @pyqtSlot()
-    def send_aruco(self):
-        path = \
-        QFileDialog.getOpenFileName(self, "Select aruco map configuration file", filter="Aruco map files (*.txt)")[0]
-        if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
-            for copter in self.model.user_selected():
-                copter.client.send_file(path, "/home/pi/catkin_ws/src/clever/aruco_pose/map/animation_map.txt")
-                copter.client.send_message("service_restart", {"name": "clever"})
+    def send_files(self, prompt, ext_filter, copters=None, client_path="", client_filename="", match_id=False,
+                   onefile=False, callback=None):
+        if onefile:
+            file = QFileDialog.getOpenFileName(self, prompt, filter=ext_filter)[0]
+            files = [file] if file else []
+        else:
+            files = QFileDialog.getOpenFileNames(self, prompt, filter=ext_filter)[0]
 
-    @pyqtSlot()
-    def send_launch(self):
-        path = str(QFileDialog.getExistingDirectory(self, "Select directory with launch files"))
-        if path:
-            print("Selected directory:", path)
-            files = [file for file in glob.glob(path + '/*.launch')]
-            for copter in self.model.user_selected():
-                for file in files:
-                    filename = os.path.basename(file)
-                    copter.client.send_file(file, "/home/pi/catkin_ws/src/clever/clever/launch/{}".format(filename))
-    
-    @pyqtSlot()
-    def send_fcu_parameters(self):
-        path = QFileDialog.getOpenFileName(self, "Select px4 param file", filter="px4 params (*.params)")[0]
-        if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
-            for copter in self.model.user_selected():
-                copter.client.send_file(path, "temp.params")
-                copter.client.get_response("load_params", self._print_send_fcu_params_result, callback_args=(copter, ))
+        if not files:
+            return
 
-    def _print_send_fcu_params_result(self, value, copter):
-        logging.info("Send parameters to {} success: {}".format(copter.client.copter_id, value))
+        self._send_files(files, copters, client_path, client_filename, match_id, callback)
+
+    def send_directory_files(self, prompt, extensions=(), copters=None, client_path="", client_filename="",
+                             match_id=False, callback=None):
+        path = QFileDialog.getExistingDirectory(self, prompt)
+
+        if not path:
+            return
+
+        if extensions:
+            patterns = [path + '/*' + ext for ext in extensions]
+        else:
+            patterns = [path+'/*.*']
+
+        files = multi_glob(*patterns)
+        self._send_files(files, copters, client_path, client_filename, match_id, callback)
+
+    def request_any_file(self, client_path=None, copters=None):
+        if client_path is None:
+            _client_path, ok = QInputDialog.getText(self, "Enter path of file to request from client", "Source:",
+                                                    QLineEdit.Normal, "")
+            if not ok:
+                return
+            client_path = _client_path
+
+        save_path = QFileDialog.getSaveFileName(self, "Save file to:", directory=os.path.split(client_path)[1],
+                                                filter=f"Current ext(*{os.path.splitext(client_path)[1]});;"
+                                                       f"All files(*.*)")[0]
+        if not save_path:
+            return
+
+        if copters is None:
+            copters = self.model.user_selected()
+        copters = list(copters)
+
+        logging.info(f'Requesting file {client_path} to  local {save_path} from clients: {copters}')
+        for copter in copters:
+            if len(copters) > 1:
+                save_path = cfg.modify_filename(save_path, f"{{}}_{copter.copter_id}")
+            copter.client.get_file(client_path, save_path)
+        logging.info('Files requested')
 
     @pyqtSlot()
     def send_any_file(self):
-        path = QFileDialog.getOpenFileName(self, "Select file")[0]
-        if path:
-            filename = os.path.basename(path)
-            print("Selected file:", path, filename)
-            text, okPressed = QInputDialog.getText(self, "Enter path to send on copter","Destination:", QLineEdit.Normal, "/home/pi/")
-            if okPressed and text != '':
-                for copter in self.model.user_selected():
-                    copter.client.send_file(path, text+'/'+filename)
+        file = QFileDialog.getOpenFileName(self, "Select any file")[0]
+        if not file:
+            return
+
+        c_path, ok = QInputDialog.getText(self, "Enter path (and name) to send on client", "Destination:",
+                                          QLineEdit.Normal, "")   # TODO config?
+        if not ok:
+            return
+
+        c_filepath, c_filename = os.path.split(c_path)  # c stands for client
+        files = [file]
+        self._send_files(files, client_path=c_filepath, client_filename=c_filename)
+
+    @pyqtSlot()
+    def send_animations(self):
+        self.send_directory_files("Select directory with animations", ('.csv', '.txt'), match_id=True,
+                                  client_path="", client_filename="animation.csv")
+
+    @pyqtSlot()
+    def send_calibrations(self):
+        self.send_directory_files("Select directory with calibrations", ('.yaml', ), match_id=True,
+                                  client_path=os.path.join(self.server.config.client_clever_dir,"camera_info/"),
+                                  client_filename="calibration.yaml")  # TODO callback to reload clever?
+
+        # from os.path import expanduser # TODO on client
+        # home = expanduser("~") -> "~catkin_ws/src/clever/clever/camera_info/"
+
+    @pyqtSlot()
+    def send_aruco(self):
+        def callback(copter):
+            copter.client.send_message("service_restart", kwargs={"name": "clever"})
+
+        self.send_files("Select aruco map configuration file", "Aruco map files (*.txt)", onefile=True,
+                        client_path=os.path.abspath(os.path.join(self.server.config.client_clever_dir,"../aruco_pose/map/")),
+                        client_filename="animation_map.txt", callback=callback)
+
+    @pyqtSlot()
+    def send_launch(self):
+        self.send_directory_files("Select directory with launch files", ('.launch', '.yaml'), match_id=False,
+                                  client_path=os.path.join(self.server.config.client_clever_dir,"launch/"))  # TODO clever restart callback?
+
+    @pyqtSlot()
+    def send_fcu_parameters(self):
+        def request_callback(client, value):
+            logging.info("Send parameters to {} success: {}".format(client.copter_id, value))
+
+        def callback(copter):
+            copter.client.get_response("load_params", request_callback)
+
+        self.send_files("Select px4 param file", "px4 params (*.params)", onefile=True,
+                        client_filename="temp.params", callback=callback)
+
+    @pyqtSlot()
+    def send_config(self):
+        mode, ok = QInputDialog.getItem(self, "Select config sending mode", "Mode:",
+                                        ("Modify", "Rewrite"), 0, False)
+        if not ok or not mode:
+            return
+
+        path = QFileDialog.getOpenFileName(self, "Select configuration file", filter="Configs (*.ini *.txt *.cfg)")[0]
+        if not path:
+            return
+
+        config = cfg.ConfigManager()
+        config.load_only_config(path)
+        data = config.full_dict(include_defaults=False)
+        logging.info(f"Loaded config from {path}")
+
+        copters = self.model.user_selected()
+        for copter in copters:
+            copter.client.send_message("config", kwargs={"config": data, "mode": mode.lower()})
 
     @pyqtSlot()
     def send_any_command(self):
-        text, okPressed = QInputDialog.getText(self, "Enter command to send on copter","Command:", QLineEdit.Normal, "")
-        if okPressed and text != '':
-            for copter in self.model.user_selected():
-                copter.client.send_message("execute", {"command": text})
-    @pyqtSlot()
-    def restart_clever(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("service_restart", {"name": "clever"})
+        text, ok = QInputDialog.getText(self, "Enter command to send on copter",
+                                        "Command:", QLineEdit.Normal, "")
+        if ok and text:
+            self.send_to_selected("execute", command_kwargs={"command": text})
 
     @pyqtSlot()
     def restart_clever_show(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("service_restart", {"name": "clever-show"})
-
-    @pyqtSlot()
-    def update_client_repo(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("update_repo")
-
-    @pyqtSlot()
-    def reboot_all_on_selected(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("reboot_all")
-
-    @pyqtSlot()
-    def update_start_to_current_position(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("move_start")
-
-    @pyqtSlot()
-    def reset_start(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("reset_start")
-
-    @pyqtSlot()
-    def set_z_offset_to_ground(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("set_z_to_ground")
-
-    @pyqtSlot()
-    def reset_z_offset(self):
-        for copter in self.model.user_selected():
-            copter.client.send_message("reset_z_offset")
+            copter.client.send_message("service_restart", kwargs={"name": "visual_pose_watchdog"})
+            copter.client.send_message("service_restart", kwargs={"name": "clever-show"})
 
     @pyqtSlot()
     def restart_chrony(self):
+        if platform.system() == 'Linux':
+            os.system("pkexec systemctl restart chrony")
         for copter in self.model.user_selected():
             copter.client.send_message("repair_chrony")
 
     @pyqtSlot()
     def select_music_file(self):
         path = QFileDialog.getOpenFileName(self, "Select music file", filter="Music files (*.mp3 *.wav)")[0]
-        if path:
-            media = QUrl.fromLocalFile(path)
-            content = QtMultimedia.QMediaContent(media)
-            self.player.setMedia(content)
-            self.ui.action_select_music_file.setText(self.ui.action_select_music_file.text() + " (selected)")
+        if not path:
+            return
+
+        media = QUrl.fromLocalFile(path)
+        content = QtMultimedia.QMediaContent(media)
+        self.player.setMedia(content)
+        self.ui.action_select_music_file.setText(self.ui.action_select_music_file.text() + " (selected)")
 
     @pyqtSlot()
     def play_music(self):
@@ -541,6 +592,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error("No media file")
             return
         self.player.stop()
+        self.ui.action_play_music.setText("Play music")
 
     @asyncio.coroutine
     def play_music_at_time(self, t):
@@ -557,36 +609,93 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def visual_land(self):
-        dialog = VisualLandDialog(self.model)
-        dialog.start()
+        VisualLandDialog(self.model).start()
 
+    @pyqtSlot()
+    def configure_columns(self):
+        HeaderEditDialog(self.ui.copter_table, self.server.config).exec()
 
-@messaging.message_callback("telemetry")
-def get_telem_data(self, **kwargs):
-    message = kwargs.get("value")
-    window.update_table_data(self, message)
+    @pyqtSlot()
+    def edit_server_config(self):
+        config = self.server.config
+
+        def save_callback():
+            config.write()
+
+        ConfigDialog().call_config_dialog(config, save_callback, restart, name="Server config")
+
+    def register_callbacks(self):
+        @messaging.message_callback("telemetry")
+        def get_telem_data(client, value, **kwargs):
+            self.update_table_data(client, value)
+
 
 def except_hook(cls, exception, traceback):
     sys.__excepthook__(cls, exception, traceback)
 
 
+def set_taskbar_icon():
+    import ctypes
+
+    myappid = 'COEX.droneshow.droneserver'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+
 if __name__ == "__main__":
+    msgbox_handler = ExitMsgbox()
+    msgbox_handler.setLevel(logging.CRITICAL)
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
+        handlers=[
+            logging.FileHandler("server_logs/{}.log".format(now)),
+            logging.StreamHandler(),
+            msgbox_handler
+        ])
+
     sys.excepthook = except_hook  # for debugging (exceptions traceback)
 
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
+    splash_pix = QPixmap('icons/coex_splash.jpg')
+
+    splash = QSplashScreen(splash_pix)
+    splash.setEnabled(False)
+
+    splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+    progressBar = QProgressBar(splash)
+    progressBar.setGeometry(25, splash_pix.height() - 80, splash_pix.width(), 35)
+    splash.showMessage("Loading clever-show server"+"\n\n\n\n\n", int(Qt.AlignBottom | Qt.AlignCenter), Qt.white)
+    app.processEvents()
+    splash.show()
+    # time.sleep(3)
+
+    app_icon = QIcon()
+    app_icon.addFile('icons/image.ico', QtCore.QSize(256, 256))
+    app.setWindowIcon(app_icon)
+
+    if sys.platform == 'win32':
+        set_taskbar_icon()
+
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
     # app.exec_()
     with loop:
-        window = MainWindow()
+        server = ServerQt()
+        window = MainWindow(server)
 
         Client.on_first_connect = window.new_client_connected
         Client.on_connect = window.client_connection_changed
         Client.on_disconnect = window.client_connection_changed
 
-        server = Server(on_stop=app.quit)
+        app.aboutToQuit.connect(window.on_quit)
+
         server.start()
+
+        window.showMaximized()
+        splash.close()
+
         loop.run_forever()
 
     server.stop()

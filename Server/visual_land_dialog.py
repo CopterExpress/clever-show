@@ -8,6 +8,7 @@ import logging
 import sys
 from functools import partial
 
+from lib import b_partial
 
 #  TODO: previous step and reset
 class VisualLandDialog(QtWidgets.QDialog):
@@ -26,8 +27,8 @@ class VisualLandDialog(QtWidgets.QDialog):
         self.ui.setupUi(self)
         self.ui.one_button.clicked.connect(partial(self.selection_choice, 1))
         self.ui.two_button.clicked.connect(partial(self.selection_choice, 2))
-        self.ui.land_emergency_button.clicked.connect(partial(self.send_to_selected, "land", None))
-        self.ui.disarm_emergency_button.clicked.connect(partial(self.send_to_selected, "disarm", None))
+        self.ui.land_emergency_button.clicked.connect(b_partial(self.send_to_selected, "land"))
+        self.ui.disarm_emergency_button.clicked.connect(b_partial(self.send_to_selected, "disarm"))
 
         self.ui.one_button.setShortcut(QKeySequence("1"))
         self.ui.two_button.setShortcut(QKeySequence("2"))
@@ -38,10 +39,10 @@ class VisualLandDialog(QtWidgets.QDialog):
     def row_mid(self):
         return int(math.ceil((self.row_min + self.row_max) / 2.0))
 
-    def send_to_row(self, row, message, args=None):
-        logging.debug(f"Send {message}: {args} to {row}")
-        self.model.data_contents[row].client.send_message(message, args)
-        # test[row] = args  # for testing
+    def send_to_row(self, row, message, args=(), kwargs=None):
+        logging.debug(f"Send {message}: {args}, {kwargs} to {row}")
+        self.model.data_contents[row].client.send_message(message, args=args, kwargs=kwargs)
+        # test[row] = args, kwargs  # for testing
         # print(test)
 
     def clear_leds(self, rows):
@@ -56,16 +57,17 @@ class VisualLandDialog(QtWidgets.QDialog):
 
     def send_led_indication(self):
         for row in range(self.row_min, self.row_mid):
-            self.send_to_row(row, "led_fill", {"green": 255})
+            self.send_to_row(row, "led_fill", kwargs={"green": 255})
 
         for row in range(self.row_mid, self.row_max + 1):
-            self.send_to_row(row, "led_fill", {"red": 255})
+            self.send_to_row(row, "led_fill", kwargs={"red": 255})
 
     @pyqtSlot()
     def selection_choice(self, choice):
         if self.row_min == self.row_max:
             # self.ui.one_button.setDisabled(True)  # maybe?
             # self.ui.two_button.setDisabled(True)
+            self.send_to_selected("land")
             return
 
         if choice == 1:
@@ -83,9 +85,9 @@ class VisualLandDialog(QtWidgets.QDialog):
         self.send_led_indication()
 
     @pyqtSlot()
-    def send_to_selected(self, message, args=None):
+    def send_to_selected(self, message, args=(), kwargs=None):
         for row in range(self.row_min, self.row_max + 1):
-            self.send_to_row(row, message, args)
+            self.send_to_row(row, message, args, kwargs)
 
         self._finished = True
         self.close()
@@ -104,7 +106,7 @@ if __name__ == '__main__':
     import copter_table_models
     model = copter_table_models.CopterDataModel()
     for i in range(10):
-        model.add_client(copter_table_models.StatedCopterData())
+        model.add_client()
 
     dialog = VisualLandDialog(model)
     test = list(range(10))

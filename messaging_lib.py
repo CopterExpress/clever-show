@@ -5,10 +5,11 @@ import json
 import socket
 import struct
 import random
-import inspect
 import logging
 import threading
 import collections
+import platform
+import traceback
 
 from contextlib import closing
 
@@ -16,9 +17,6 @@ try:
     import selectors
 except ImportError:
     import selectors2 as selectors
-
-
-# import logging_lib
 
 
 class Namespace:
@@ -38,9 +36,6 @@ class PendingRequest(Namespace): pass
 logger = logging.getLogger(__name__)
 
 
-# logger = logging_lib.Logger(_logger, True)
-
-
 def get_ip_address():
     try:
         with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as ip_socket:
@@ -49,6 +44,30 @@ def get_ip_address():
     except OSError:
         logger.warning("No network connection detected, using localhost")
         return "localhost"
+
+
+def set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
+    current_platform = platform.system()  # could be empty
+    if current_platform == "Linux":
+        return _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
+    if current_platform == "Windows":
+        return _set_keepalive_windows(sock, after_idle_sec, interval_sec)
+    if current_platform == "Darwin":
+        return _set_keepalive_osx(sock, interval_sec)
+
+def _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails):
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
+
+def _set_keepalive_windows(sock, after_idle_sec, interval_sec):
+    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec*1000, interval_sec*1000))
+
+def _set_keepalive_osx(sock, interval_sec):
+    TCP_KEEPALIVE = 0x10
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    sock.setsockopt(socket.IPPROTO_TCP, TCP_KEEPALIVE, interval_sec)
 
 
 class _Singleton(type):
@@ -78,7 +97,7 @@ class MessageManager:
     @staticmethod
     def _json_decode(json_bytes, encoding="utf-8"):
         with io.TextIOWrapper(io.BytesIO(json_bytes), encoding=encoding, newline="") as tiow:
-            obj = json.load(tiow)
+            obj = json.load(tiow, object_pairs_hook=collections.OrderedDict)
         return obj
 
     @classmethod
@@ -100,35 +119,41 @@ class MessageManager:
         return message
 
     @classmethod
-    def create_json_message(cls, contents):
-        message = cls.create_message(cls._json_encode(contents), "json", "message")
+    def create_json_message(cls, contents, additional_headers=None):
+        message = cls.create_message(cls._json_encode(contents), "json", "message",
+                                     additional_headers=additional_headers)
         return message
 
     @classmethod
-    def create_simple_message(cls, command, args=None):
-        if args is None:
-            args = {}
-        message = cls.create_json_message({"command": command, "args": args})
+    def create_action_message(cls, action, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        message = cls.create_json_message({"args": args, "kwargs": kwargs}, {"action": action, })
         return message
 
     @classmethod
-    def create_request(cls, requested_value, request_id, args=None):
-        if args is None:
-            args = {}
+    def create_request(cls, requested_value, request_id, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
         contents = {"requested_value": requested_value,
                     "request_id": request_id,
                     "args": args,
+                    "kwargs": kwargs,
                     }
         message = cls.create_message(cls._json_encode(contents), "json", "request")
         return message
 
     @classmethod
-    def create_response(cls, requested_value, request_id, value):
-        contents = {"requested_value": requested_value,
-                    "request_id": request_id,
-                    "value": value,
-                    }
-        message = cls.create_message(cls._json_encode(contents), "json", "response")
+    def create_response(cls, requested_value, request_id, value, filetransfer=False):
+        headers = {"requested_value": requested_value,
+                   "request_id": request_id,  # TODO status
+                   }
+        if filetransfer:
+            contents = value
+        else:
+            contents = cls._json_encode({"value": value, })
+        message = cls.create_message(contents, "binary" if filetransfer else "json",
+                                     "response", additional_headers=headers)
         return message
 
     def _process_protoheader(self):
@@ -177,10 +202,10 @@ class MessageManager:
                 self._process_content()
 
 
-def message_callback(string_command):
+def message_callback(action_string):
     def inner(f):
-        ConnectionManager.messages_callbacks[string_command] = f
-        logger.debug("Registered message function {} for {}".format(f, string_command))
+        ConnectionManager.messages_callbacks[action_string] = f
+        logger.debug("Registered message function {} for {}".format(f, action_string))
 
         def wrapper(*args, **kwargs):
             return f(*args, **kwargs)
@@ -315,21 +340,23 @@ class ConnectionManager(object):
     def read(self):
         self._read()
         while self._recv_buffer:
+            # add new message object if queue is empty or last message already processed
             if not self._received_queue or (self._received_queue[0].content is not None):
                 self._received_queue.appendleft(MessageManager())
 
-            self._received_queue[0].income_raw += self._recv_buffer
+            last_message = self._received_queue[0]
+
+            last_message.income_raw += self._recv_buffer
             self._recv_buffer = b''
-            self._received_queue[0].process_message()
+            last_message.process_message()
 
             # if something left after processing message - put it back
-            if self._received_queue[0].content and self._received_queue[0].income_raw:
-                self._recv_buffer = self._received_queue[0].income_raw + self._recv_buffer
-                self._received_queue[0].income_raw = b''
+            if last_message.content is not None and last_message.income_raw:
+                self._recv_buffer = last_message.income_raw + self._recv_buffer
+                last_message.income_raw = b''
 
-            if self._received_queue:
-                if self._received_queue[0].content:
-                    self.process_received(self._received_queue.popleft())
+            if self._received_queue and last_message.content is not None:
+                self.process_received(self._received_queue.popleft())
 
     def _read(self):
         try:
@@ -346,73 +373,106 @@ class ConnectionManager(object):
 
                 raise RuntimeError("Peer closed.")
 
-    def process_received(self, income_message):
-        message_type = income_message.jsonheader["message-type"]
+    def process_received(self, message):
+        message_type = message.jsonheader["message-type"]
+        content = message.content if message.jsonheader["content-type"] != "binary"\
+            else message.content[:256]
         logger.debug(
-            "Received message! Header: {}, content: {}".format(income_message.jsonheader, income_message.content))
+            "Received message! Header: {}, content: {}".format(message.jsonheader, content))
 
         if message_type == "message":
-            self._process_message(income_message)
+            self._process_message(message)
         elif message_type == "response":
-            self._process_response(income_message)
+            self._process_response(message)
         elif message_type == "request":
-            self._process_request(income_message)
-        elif message_type == "filetransfer":
-            self._process_filetransfer(income_message)
+            self._process_request(message)
 
     def _process_message(self, message):
-        command = message.content["command"]
+        if message.jsonheader["action"] == "filetransfer":
+            self._process_filetransfer(message.content, message.jsonheader["filepath"])
+        else:
+            self._process_action(message)
+
+    def _process_action(self, message):
+        action = message.jsonheader["action"]
         args = message.content["args"]
+        kwargs = message.content["kwargs"]
+        callback = self.messages_callbacks.get(action, None)
+        if callback is None:
+            logger.warning("Action {} does not exist!".format(action))
+            return
         try:
-            self.messages_callbacks[command](self, **args)
-        except KeyError:
-            logger.warning("Command {} does not exist!".format(command))
+            callback(self, *args, **kwargs)
         except Exception as error:
-            logger.error("Error during command {} execution: {}".format(command, error))
+            logger.error("Error during action {} execution: {}".format(action, error))
+            traceback.print_exc()
 
     def _process_request(self, message):
-        command = message.content["requested_value"]
+        requested_value = message.content["requested_value"]
         request_id = message.content["request_id"]
         args = message.content["args"]
+        kwargs = message.content["kwargs"]
+
+        filetransfer = requested_value == "filetransfer"
         try:
-            value = self.requests_callbacks[command](self, **args)
-        except KeyError:
-            logger.warning("Request {} does not exist!".format(command))
+            if filetransfer:
+                value = self._read_file(kwargs["filepath"])
+            else:
+                callback = self.requests_callbacks.get(requested_value, None)
+                if callback is None:
+                    logger.warning("Request {} does not exist!".format(requested_value))
+                    return
+
+                value = callback(self, *args, **kwargs)
         except Exception as error:  # TODO send response error\cancel
-            logger.error("Error during request {} processing: {}".format(command, error))
+            logger.error("Error during request {} processing: {}".format(requested_value, error))
         else:
-            self._send_response(command, request_id, value)
+            self._send_response(requested_value, request_id, value, filetransfer)
 
     def _process_response(self, message):
-        request_id, requested_value = message.content["request_id"], message.content["requested_value"]
+        request_id, requested_value = message.jsonheader["request_id"], message.jsonheader["requested_value"]
 
         with self._request_lock:
             request = self._request_queue.pop(request_id, None)
+        if (request is None) or (request.requested_value != requested_value):
+            logger.warning("Unexpected response!")
+            return
 
-        if (request is not None) and (request.requested_value == requested_value):
+        if requested_value == "filetransfer":
+            value = True
+            self._process_filetransfer(message.content, request.callback_kwargs["filepath"])
+            logger.debug(
+                "Request {} successfully closed with file bytes {}...".format(request, message.content[:256])
+            )
+        else:
             value = message.content["value"]
             logger.debug(
                 "Request {} successfully closed with value {}".format(request, message.content["value"])
             )
-
-            f = request.callback
-            f(self, value, *request.callback_args, **request.callback_kwargs)
-        else:
-            logger.warning("Unexpected  response!")
-
-    def _process_filetransfer(self, message):  # TODO path?
-        if message.jsonheader["content-type"] == "binary":
-            filepath = message.jsonheader["filepath"]
+        if request.callback is not None:
             try:
-                with open(filepath, 'wb') as f:
-                    f.write(message.content)
-            except OSError as error:
-                logger.error("File {} can not be written due error: {}".format(filepath, error))
-            else:
-                logger.info("File {} successfully received ".format(filepath))
-                if self.whoami == "pi":
-                    logger.info("Return rights to pi:pi after file transfer")
-                    os.system("chown pi:pi {}".format(filepath))
+                request.callback(self, value, *request.callback_args, **request.callback_kwargs)
+            except Exception as error:
+                logger.error("Error during response {} processing: {}".format(request, error))
+        else:
+            logger.info("No callback were registered for response: {}".format(request))
+
+    @staticmethod
+    def _read_file(filepath):
+        with open(filepath, mode='rb') as f:
+            return f.read()
+
+    def _process_filetransfer(self, content, filepath):
+        try:
+            with open(filepath, 'wb') as f:
+                f.write(content)
+        except OSError as error:
+            logger.error("File {} can not be written due error: {}".format(filepath, error))
+        else:
+            logger.info("File {} successfully received ".format(filepath))
+            if self.whoami == "pi":
+                logger.info("Return rights to pi:pi after file transfer")
+                os.system("chown pi:pi {}".format(filepath))
 
     def write(self):
         with self._send_lock:
@@ -438,8 +498,7 @@ class ConnectionManager(object):
         else:
             self._send_buffer = self._send_buffer[sent:]
             left = len(self._send_buffer)
-            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))#, self._send_buffer[:sent],))
-
+            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))
 
     def _send(self, data):
         with self._send_lock:
@@ -449,14 +508,15 @@ class ConnectionManager(object):
             self._set_selector_events_mask('rw')
             NotifierSock().notify()
 
-    def get_response(self, requested_value, callback, request_args=None,  # timeout=30,
-                     callback_args=(), callback_kwargs=None):
-        if request_args is None:
-            request_args = {}
+    def get_response(self, requested_value, callback,  # timeout=30,
+                     request_args=(), request_kwargs=None,
+                     callback_args=(), callback_kwargs=None, ):
+        if request_kwargs is None:
+            request_kwargs = {}
         if callback_kwargs is None:
             callback_kwargs = {}
 
-        request_id = str(random.randint(0, 9999)).zfill(4)
+        request_id = str(random.randint(0, 9999)).zfill(4)  # maybe hash
         with self._request_lock:
             self._request_queue[request_id] = PendingRequest(
                 requested_value=requested_value,
@@ -466,24 +526,39 @@ class ConnectionManager(object):
                 callback_args=callback_args,
                 callback_kwargs=callback_kwargs,
                 request_args=request_args,
+                request_kwargs=request_kwargs,
                 resend=True,
             )
-        self._send(MessageManager.create_request(requested_value, request_id, request_args))
+        self._send(MessageManager.create_request(requested_value, request_id, request_args, request_kwargs))
+
+    def get_file(self, client_filepath, filepath=None, callback=None,
+                 callback_args=(), callback_kwargs=None, ):
+        if callback_kwargs is None:
+            callback_kwargs = {}
+
+        if filepath is None:
+            filepath = os.path.split(client_filepath)[1]
+
+        request_kwargs = {"filepath": client_filepath}
+        callback_kwargs.update({"filepath": filepath})
+
+        self.get_response("filetransfer", callback, request_kwargs=request_kwargs,
+                          callback_args=callback_args, callback_kwargs=callback_kwargs)
 
     def _resend_requests(self):
         with self._request_lock:
-            for request_id, request in self._request_queue.items():  #TODO filter
+            for request_id, request in self._request_queue.items():  # TODO filter
                 if request.resend:
                     self._send(MessageManager.create_request(
-                        request.requested_value, request_id, request.request_args.update(resend=request.resend))
+                        request.requested_value, request_id, request.request_kwargs.update(resend=request.resend))
                     )
                     request.resend = False
 
-    def send_message(self, command, args=None):
-        self._send(MessageManager.create_simple_message(command, args))
+    def send_message(self, action, args=(), kwargs=None):
+        self._send(MessageManager.create_action_message(action, args, kwargs))
 
-    def _send_response(self, requested_value, request_id, value):
-        self._send(MessageManager.create_response(requested_value, request_id, value))
+    def _send_response(self, requested_value, request_id, value, filetransfer=False):
+        self._send(MessageManager.create_response(requested_value, request_id, value, filetransfer))
 
     def send_file(self, filepath, dest_filepath):  # clever_restart=False
         try:
@@ -493,9 +568,8 @@ class ConnectionManager(object):
             logger.warning("File can not be opened due error: ".format(error))
         else:
             logger.info("Sending file {} to {} (as: {})".format(filepath, self.addr, dest_filepath))
-            self._send(MessageManager.create_message(
-                data, "binary", "filetransfer", "binary", {"filepath": dest_filepath}
-            ))
+            self._send(MessageManager.create_message(data, "binary", "message",
+                       additional_headers={"action": "filetransfer", "filepath": dest_filepath}))
 
 
 class NotifierSock(Singleton):
@@ -527,9 +601,10 @@ class NotifierSock(Singleton):
 
     def notify(self):
         with self._send_lock:
-            if self._receiving_sock is not None:
-                self._sending_sock.sendall(bytes(1))
-                logger.debug("Notify socket: notified")
+            if self._receiving_sock is None:
+                return
+            self._sending_sock.sendall(bytes(1))
+            logger.debug("Notify socket: notified")
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ and self._receiving_sock is not None:
@@ -539,4 +614,12 @@ class NotifierSock(Singleton):
             except io.BlockingIOError:
                 pass
             except Exception as e:
-                print(e)
+                logger.error(e)
+
+    def close(self):
+        try:
+            self._server_socket.close()
+            self._sending_sock.close()
+            self._receiving_sock.close()
+        except (OSError, KeyError) as error:
+            logger.error("Error during unregistring notifier socket: {}".format(error))

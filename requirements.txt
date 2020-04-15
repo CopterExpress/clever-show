@@ -1,6 +1,7 @@
-indexed.py==0.0.1
+configobj==5.0.6
 numpy==1.18.1
 PyQt5==5.13.0
 PyQt5-sip==4.19.18
 Quamash==0.6.1
 selectors2==2.0.1
+six==1.13.0

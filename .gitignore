@@ -1,9 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
 *$py.class
 
 # Logs
@@ -18,14 +15,19 @@ __pycache__/
 # Development
 images/
 show-env/
+builder/clever-config
+
 Server/tests.py
 Server/convert_ui.sh
+Server/config/server.ini
 Server/server_logs
 Server/testj\.ipynb
 Server/tst_client\.py
 Server/tst\.py
+
 Drone/test_animation/
 Drone/animation.csv
 Drone/client_logs
+Drone/config/client.ini
 Drone/_copter_client_old_\.py
 Drone/test_cl\.py

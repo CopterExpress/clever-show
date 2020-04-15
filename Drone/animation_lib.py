@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 
 interrupt_event = threading.Event()
 
-config = ConfigParser.ConfigParser()
-config.read("client_config.ini")
-
-default_delay = config.getfloat('ANIMATION', 'frame_delay')
-
 anim_id = "Empty id"
 
 # TODO refactor as class
@@ -36,7 +31,7 @@ def get_id(filepath="animation.csv"):
     try:
         animation_file = open(filepath)
     except IOError:
-        logger.error("File {} can't be opened".format(filepath))
+        logger.debug("File {} can't be opened".format(filepath))
         anim_id = "No animation"
         return anim_id
     else:
@@ -53,11 +48,11 @@ def get_id(filepath="animation.csv"):
                 logger.debug("No animation id in file")
     return anim_id
 
-def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1):
+def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1, z_ratio=1):
     try:
         animation_file = open(filepath)
     except IOError:
-        logger.error("File {} can't be opened".format(filepath))
+        logger.debug("File {} can't be opened".format(filepath))
         anim_id = "No animation"
         return float('nan'), float('nan')
     else:
@@ -83,13 +78,13 @@ def get_start_xy(filepath="animation.csv", x_ratio=1, y_ratio=1):
     return float(x)*x_ratio, float(y)*y_ratio
 
 
-def load_animation(filepath="animation.csv", x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):
+def load_animation(filepath="animation.csv", default_delay = 0.1, x0=0, y0=0, z0=0, x_ratio=1, y_ratio=1, z_ratio=1):
     imported_frames = []
     global anim_id
     try:
         animation_file = open(filepath)
     except IOError:
-        logging.error("File {} can't be opened".format(filepath))
+        logger.debug("File {} can't be opened".format(filepath))
         anim_id = "No animation"
     else:
         with animation_file:

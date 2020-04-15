@@ -6,7 +6,13 @@ import time
 import logging
 import threading
 import rospy
-from clever import srv
+
+# for backward compatibility with clever
+try:
+    from clever import srv
+except ImportError:
+    from clover import srv
+
 from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import CommandBool
 from std_srvs.srv import Trigger
@@ -337,7 +343,7 @@ def takeoff(height=TAKEOFF_HEIGHT, speed=TAKEOFF_SPEED, tolerance=TOLERANCE, fra
             return 'interrupted'
 
         climb = abs(get_telemetry_locked(frame_id=frame_id).z - start.z)
-        rospy.logdebug("Takeoff to {:.2f} of {:.2f} meters".format(climb, height))
+        rospy.loginfo("Takeoff to {:.2f} of {:.2f} meters".format(climb, height))
 
         time_passed = time.time() - time_start
 

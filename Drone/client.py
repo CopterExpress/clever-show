@@ -1,86 +1,60 @@
 import os
+import sys
 import time
 import errno
 import random
 import socket
 import struct
 import logging
-import collections
-import ConfigParser
 import selectors2 as selectors
-import threading
 
 from contextlib import closing
 
-import os,sys,inspect  # Add parent dir to PATH to import messaging_lib
+import inspect  # Add parent dir to PATH to import messaging_lib
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir) 
+sys.path.insert(0, parent_dir)
 
 logger = logging.getLogger(__name__)
 
 import messaging_lib as messaging
+from config import ConfigManager
 
-ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
+active_client = None  # needs to be refactored: Singleton \ factory callbacks
 
-active_client = None  # maybe needs to be refactored
 
 class Client(object):
-    def __init__(self, config_path="client_config.ini"):
+    def __init__(self, config_path="config/client.ini"):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
 
         self.server_connection = messaging.ConnectionManager("pi")
 
-        self.server_host = None
-        self.server_port = None
-        self.broadcast_port = None
-
         self.connected = False
         self.client_id = None
 
         # Init configs
+        self.config = ConfigManager()
         self.config_path = config_path
-        self.config = ConfigParser.ConfigParser()
-        self.load_config()
 
         global active_client
         active_client = self
 
-        # self._last_ping_time = 0
-
     def load_config(self):
-        self.config.read(self.config_path)
+        self.config.load_config_and_spec(self.config_path)
 
-        self.broadcast_port = self.config.getint('SERVER', 'broadcast_port')
-        self.server_port = self.config.getint('SERVER', 'port')
-        self.server_host = self.config.get('SERVER', 'host')
-        self.BUFFER_SIZE = self.config.getint('SERVER', 'buffer_size')
-        self.USE_NTP = self.config.getboolean('NTP', 'use_ntp')
-        self.NTP_HOST = self.config.get('NTP', 'host')
-        self.NTP_PORT = self.config.getint('NTP', 'port')
-
-        self.client_id = self.config.get('PRIVATE', 'id')
-        if self.client_id == '/default':
+        config_id = self.config.private_id.lower()
+        if config_id == '/default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
-            self.write_config(False, ConfigOption('PRIVATE', 'id', self.client_id))
-        elif self.client_id == '/hostname':
+            self.config.set('PRIVATE', 'id', self.client_id, write=True) # set and write
+        elif config_id == '/hostname':
             self.client_id = socket.gethostname()
-        elif self.client_id == '/ip':
+        elif config_id == '/ip':
             self.client_id = messaging.get_ip_address()
+        else:
+            self.client_id = config_id
 
-    def rewrite_config(self):
-        with open(self.config_path, 'w') as file:
-            self.config.write(file)
-        os.system("chown -R pi:pi /home/pi/clever-show")
-
-    def write_config(self, reload_config=True, *config_options):
-        for config_option in config_options:
-            self.config.set(config_option.section, config_option.option, config_option.value)
-        self.rewrite_config()
-
-        if reload_config:
-            self.load_config()
+        logger.info("Config loaded")
 
     @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
@@ -95,13 +69,15 @@ class Client(object):
         return unpacked[10] + float(unpacked[11]) / 2 ** 32 - NTP_DELTA
 
     def time_now(self):
-        if self.USE_NTP:
-            timenow = self.get_ntp_time(self.NTP_HOST, self.NTP_PORT)
+        if self.config.ntp_use:
+            timenow = self.get_ntp_time(self.config.ntp_host, self.config.ntp_port)
         else:
             timenow = time.time()
         return timenow
 
     def start(self):
+        self.load_config()
+
         logger.info("Starting client")
         messaging.NotifierSock().init(self.selector)
 
@@ -114,17 +90,17 @@ class Client(object):
             logger.critical("Caught interrupt, exiting!")
             self.selector.close()
 
-    def _reconnect(self, timeout=2.0, attempt_limit=3):
-        logger.info("Trying to connect to {}:{} ...".format(self.server_host, self.server_port))
+    def _reconnect(self, timeout=2.0, attempt_limit=3):  # TODO reconnecting broadcast listener in another thread
+        logger.info("Trying to connect to {}:{} ...".format(self.config.server_host, self.config.server_port))
         attempt_count = 0
         while not self.connected:
             logger.info("Waiting for connection, attempt {}".format(attempt_count))
             try:
                 self.client_socket = socket.socket()
                 self.client_socket.settimeout(timeout)
-                self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                messaging.set_keepalive(self.client_socket)
                 self.client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                self.client_socket.connect((self.server_host, self.server_port))
+                self.client_socket.connect((self.config.server_host, self.config.server_port))
             except socket.error as error:
                 if isinstance(error, OSError):
                     if error.errno == errno.EINTR:
@@ -148,21 +124,25 @@ class Client(object):
     def _connect(self):
         self.connected = True
         self.client_socket.setblocking(False)
-        events = selectors.EVENT_READ # | selectors.EVENT_WRITE
-        self.selector.register(self.client_socket, events, data=self.server_connection)
-        self.server_connection.connect(self.selector, self.client_socket, (self.server_host, self.server_port))
+        self.selector.register(self.client_socket, selectors.EVENT_READ, data=self.server_connection)
+        self.server_connection.connect(self.selector, self.client_socket,
+                                       (self.config.server_host, self.config.server_port))
 
     def broadcast_bind(self, timeout=2.0, attempt_limit=3):
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        broadcast_client.bind(("", self.broadcast_port))
         broadcast_client.settimeout(timeout)
+        try:
+            broadcast_client.bind(("", self.config.broadcast_port))
+        except socket.error as error:
+            logger.error("Error during broadcast listening binding: {}".format(error))
+            return
 
         attempt_count = 0
         try:
             while attempt_count <= attempt_limit:
                 try:
-                    data, addr = broadcast_client.recvfrom(self.BUFFER_SIZE)
+                    data, addr = broadcast_client.recvfrom(self.config.server_buffer_size)
                 except socket.error as error:
                     logger.warning("Could not receive broadcast due error: {}".format(error))
                     attempt_count += 1
@@ -170,37 +150,30 @@ class Client(object):
                     message = messaging.MessageManager()
                     message.income_raw = data
                     message.process_message()
-                    if message.content:
+                    if message.content and message.jsonheader["action"] == "server_ip":
                         logger.info("Received broadcast message {} from {}".format(message.content, addr))
-                        if message.content["command"] == "server_ip":
-                            args = message.content["args"]
-                            self.server_port = int(args["port"])
-                            self.server_host = args["host"]
-                            self.write_config(False,
-                                              ConfigOption("SERVER", "port", self.server_port),
-                                              ConfigOption("SERVER", "host", self.server_host))
-                            logger.info("Binding to new IP: {}:{}".format(self.server_host, self.server_port))
-                            self.on_broadcast_bind()
-                            break
+
+                        kwargs = message.content["kwargs"]
+                        self.config.set("SERVER", "port", int(kwargs["port"]))
+                        self.config.set("SERVER", "host", kwargs["host"])
+                        self.config.write()
+
+                        logger.info("Binding to new IP: {}:{}".format(
+                            self.config.server_host, self.config.server_port))
+                        self.on_broadcast_bind()
+                        break
         finally:
             broadcast_client.close()
 
-    def on_broadcast_bind(self):
+    def on_broadcast_bind(self):  # TODO move ALL binding code here
         pass
 
     def _process_connections(self):
         while True:
             events = self.selector.select(timeout=1)
-            # if time.time() - self._last_ping_time > 5:
-            #    self.server_connection.send_message("ping")
-            #    self._last_ping_time = time.time()
-            # logging.debug("tick")
-
             for key, mask in events:
                 connection = key.data
-                if connection is None:
-                    pass
-                else:
+                if connection is not None:
                     try:
                         connection.process_events(mask)
 
@@ -227,19 +200,36 @@ class Client(object):
                     return
 
 
-@messaging.message_callback("config_write")
+@messaging.message_callback("config")
 def _command_config_write(*args, **kwargs):
-    options = [ConfigOption(**raw_option) for raw_option in kwargs["options"]]
-    logger.info("Writing config options: {}".format(options))
-    active_client.write_config(kwargs["reload"], *options)
+    mode = kwargs.get("mode", "modify")
+    # exceptions would be risen in case of incorrect config
+    if mode == "rewrite":
+        active_client.config.load_from_dict(kwargs["config"], configspec=active_client.config_path)  # with validation
+    elif mode == "modify":
+        new_config = ConfigManager()
+        new_config.load_from_dict(kwargs["config"])
+        active_client.config.merge(new_config, validate=True)
 
+    active_client.config.write()
+    logger.info("Config successfully updated from command")
+    active_client.load_config()
+
+@messaging.request_callback("config")
+def _response_config(*args, **kwargs):
+    send_configspec = kwargs.get("send_configspec", False)
+    response = {"config": active_client.config.full_dict()}
+    if send_configspec:
+        response.update({"configspec": dict(active_client.config.config.configspec)})
+    return response
 
 @messaging.request_callback("id")
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
     if new_id is not None:
-        cfg = ConfigOption("PRIVATE", "id", new_id)
-        active_client.write_config(True, cfg)
+        active_client.config.set("PRIVATE", "id", new_id, True)
+        active_client.load_config()
+        # TODO renaming here
 
     return active_client.client_id
 
@@ -250,6 +240,31 @@ def _response_time(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    startup_cwd = os.getcwd()
+
+    import threading
+
+
+    def restart():  # move to core
+        args = sys.argv[:]
+        logging.info('Restarting {}'.format(args))
+        args.insert(0, sys.executable)
+        if sys.platform == 'win32':
+            args = ['"%s"' % arg for arg in args]
+        os.chdir(startup_cwd)
+        os.execv(sys.executable, args)
+
+    def mock_telem():
+        while True:
+            time.sleep(5)
+            #t = dict([('fcu_status', None), ('current_position', [-2.89, 2.12, 3.64, 15.22, 'aruco_map']), ('animation_id', 'two_drones_test'), ('selfcheck', 'OK'), ('battery', None), ('git_version', '01bf95e'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]), ('mode', 'MANUAL'), ('time_delta', 1581338473.438682), ('armed', False), ('config_version', None), ('last_task', 'No task')])
+            t = dict([('fcu_status', 'STANDBY'), ('current_position', [-1.17, 2.04, 3.45, 0, "11"]), ('animation_id', 'two_drones_test'), ('selfcheck', 'OK'), ('battery', [12.2, 1.0]), ('git_version', '42aee96'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]), ('mode', 'MANUAL'), ('time_delta', 1581342970.889573), ('armed', False), ('config_version', 'Copter config V0.0'), ('last_task', 'No task')])
+            if active_client.connected:
+                active_client.server_connection.send_message("telemetry", kwargs={"value": t})
+
     logging.basicConfig(level=logging.DEBUG)
     client = Client()
+    tr = threading.Thread(target=mock_telem)
+    tr.start()
     client.start()
+
