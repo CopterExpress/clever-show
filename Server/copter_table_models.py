@@ -165,7 +165,7 @@ def get_position(position):
 def get_distance(pos1, pos2):  # todo as common function
     if any(math.isnan(x) for x in pos1 + pos2):
         return float('nan')
-    return math.sqrt(sum(map(lambda p: p[0] - p[1], zip(pos1, pos2))) ** 2)  # point distance formula
+    return math.sqrt(sum(map(lambda p: (p[0] - p[1]) ** 2, zip(pos1, pos2))))  # point distance formula
 
 
 class CopterData:
