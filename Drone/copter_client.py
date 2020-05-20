@@ -33,6 +33,16 @@ from geometry_msgs.msg import Point, Quaternion, TransformStamped
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
 import tf2_ros
 
+from geographiclib.geodesic import Geodesic
+
+Earth = Geodesic.WGS84
+
+def dist(x, y):
+    return math.sqrt(x**2+y**2)
+
+def azi(x, y):
+    return 90 - math.atan2(y,x)*180/math.pi
+
 static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
 
 emergency = False
@@ -98,13 +108,12 @@ class CopterClient(client.Client):
             from FlightLib import LedLib
             LedLib.init_led(self.config.led_pin)
         task_manager_instance.start()  # TODO move to self
+        start_subscriber()
+        telemetry.start_loop()
         if self.config.copter_frame_id == "floor":
             self.start_floor_frame_broadcast()
         elif self.config.copter_frame_id == "gps":
             self.start_gps_frame_broadcast()
-        start_subscriber()
-
-        telemetry.start_loop()
         super(CopterClient, self).start()
 
     def start_floor_frame_broadcast(self):
@@ -120,7 +129,22 @@ class CopterClient(client.Client):
         static_bloadcaster.sendTransform(trans)
 
     def start_gps_frame_broadcast(self):
-        return
+        gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
+        gps_frame_thread.start()
+
+    def gps_frame_broadcast_loop(self):
+        rate = rospy.Rate(1)
+        while not rospy.is_shutdown():
+            telem = telemetry.ros_telemetry
+            if telem is not None:
+                if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
+                    logger.info("Can't get position from telemetry")
+                else:
+                    new = Earth.Direct(telem.lat, telem.lon, azi(-telem.x,-telem.y), dist(telem.x,telem.y))
+                    lat_init = new['lat2']
+                    lon_init = new['lon2']
+                    logger.info("Initial lat: {} | lon: {}".format(lat_init, lon_init))
+
 
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
