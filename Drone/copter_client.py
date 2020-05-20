@@ -489,7 +489,7 @@ def _command_takeoff(*args, **kwargs):
                               "z": client.active_client.config.copter_takeoff_height,
                               "timeout": client.active_client.config.copter_takeoff_time,
                               "safe_takeoff": client.active_client.config.copter_safe_takeoff,
-                              "use_leds": client.active_client.config.led_use,
+                              "use_leds": client.active_client.config.led_use & client.active_client.config.led_takeoff_indication,
                           }
                           )
 
@@ -520,7 +520,7 @@ def _command_land(*args, **kwargs):
                               "z": client.active_client.config.copter_takeoff_height,
                               "timeout": client.active_client.config.copter_takeoff_time,
                               "frame_id": client.active_client.config.copter_frame_id,
-                              "use_leds": client.active_client.config.led_use,
+                              "use_leds": client.active_client.config.led_use & client.active_client.config.led_land_indication,
                           }
                           )
 
@@ -584,7 +584,7 @@ def _play_animation(*args, **kwargs):
                                   "timeout": client.active_client.config.copter_takeoff_time,
                                   "safe_takeoff": client.active_client.config.copter_safe_takeoff,
                                   # "frame_id": client.active_client.config.copter_frame_id,
-                                  "use_leds": client.active_client.config.led_use,
+                                  "use_leds": client.active_client.config.led_use & client.active_client.config.led_takeoff_indication,
                               }
                               )
         # Fly to first point
@@ -651,7 +651,7 @@ def _play_animation(*args, **kwargs):
                           task_kwargs={
                               "timeout": client.active_client.config.copter_land_timeout,
                               "frame_id": client.active_client.config.copter_frame_id,
-                              "use_leds": client.active_client.config.led_use,
+                              "use_leds": client.active_client.config.led_use & client.active_client.config.led_land_indication,
                           },
                           )
 
