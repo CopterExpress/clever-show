@@ -131,6 +131,14 @@ class CopterClient(client.Client):
         static_bloadcaster.sendTransform(trans)
 
     def start_gps_frame_broadcast(self):
+        trans = TransformStamped()
+        trans.transform.translation.x = 0
+        trans.transform.translation.y = 0
+        trans.transform.translation.z = 0
+        trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
+        trans.header.frame_id = "map"
+        trans.child_frame_id = self.config.copter_frame_id
+        static_bloadcaster.sendTransform(trans)
         gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
         gps_frame_thread.start()
 
