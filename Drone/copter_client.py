@@ -94,6 +94,7 @@ class CopterClient(client.Client):
         super(CopterClient, self).__init__(config_path)
         self.load_config()
         self.frames = {}
+        self.telemetry = None
 
     def load_config(self):
         super(CopterClient, self).load_config()
@@ -109,7 +110,8 @@ class CopterClient(client.Client):
             LedLib.init_led(self.config.led_pin)
         task_manager_instance.start()  # TODO move to self
         start_subscriber()
-        telemetry.start_loop()
+        self.telemetry = Telemetry()
+        self.telemetry.start_loop()
         if self.config.copter_frame_id == "floor":
             self.start_floor_frame_broadcast()
         elif self.config.copter_frame_id == "gps":
@@ -135,7 +137,7 @@ class CopterClient(client.Client):
     def gps_frame_broadcast_loop(self):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown():
-            telem = telemetry.get_ros_telemetry()
+            telem = self.telemetry.get_ros_telemetry()
             if telem is not None:
                 if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
                     logger.info("Can't get position from telemetry")
@@ -943,7 +945,6 @@ def emergency_callback(data):
 
 
 if __name__ == "__main__":
-    telemetry = Telemetry()
     copter_client = CopterClient()
     task_manager = tasking.TaskManager()
     rospy.Subscriber('/emergency', Bool, emergency_callback)
