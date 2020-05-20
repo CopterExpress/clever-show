@@ -135,7 +135,7 @@ class CopterClient(client.Client):
     def gps_frame_broadcast_loop(self):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown():
-            telem = telemetry.ros_telemetry
+            telem = telemetry.get_ros_telemetry()
             if telem is not None:
                 if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
                     logger.info("Can't get position from telemetry")
@@ -144,6 +144,7 @@ class CopterClient(client.Client):
                     lat_init = new['lat2']
                     lon_init = new['lon2']
                     logger.info("Initial lat: {} | lon: {}".format(lat_init, lon_init))
+            rate.sleep()
 
 
 def restart_service(name):
@@ -801,6 +802,9 @@ class Telemetry:
             rospy.logdebug(e)
         self.time_delta = time.time()
         self.round_telemetry()
+
+    def get_ros_telemetry(self):
+        return self.ros_telemetry
 
     def update_telemetry_slow(self):
         self.animation_id = animation.get_id()
