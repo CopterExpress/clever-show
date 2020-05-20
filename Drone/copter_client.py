@@ -99,10 +99,9 @@ class CopterClient(client.Client):
             LedLib.init_led(self.config.led_pin)
         task_manager_instance.start()  # TODO move to self
         if self.config.copter_frame_id == "floor":
-            if self.config.floor_frame_enabled:
-                self.start_floor_frame_broadcast()
-            else:
-                rospy.logerr("Can't make floor frame!")
+            self.start_floor_frame_broadcast()
+        elif self.config.copter_frame_id == "gps":
+            self.start_gps_frame_broadcast()
         start_subscriber()
 
         telemetry.start_loop()
@@ -120,6 +119,8 @@ class CopterClient(client.Client):
         trans.child_frame_id = self.config.copter_frame_id
         static_bloadcaster.sendTransform(trans)
 
+    def start_gps_frame_broadcast(self):
+        return
 
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
