@@ -589,10 +589,15 @@ def _play_animation(*args, **kwargs):
                               )
         # Fly to first point
         rfp_time = start_time + client.active_client.config.copter_takeoff_time
+        if client.active_client.config.animation_yaw == "animation":
+            yaw = frame["yaw"]
+        else:
+            yaw = math.radians(float(client.active_client.config.animation_yaw))
         task_manager.add_task(rfp_time, 0, animation.execute_frame,
                               task_kwargs={
                                   "point": animation.convert_frame(corrected_frames[0])[0],
                                   "color": animation.convert_frame(corrected_frames[0])[1],
+                                  "yaw": yaw,
                                   "frame_id": client.active_client.config.copter_frame_id,
                                   "use_leds": client.active_client.config.led_use,
                                   "flight_func": FlightLib.reach_point,
@@ -604,12 +609,6 @@ def _play_animation(*args, **kwargs):
     elif start_action == 'arm':
         # Calculate start time
         start_time += start_delay
-        # Arm
-        # task_manager.add_task(start_time, 0, FlightLib.arming_wrapper,
-        #                    task_kwargs={
-        #                        "state": True
-        #                    }
-        #                    )
         frame_time = start_time  # + 1.0
         point, color, yaw = animation.convert_frame(corrected_frames[0])
         task_manager.add_task(frame_time, 0, animation.execute_frame,
