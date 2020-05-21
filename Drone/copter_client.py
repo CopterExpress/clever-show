@@ -159,7 +159,9 @@ class CopterClient(client.Client):
                     #lat_init = pos_init['lat2']
                     #lon_init = pos_init['lon2']
                     #logger.info("Initial lat: {} | lon: {}".format(lat_init, lon_init))
-                    geo_delta = Earth.Inverse(telem.lat, telem.lon, self.config.gps_lat, self.config.gps_lon)
+                    lat = float(self.config.gps_frame_lat)
+                    lon = float(self.config.gps_frame_lon)
+                    geo_delta = Earth.Inverse(telem.lat, telem.lon, lat, lon)
                     dx, dy = get_xy(geo_delta['s12'], geo_delta['azi2'])
                     gps_dx = telem.x + dx
                     gps_dy = telem.y + dy
