@@ -142,7 +142,7 @@ class CopterClient(client.Client):
         trans.transform.translation.z = 0
         trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
         trans.header.frame_id = "map"
-        trans.child_frame_id = self.config.copter_frame_id
+        trans.child_frame_id = "gps"
         static_broadcaster.sendTransform(trans)
         gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
         gps_frame_thread.start()
@@ -155,10 +155,6 @@ class CopterClient(client.Client):
                 if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
                     logger.info("Can't get position from telemetry")
                 else:
-                    #pos_init = Earth.Direct(telem.lat, telem.lon, azi(-telem.x,-telem.y), dist(telem.x,telem.y))
-                    #lat_init = pos_init['lat2']
-                    #lon_init = pos_init['lon2']
-                    #logger.info("Initial lat: {} | lon: {}".format(lat_init, lon_init))
                     lat = float(self.config.gps_frame_lat)
                     lon = float(self.config.gps_frame_lon)
                     geo_delta = Earth.Inverse(telem.lat, telem.lon, lat, lon)
@@ -167,6 +163,15 @@ class CopterClient(client.Client):
                     gps_dx = telem.x + dx
                     gps_dy = telem.y + dy
                     logger.info("GPS frame dx: {} | dy: {}".format(gps_dx, gps_dy))
+                    trans = TransformStamped()
+                    trans.transform.translation.x = gps_dx
+                    trans.transform.translation.y = gps_dy
+                    trans.transform.translation.z = 0
+                    trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,
+                                                            math.radians(self.config.gps_frame_yaw)))
+                    trans.header.frame_id = "map"
+                    trans.child_frame_id = "gps"
+                    static_broadcaster.sendTransform(trans)
 
             rate.sleep()
 
