@@ -44,7 +44,7 @@ def azi(x, y):
     return 90 - math.atan2(y,x)*180/math.pi
 
 def get_xy(dist, azi):
-    return dist*math.sin(azi), dist*cos(azi)
+    return dist*math.sin(azi), dist*math.cos(azi)
 
 static_broadcaster = tf2_ros.StaticTransformBroadcaster()
 
