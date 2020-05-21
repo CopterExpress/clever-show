@@ -43,7 +43,10 @@ def dist(x, y):
 def azi(x, y):
     return 90 - math.atan2(y,x)*180/math.pi
 
-static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
+def get_xy(dist, azi):
+    return dist*math.sin(azi), dist*cos(azi)
+
+static_broadcaster = tf2_ros.StaticTransformBroadcaster()
 
 emergency = False
 
@@ -119,6 +122,8 @@ class CopterClient(client.Client):
         super(CopterClient, self).start()
 
     def start_floor_frame_broadcast(self):
+        if self.config.floor_frame_parent == "gps":
+            self.start_gps_frame_broadcast()
         trans = TransformStamped()
         trans.transform.translation.x = self.config.floor_frame_translation[0]
         trans.transform.translation.y = self.config.floor_frame_translation[1]
@@ -128,7 +133,7 @@ class CopterClient(client.Client):
                                                                      math.radians(self.config.floor_frame_rotation[2])))
         trans.header.frame_id = self.config.floor_frame_parent
         trans.child_frame_id = self.config.copter_frame_id
-        static_bloadcaster.sendTransform(trans)
+        static_broadcaster.sendTransform(trans)
 
     def start_gps_frame_broadcast(self):
         trans = TransformStamped()
@@ -138,22 +143,28 @@ class CopterClient(client.Client):
         trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
         trans.header.frame_id = "map"
         trans.child_frame_id = self.config.copter_frame_id
-        static_bloadcaster.sendTransform(trans)
+        static_broadcaster.sendTransform(trans)
         gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
         gps_frame_thread.start()
 
     def gps_frame_broadcast_loop(self):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown():
-            telem = self.telemetry.get_ros_telemetry()
+            telem = FlightLib.get_telemetry_locked(frame_id = "map")
             if telem is not None:
                 if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
                     logger.info("Can't get position from telemetry")
                 else:
-                    new = Earth.Direct(telem.lat, telem.lon, azi(-telem.x,-telem.y), dist(telem.x,telem.y))
-                    lat_init = new['lat2']
-                    lon_init = new['lon2']
-                    logger.info("Initial lat: {} | lon: {}".format(lat_init, lon_init))
+                    #pos_init = Earth.Direct(telem.lat, telem.lon, azi(-telem.x,-telem.y), dist(telem.x,telem.y))
+                    #lat_init = pos_init['lat2']
+                    #lon_init = pos_init['lon2']
+                    #logger.info("Initial lat: {} | lon: {}".format(lat_init, lon_init))
+                    geo_delta = Earth.Inverse(telem.lat, telem.lon, self.config.gps_lat, self.config.gps_lon)
+                    dx, dy = get_xy(geo_delta['s12'], geo_delta['azi2'])
+                    gps_dx = telem.x + dx
+                    gps_dy = telem.y + dy
+                    logger.info("GPS frame dx: {} | dy: {}".format(gps_dx, gps_dy))
+
             rate.sleep()
 
 
