@@ -44,7 +44,7 @@ def azi(x, y):
     return 90 - math.atan2(y,x)*180/math.pi
 
 def get_xy(dist, azi):
-    return dist*math.sin(azi), dist*math.cos(azi)
+    return dist*math.sin(math.radians(azi)), dist*math.cos(math.radians(azi))
 
 static_broadcaster = tf2_ros.StaticTransformBroadcaster()
 
@@ -162,7 +162,8 @@ class CopterClient(client.Client):
                     lat = float(self.config.gps_frame_lat)
                     lon = float(self.config.gps_frame_lon)
                     geo_delta = Earth.Inverse(telem.lat, telem.lon, lat, lon)
-                    dx, dy = get_xy(geo_delta['s12'], geo_delta['azi2'])
+                    logger.info("dist: {} | azi: {}".format(geo_delta['s12'], geo_delta['azi1']))
+                    dx, dy = get_xy(geo_delta['s12'], geo_delta['azi1'])
                     gps_dx = telem.x + dx
                     gps_dy = telem.y + dy
                     logger.info("GPS frame dx: {} | dy: {}".format(gps_dx, gps_dy))
