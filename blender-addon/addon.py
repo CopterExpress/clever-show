@@ -8,13 +8,13 @@ from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty, FloatProperty, IntProperty
 
 bl_info = {
-    "name": "Export > CSV Drone Swarm Animation Exporter (.csv)",
-    "author": "Artem Vasiunik",
-    "version": (0, 4, 0),
+    "name": "clever-show animation (.csv)",
+    "author": "Artem Vasiunik & Arthur Golubtsov",
+    "version": (0, 5, 0),
     "blender": (2, 80, 0),
     #"api": 36079,
-    "location": "File > Export > CSV Drone Swarm Animation Exporter (.csv)",
-    "description": "Export > CSV Drone Swarm Animation Exporter (.csv)",
+    "location": "File > Export > clever-show animation (.csv)",
+    "description": "Export > clever-show animation (.csv)",
     "warning": "",
     "wiki_url": "https://github.com/CopterExpress/clever-show/blob/master/blender-addon/README.md",
     "tracker_url": "https://github.com/CopterExpress/clever-show/issues",
@@ -23,20 +23,20 @@ bl_info = {
 
 
 class ExportCsv(Operator, ExportHelper):
-    bl_idname = "export_swarm_anim.folder"
-    bl_label = "Export Drone Swarm animation"
+    bl_idname = "export_animation.folder"
+    bl_label = "Export clever-show animation"
     filename_ext = ''
     use_filter_folder = True
 
     use_namefilter: bpy.props.BoolProperty(
         name="Use name filter for objects",
-        default=True,    
+        default=False,
     )
 
     drones_name: bpy.props.StringProperty(
         name="Name identifier",
         description="Name identifier for all drone objects",
-        default="copter"
+        default="clever"
     )
 
     show_warnings: bpy.props.BoolProperty(
@@ -61,7 +61,7 @@ class ExportCsv(Operator, ExportHelper):
 
     filepath: StringProperty(
         name="File Path",
-        description="File path used for exporting CSV files",
+        description="File path used for exporting csv files",
         maxlen=1024,
         subtype='DIR_PATH',
         default=""
@@ -96,11 +96,11 @@ class ExportCsv(Operator, ExportHelper):
                 distance_exeeded = False
 
                 prev_x, prev_y, prev_z = 0, 0, 0
-				
+
                 animation_file_writer.writerow([
 					os.path.splitext(bpy.path.basename(bpy.data.filepath))[0]
 				])
-				
+
                 for frame_number in range(frame_start, frame_end + 1):
                     scene.frame_set(frame_number)
                     rgb = get_rgb_from_object(drone_obj)
@@ -135,9 +135,7 @@ class ExportCsv(Operator, ExportHelper):
                         round(rot_z, 5),
                         *rgb,
                     ])
-					
-				
-				
+
                 if speed_exeeded:
                     self.report({'WARNING'}, "Drone '%s' speed limits exeeded" % drone_obj.name)
                 if distance_exeeded:
@@ -195,7 +193,7 @@ def calc_distance(start_point, end_point):
 def menu_func(self, context):
     self.layout.operator(
         ExportCsv.bl_idname,
-        text="CSV Drone Swarm Animation Exporter (.csv)"
+        text="clever-show animation (.csv)"
     )
 
 
