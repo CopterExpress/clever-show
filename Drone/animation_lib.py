@@ -81,8 +81,8 @@ class Frame(object):
 class Animation(object):
     def __init__(self, config=None, filepath="animation.csv"):
         self.id = None
-        self.static_begin_time = None
-        self.takeoff_time = None
+        self.static_begin_time = 0
+        self.takeoff_time = 0
         self.original_frames = None
         self.static_begin_frames = None
         self.takeoff_frames = None
@@ -138,7 +138,7 @@ class Animation(object):
                             return
                         else:
                             self.original_frames.append(frame)
-            self.split_animation()
+        self.split_animation()
 
     '''
     Split animation into 5 parts: static_begin, takeoff, route, land, static_end
@@ -150,9 +150,6 @@ class Animation(object):
     Count static_begin_time and takeoff_time
     '''
     def split_animation(self, move_delta=0.01):
-        if len(self.original_frames) == 0:
-            return
-        frames = copy.deepcopy(self.original_frames)
         self.static_begin_frames = []
         self.takeoff_frames = []
         self.route_frames = []
@@ -160,26 +157,33 @@ class Animation(object):
         self.static_end_frames = []
         self.static_begin_time = 0
         self.takeoff_time = 0
+        if len(self.original_frames) == 0:
+            return
+        frames = copy.deepcopy(self.original_frames)
         i = 0 # Moving index from the beginning
         # Select static begin frames
         while i < len(frames) - 1:
+            self.static_begin_time += frames[i].delay
             if moving(frames[i], frames[i+1], move_delta):
                 break
-            self.static_begin_time += frames[i].delay
             i += 1
         if i > 0:
             self.static_begin_frames = frames[:i+1]
             frames = frames[i+1:]
             i = 0
+        else:
+            self.static_begin_time = 0
         # Select takeoff frames
         while i < len(frames) - 1:
+            self.takeoff_time += frames[i].delay
             if moving(frames[i], frames[i+1], move_delta, z = False) or (frames[i+1].z - frames[i].z <= 0):
                 break
-            self.takeoff_time += frames[i].delay
             i += 1
         if i > 0:
             self.takeoff_frames = frames[:i+1]
             frames = frames[i+1:]
+        else:
+            self.takeoff_time = 0
         i = len(frames) - 1 # Moving index from the end
         # Select static end frames
         while i >= 0:
@@ -203,6 +207,7 @@ class Animation(object):
 
     def make_output_frames(self, static_begin, takeoff, route, land, static_end):
         self.output_frames = []
+        self.output_frames_min_z = None
         if static_begin:
             self.output_frames += self.static_begin_frames
         if takeoff:
@@ -213,12 +218,13 @@ class Animation(object):
             self.output_frames += self.land_frames
         if static_end:
             self.output_frames += self.static_end_frames
-        self.output_frames_min_z = min(self.output_frames, key = lambda p: p.z).z
+        if self.output_frames:
+            self.output_frames_min_z = min(self.output_frames, key = lambda p: p.z).z
 
     def update_frames(self, config, filepath):
+        self.__init__()
         self.load(filepath, config.animation_frame_delay)
-        if self.original_frames:
-            self.make_output_frames(config.animation_output_static_begin,
+        self.make_output_frames(config.animation_output_static_begin,
                                     config.animation_output_takeoff,
                                     config.animation_output_route,
                                     config.animation_output_land,
