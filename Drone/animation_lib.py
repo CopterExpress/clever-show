@@ -32,6 +32,17 @@ def get_numbers(frames):
             numbers.append(frame.number)
     return numbers
 
+def get_start_action(start_action, current_height, takeoff_level):
+    if start_action is 'auto':
+        if current_height > takeoff_level:
+            return 'takeoff'
+        else:
+            return 'play'
+    elif start_action in ('takeoff', 'play'):
+        return start_action
+    else:
+        return 'error'
+
 class Frame(object):
     params_dict = {
         "number": None,
@@ -80,6 +91,11 @@ class Frame(object):
 
 class Animation(object):
     def __init__(self, config=None, filepath="animation.csv"):
+        self.reset(filepath)
+        if config is not None:
+            self.update_frames(config, filepath)
+
+    def reset(self, filepath):
         self.id = None
         self.static_begin_time = 0
         self.takeoff_time = 0
@@ -92,8 +108,6 @@ class Animation(object):
         self.output_frames = None
         self.output_frames_min_z = None
         self.filepath = filepath
-        if config is not None:
-            self.update_frames(config, filepath)
 
     def load(self, filepath="animation.csv", delay=0.1):
         self.original_frames = []
@@ -222,7 +236,7 @@ class Animation(object):
             self.output_frames_min_z = min(self.output_frames, key = lambda p: p.z).z
 
     def update_frames(self, config, filepath):
-        self.__init__()
+        self.reset(filepath)
         self.load(filepath, config.animation_frame_delay)
         self.make_output_frames(config.animation_output_static_begin,
                                     config.animation_output_takeoff,
@@ -234,36 +248,30 @@ class Animation(object):
         x0, y0, z0 = offset
         x_ratio, y_ratio, z_ratio = ratio
         scaled_frames = copy.deepcopy(self.output_frames)
-        for frame in scaled_frames:
-            frame.x = x_ratio*frame.x + x0
-            frame.y = y_ratio*frame.y + y0
-            frame.z = z_ratio*frame.z + z0
+        if scaled_frames:
+            for frame in scaled_frames:
+                frame.x = x_ratio*frame.x + x0
+                frame.y = y_ratio*frame.y + y0
+                frame.z = z_ratio*frame.z + z0
         return scaled_frames
 
     def get_scaled_output_min_z(self, ratio = (1,1,1), offset = (0,0,0)):
+        if self.output_frames_min_z is None:
+            return None
         x0, y0, z0 = offset
         x_ratio, y_ratio, z_ratio = ratio
         return self.output_frames_min_z*z_ratio + z0
 
     def get_start_point(self, ratio = (1,1,1), offset = (0,0,0)):
+        if not self.output_frames:
+            return []
         x0, y0, z0 = offset
         x_ratio, y_ratio, z_ratio = ratio
         first_frame = self.output_frames[0]
         x = x_ratio*first_frame.x + x0
         y = y_ratio*first_frame.y + y0
         z = z_ratio*first_frame.z + z0
-        return x, y, z
-
-    def get_start_action(self, start_action, current_height, takeoff_level):
-        if start_action is 'auto':
-            if current_height > takeoff_level:
-                return 'takeoff'
-            else:
-                return 'play'
-        elif start_action in ('takeoff', 'play'):
-            return start_action
-        else:
-            return 'error'
+        return [x, y, z]
 
     def check_ground(self, ground_level = 0, ratio = (1,1,1), offset = (0,0,0)):
         return ground_level <= self.get_scaled_output_min_z(ratio, offset)

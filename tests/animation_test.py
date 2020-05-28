@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 from pytest import approx
+import pytest
 
 # Add parent dir to PATH to import config
 import inspect
@@ -36,7 +37,7 @@ a = animation_lib.Animation()
 def test_animation_1():
     a.update_frames(config, "animation_1.csv")
     assert a.id == 'basic'
-    assert a.original_frames[0].get_pos() == [0.,0.,0.]
+    assert approx(a.original_frames[0].get_pos()) == [0,0,0]
     assert a.original_frames[0].get_color() == [204,2,0]
     assert a.original_frames[0].pose_is_valid()
     assert animation_lib.get_numbers(a.static_begin_frames) == range(1,11)
@@ -48,13 +49,16 @@ def test_animation_1():
     assert approx(a.static_begin_time) == 1
     assert approx(a.takeoff_time) == 1
     assert approx(a.output_frames_min_z) == 0.1
+    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [4.,5.,6.3]
+    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 6.3
+    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4.,5.,6.3]
 
 def test_animation_2():
     a.update_frames(config, "animation_2.csv")
     assert a.id == 'parad'
-    assert a.original_frames[269].get_pos() == [-1.00519,2.65699,0.21]
-    assert a.original_frames[269].get_color() == [7,255,0]
-    assert a.original_frames[269].pose_is_valid()
+    assert approx(a.original_frames[271].get_pos()) == [-1.00519,2.65699,0.24386]
+    assert a.original_frames[271].get_color() == [7,255,0]
+    assert a.original_frames[271].pose_is_valid()
     assert animation_lib.get_numbers(a.static_begin_frames) == range(271)
     assert animation_lib.get_numbers(a.takeoff_frames) == range(271,285)
     assert animation_lib.get_numbers(a.route_frames) == range(285,1065)
@@ -64,6 +68,9 @@ def test_animation_2():
     assert approx(a.static_begin_time) == 27.1
     assert approx(a.takeoff_time) == 1.4
     assert approx(a.output_frames_min_z) == 0.24386
+    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [2.99481, 10.31398, 6.73158]
+    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 6.73158
+    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [2.99481, 10.31398, 6.73158]
 
 def test_animation_3():
     a.update_frames(config, "animation_3.csv")
@@ -79,6 +86,9 @@ def test_animation_3():
     assert approx(a.static_begin_time) == 0
     assert approx(a.takeoff_time) == 0
     assert approx(a.output_frames_min_z) == 1
+    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [4,5,9]
+    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 9
+    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4,5,9]
 
 def test_animation_no_file():
     a.update_frames(config, "zzz.csv")
@@ -93,6 +103,9 @@ def test_animation_no_file():
     assert a.static_begin_time == 0
     assert a.takeoff_time == 0
     assert a.output_frames_min_z is None
+    assert a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6]) == []
+    assert a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6]) is None
+    assert a.get_start_point(ratio=[1,2,3], offset=[4,5,6]) == []
 
 
 # print animation_lib.get_numbers(a.static_begin_frames)
