@@ -1,7 +1,8 @@
 import os
-import time
 import csv
 import copy
+import math
+import time
 import numpy
 import rospy
 import logging
@@ -31,17 +32,6 @@ def get_numbers(frames):
         for frame in frames:
             numbers.append(frame.number)
     return numbers
-
-def get_start_action(start_action, current_height, takeoff_level):
-    if start_action is 'auto':
-        if current_height > takeoff_level:
-            return 'takeoff'
-        else:
-            return 'play'
-    elif start_action in ('takeoff', 'play'):
-        return start_action
-    else:
-        return 'error'
 
 class Frame(object):
     params_dict = {
@@ -86,6 +76,10 @@ class Frame(object):
         else:
             return [self.red, self.green, self.blue]
 
+    def set_yaw(self, yaw):
+        if yaw != "animation":
+            self.yaw = math.radians(float(yaw))
+
     def pose_is_valid(self):
         return self.get_pos() and (self.yaw is not None)
 
@@ -97,27 +91,34 @@ class Animation(object):
 
     def reset(self, filepath):
         self.id = None
-        self.static_begin_time = 0
-        self.takeoff_time = 0
+        self.start_delay = 0
         self.original_frames = None
         self.static_begin_frames = None
+        self.static_begin_time = 0
         self.takeoff_frames = None
+        self.takeoff_time = 0
         self.route_frames = None
+        self.route_time = 0
         self.land_frames = None
+        self.land_time = 0
         self.static_end_frames = None
+        self.static_end_time = 0
         self.output_frames = None
         self.output_frames_min_z = None
         self.filepath = filepath
+        self.state = None
 
-    def load(self, filepath="animation.csv", delay=0.1):
+    def load(self, filepath="animation.csv", config = None):
         self.original_frames = []
         self.corrected_frames = []
         self.filepath = filepath
+        self.state = "OK"
+        delay = config.animation_frame_delay
         try:
             animation_file = open(filepath)
         except IOError:
             logger.debug("File {} can't be opened".format(filepath))
-            self.id = "No animation"
+            self.state = "No animation"
         else:
             with animation_file:
                 current_frame_delay = delay
@@ -133,13 +134,20 @@ class Animation(object):
                     logger.debug("Got new frame delay: {}".format(current_frame_delay))
                 else:
                     logger.debug("No animation id in file")
+                    self.id = "No animation id"
                     try:
                         frame = Frame(row_0, current_frame_delay)
                     except ValueError as e:
                         logger.error("Can't parse row in csv file. {}".format(e))
+                        self.state = "Bad animation file"
                         return
-                    else:
-                        self.original_frames.append(frame)
+                    try:
+                        frame.set_yaw(config.animation_yaw)
+                    except ValueError as e:
+                        logger.error("Can't set yaw from configuration")
+                        self.state = "Bad yaw from config"
+                        return
+                    self.original_frames.append(frame)
                 for row in csv_reader:
                     if len(row) == 2:
                         current_frame_delay = float(row[1])
@@ -149,9 +157,15 @@ class Animation(object):
                             frame = Frame(row, current_frame_delay)
                         except ValueError as e:
                             logger.error("Can't parse row in csv file. {}".format(e))
+                            self.state = "Bad animation file"
                             return
-                        else:
-                            self.original_frames.append(frame)
+                        try:
+                            frame.set_yaw(config.animation_yaw)
+                        except ValueError as e:
+                            logger.error("Can't set yaw from configuration")
+                            self.state = "Bad yaw from config"
+                            return
+                        self.original_frames.append(frame)
         self.split_animation()
 
     '''
@@ -171,6 +185,8 @@ class Animation(object):
         self.static_end_frames = []
         self.static_begin_time = 0
         self.takeoff_time = 0
+        self.route_time = 0
+        self.land_time = 0
         if len(self.original_frames) == 0:
             return
         frames = copy.deepcopy(self.original_frames)
@@ -201,6 +217,7 @@ class Animation(object):
         i = len(frames) - 1 # Moving index from the end
         # Select static end frames
         while i >= 0:
+            self.static_end_time += frames[i].delay
             if moving(frames[i], frames[i-1], move_delta):
                 break
             i -= 1
@@ -208,28 +225,48 @@ class Animation(object):
             self.static_end_frames = frames[i+1:]
             frames = frames[:i+1]
             i = len(frames) - 1
+        else:
+            self.static_end_time = 0
         # Select land frames
         while i >= 0:
+            self.land_time += frames[i].delay
             if moving(frames[i], frames[i-1], move_delta, z = False) or (frames[i-1].z - frames[i].z <= 0):
                 break
             i -= 1
         if i < len(frames) - 1:
             self.land_frames = frames[i+1:]
             frames = frames[:i+1]
+        else:
+            self.land_time = 0
         # Get route frames
         self.route_frames = frames
+        for frame in self.route_frames:
+            self.route_time += frame.delay
 
     def make_output_frames(self, static_begin, takeoff, route, land, static_end):
         self.output_frames = []
         self.output_frames_min_z = None
+        self.start_delay = 0.
+        if not self.original_frames:
+            return
+        if not static_begin and not takeoff and not route and not land and not static_end:
+            return
         if static_begin:
             self.output_frames += self.static_begin_frames
+        if not static_begin:
+            self.start_delay += self.static_begin_time
         if takeoff:
             self.output_frames += self.takeoff_frames
+        if not static_begin and not takeoff:
+            self.start_delay += self.takeoff_time
         if route:
             self.output_frames += self.route_frames
+        if not static_begin and not takeoff and not route:
+            self.start_delay += self.route_time
         if land:
             self.output_frames += self.land_frames
+        if not static_begin and not takeoff and not route and not land:
+            self.start_delay += self.land_time
         if static_end:
             self.output_frames += self.static_end_frames
         if self.output_frames:
@@ -237,14 +274,14 @@ class Animation(object):
 
     def update_frames(self, config, filepath):
         self.reset(filepath)
-        self.load(filepath, config.animation_frame_delay)
+        self.load(filepath, config)
         self.make_output_frames(config.animation_output_static_begin,
                                     config.animation_output_takeoff,
                                     config.animation_output_route,
                                     config.animation_output_land,
                                     config.animation_output_static_end)
 
-    def get_scaled_output(self, ratio = (1,1,1), offset = (0,0,0)):
+    def get_scaled_output(self, ratio=(1,1,1), offset=(0,0,0)):
         x0, y0, z0 = offset
         x_ratio, y_ratio, z_ratio = ratio
         scaled_frames = copy.deepcopy(self.output_frames)
@@ -255,14 +292,14 @@ class Animation(object):
                 frame.z = z_ratio*frame.z + z0
         return scaled_frames
 
-    def get_scaled_output_min_z(self, ratio = (1,1,1), offset = (0,0,0)):
+    def get_scaled_output_min_z(self, ratio=(1,1,1), offset=(0,0,0)):
         if self.output_frames_min_z is None:
             return None
-        x0, y0, z0 = offset
-        x_ratio, y_ratio, z_ratio = ratio
+        z0 = offset[2]
+        z_ratio = ratio[2]
         return self.output_frames_min_z*z_ratio + z0
 
-    def get_start_point(self, ratio = (1,1,1), offset = (0,0,0)):
+    def get_start_point(self, ratio=(1,1,1), offset=(0,0,0)):
         if not self.output_frames:
             return []
         x0, y0, z0 = offset
@@ -273,8 +310,29 @@ class Animation(object):
         z = z_ratio*first_frame.z + z0
         return [x, y, z]
 
-    def check_ground(self, ground_level = 0, ratio = (1,1,1), offset = (0,0,0)):
+    def check_ground(self, ground_level=0, ratio=(1,1,1), offset=(0,0,0)):
         return ground_level <= self.get_scaled_output_min_z(ratio, offset)
+
+    def get_start_action(self, start_action, current_height, takeoff_level,
+                                ground_level, ratio=(1,1,1), offset=(0,0,0)):
+        # Check output frames
+        if not self.output_frames:
+            return 'error: empty output frames'
+        if math.isnan(current_height):
+            return 'error: bad current_height'
+        # Check that bottom point of animation is higher than ground level
+        if ground_level > self.get_scaled_output_min_z(ratio, offset):
+            return 'error: some animation points are lower than ground level'
+        # Select start action
+        if start_action is 'auto':
+            if self.get_start_point(ratio, offset)[2] - current_height > takeoff_level:
+                return 'takeoff'
+            else:
+                return 'play'
+        elif start_action in ('takeoff', 'play'):
+            return start_action
+        else:
+            return 'error'
 
     # Need for tests
     def save_corrected_animation(self):

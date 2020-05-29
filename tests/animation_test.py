@@ -92,7 +92,7 @@ def test_animation_3():
 
 def test_animation_no_file():
     a.update_frames(config, "zzz.csv")
-    assert a.id == 'No animation'
+    assert a.id == None
     assert a.original_frames == []
     assert a.output_frames == []
     assert animation_lib.get_numbers(a.static_begin_frames) == []
