@@ -650,8 +650,11 @@ def _play_animation(*args, **kwargs):
         return
 
     # Get start action and delay
-    start_action, start_delay = copter.telemetry.start_action_and_delay
-
+    try:
+        start_action, start_delay = copter.telemetry.start_action_and_delay
+    except ValueError:
+        logger.error("start: Can't get animation start position and delay")
+        return
     # Reset task manager
     task_manager.reset(interrupt_next_task=False)
 
@@ -726,7 +729,6 @@ class Telemetry:
         "selfcheck": None,
         "current_position": None,
         "start_position": None,
-        "start_action_and_delay": None,
         "last_task": None,
         "time_delta": None,
         "config_version": None,
@@ -765,17 +767,23 @@ class Telemetry:
     def get_config_version(cls):
         return "{} V{}".format(copter.config.config_name, copter.config.config_version)
 
-    @classmethod
-    def get_start_position(cls):
-        x_start, y_start, z_start = animation.get_start_pos(os.path.abspath("animation.csv"),
-                                                  *copter.config.animation_ratio)
+    def get_start_position(self):
         offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
-        x = x_start + offset[0]
-        y = y_start + offset[1]
-        z = z_start + offset[2]
-        if not FlightLib._check_nans(x, y, z):
-            return x, y, z
-        return 'NO_POS'
+        try:
+            x, y, z = copter.animation.get_start_point(copter.config.animation_ratio, offset)
+        except ValueError:
+            return [float('nan'),float('nan'),float('nan'),float('nan'),'error: no start pos in animation',float('nan')]
+        else:
+            start_delay = copter.animation.start_delay
+            yaw = copter.animation.get_start_yaw()
+            if not self.ros_telemetry:
+                start_action = 'error: no telemetry data'
+            else:
+                start_action = copter.animation.get_start_action(
+                                copter.config.animation_start_action, self.ros_telemetry.z,
+                                copter.config.animation_takeoff_level, copter.config.animation_ground_level,
+                                copter.config.animation_ratio, offset)
+            return [x,y,z,yaw,start_action,start_delay]
 
     @classmethod
     def get_battery(cls, ros_telemetry):
@@ -809,22 +817,16 @@ class Telemetry:
 
     @classmethod
     def get_position(cls, ros_telemetry):
-        x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
+        try:
+            x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
+        except AttributeError:
+            return 'NO_POS'
         if not math.isnan(x):
             return x, y, z, math.degrees(ros_telemetry.yaw), copter.config.copter_frame_id
         return 'NO_POS'
 
     def get_ros_telemetry(self):
         return self.ros_telemetry
-
-    def get_start_action_and_delay(self)
-        offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
-        start_action = copter.animation.get_start_action(
-                            copter.config.animation_start_action, self.ros_telemetry.z,
-                            copter.config.animation_takeoff_level, copter.config.animation_ground_level,
-                            copter.config.animation_ratio, offset)
-        start_delay = copter.animation.start_delay
-        return start_action, start_delay
 
     def update_telemetry_fast(self):
         self.last_task = task_manager.get_current_task()
@@ -852,7 +854,6 @@ class Telemetry:
         self.git_version = self.get_git_version()
         self.config_version = self.get_config_version()
         self.start_position = self.get_start_position()
-        self.start_action_and_delay = self.get_start_action_and_delay()
         try:
             self.calibration_status = get_calibration_status()
             self.fcu_status = get_sys_status()
@@ -988,20 +989,21 @@ def emergency_callback(data):
 class AnimationEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         logger.info('{} is {}'.format(event.src_path, event.event_type))
-        if event.src_path == "./animation.csv" and event.event_type == "modified":
-            copter.animation.update_frames(copter.config, "animation.csv")
+        # logger.info(os.path.splitext(event.src_path))
+        if os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted":
+            if os.path.exists("animation.csv"):
+                logger.info("Update frames from animation.csv")
+                copter.animation.update_frames(copter.config, "animation.csv")
 
 
 if __name__ == "__main__":
     copter = CopterClient()
     task_manager = tasking.TaskManager()
     rospy.Subscriber('/emergency', Bool, emergency_callback)
-    copter.start(task_manager)
     event_handler = AnimationEventHandler()
     observer = Observer()
     observer.schedule(event_handler, ".")
     observer.start()
-    while not rospy.is_shutdown:
-        rospy.sleep(1)
+    copter.start(task_manager)
     observer.stop()
     observer.join()
