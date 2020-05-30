@@ -310,6 +310,11 @@ class Animation(object):
         z = z_ratio*first_frame.z + z0
         return [x, y, z]
 
+    def get_start_yaw(self):
+        if not self.output_frames:
+            return float('nan')
+        return math.degrees(self.output_frames[0].yaw)
+
     def check_ground(self, ground_level=0, ratio=(1,1,1), offset=(0,0,0)):
         return ground_level <= self.get_scaled_output_min_z(ratio, offset)
 
@@ -324,12 +329,12 @@ class Animation(object):
         if ground_level > self.get_scaled_output_min_z(ratio, offset):
             return 'error: some animation points are lower than ground level'
         # Select start action
-        if start_action is 'auto':
+        if start_action == 'auto':
             if self.get_start_point(ratio, offset)[2] - current_height > takeoff_level:
                 return 'takeoff'
             else:
-                return 'play'
-        elif start_action in ('takeoff', 'play'):
+                return 'fly'
+        elif start_action in ('takeoff', 'fly'):
             return start_action
         else:
             return 'error'
