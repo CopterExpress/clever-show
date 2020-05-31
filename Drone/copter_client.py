@@ -651,7 +651,7 @@ def _play_animation(*args, **kwargs):
 
     # Get start action and delay
     try:
-        start_action, start_delay = copter.telemetry.start_action_and_delay
+        start_action, start_delay = copter.telemetry.start_position[-2:]
     except ValueError:
         logger.error("start: Can't get animation start position and delay")
         return
@@ -681,7 +681,7 @@ def _play_animation(*args, **kwargs):
         # Calculate first frame start time
         frame_time = rfp_time + copter.config.copter_reach_first_point_time
 
-    elif start_action == 'arm':
+    elif start_action == 'fly':
         # Calculate start time
         arm_time = start_time + start_delay  # + 1.0
         task_manager.add_task(arm_time, 0, animation.execute_frame,
