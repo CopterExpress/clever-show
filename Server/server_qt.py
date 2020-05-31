@@ -161,6 +161,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
+        self.ui.action_send_animation.triggered.connect(self.send_animation)
         self.ui.action_send_configurations.triggered.connect(self.send_config)
         self.ui.action_send_aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
@@ -480,6 +481,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def send_animations(self):
         self.send_directory_files("Select directory with animations", ('.csv', '.txt'), match_id=True,
                                   client_path="", client_filename="animation.csv")
+
+    @pyqtSlot()
+    def send_animation(self):
+        self.send_files("Select animation file", "Animation files (*.csv)", onefile=True, client_filename="animation.csv")
 
     @pyqtSlot()
     def send_calibrations(self):
