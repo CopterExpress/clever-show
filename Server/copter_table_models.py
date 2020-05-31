@@ -145,6 +145,10 @@ def check_time_delta(item):
 @ModelChecks.column_check("start_position", pass_context=True)
 def check_start_pos(item, context):
 
+    if len(item) == 6:
+        if not item[4] in ["takeoff", "fly"]:
+            return False
+
     if ModelChecks.start_pos_delta_max == 0:
         return True
 
