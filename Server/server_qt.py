@@ -112,10 +112,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.init_model()
 
-        # self.statusBar = QStatusBar()
-        # self.setStatusBar(self.statusBar)
-        # self.statusBar.showMessage("Hey", 2000)
-
         self.register_callbacks()
         self.player = QtMultimedia.QMediaPlayer()
 
