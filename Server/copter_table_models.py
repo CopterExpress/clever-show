@@ -322,7 +322,7 @@ def view_selfcheck(value):
 def view_current_position(value):
     if isinstance(value, list):
         x, y, z, yaw, frame = value
-        return f"{x: .2f} {y: .2f} {z: .2f} {int(yaw): d} {frame}"
+        return f"{x: .2f} {y: .2f} {z: .2f} {yaw: .0f} {frame}"
     return value
 
 
@@ -331,7 +331,7 @@ def view_start_position(value):
     if isinstance(value, list):
         x, y, z, yaw, action, delay = value
         if action in ['fly', 'takeoff']:
-            return f"{x: .2f} {y: .2f} {z: .2f} {int(yaw): d} {action} {delay: .1f}"
+            return f"{x: .2f} {y: .2f} {z: .2f} {yaw: .0f} {action} {delay: .1f}"
         else:
             return f"{action}"
     return value
