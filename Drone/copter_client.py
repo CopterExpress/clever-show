@@ -990,7 +990,7 @@ class AnimationEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         logger.info('{} is {}'.format(event.src_path, event.event_type))
         # logger.info(os.path.splitext(event.src_path))
-        if os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted":
+        if (os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted") or event.src_path.split('/')[-1] == 'client.ini':
             if os.path.exists("animation.csv"):
                 logger.info("Update frames from animation.csv")
                 copter.animation.update_frames(copter.config, "animation.csv")
@@ -1002,7 +1002,7 @@ if __name__ == "__main__":
     rospy.Subscriber('/emergency', Bool, emergency_callback)
     event_handler = AnimationEventHandler()
     observer = Observer()
-    observer.schedule(event_handler, ".")
+    observer.schedule(event_handler, ".", recursive=True)
     observer.start()
     copter.start(task_manager)
     observer.stop()
