@@ -1003,7 +1003,8 @@ if __name__ == "__main__":
     event_handler = AnimationEventHandler()
     observer = Observer()
     observer.schedule(event_handler, ".", recursive=True)
+    observer.daemon = True
     observer.start()
     copter.start(task_manager)
-    observer.stop()
-    observer.join()
+    #observer.stop()
+    #observer.join()
