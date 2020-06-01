@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1360</width>
-    <height>816</height>
+    <height>869</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -71,7 +71,7 @@
         <item>
          <layout class="QFormLayout" name="formLayout">
           <property name="labelAlignment">
-           <set>Qt::AlignHCenter|Qt::AlignTop</set>
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
           </property>
           <property name="formAlignment">
            <set>Qt::AlignHCenter|Qt::AlignTop</set>
@@ -85,7 +85,7 @@
              <string>  Start after</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignCenter</set>
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
@@ -93,16 +93,6 @@
            <widget class="QSpinBox" name="start_delay_spin">
             <property name="suffix">
              <string> s</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="music_text">
-            <property name="layoutDirection">
-             <enum>Qt::RightToLeft</enum>
-            </property>
-            <property name="text">
-             <string>  Music after</string>
             </property>
            </widget>
           </item>
@@ -116,16 +106,6 @@
             </property>
             <property name="maximum">
              <double>1000.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="music_play_text">
-            <property name="layoutDirection">
-             <enum>Qt::RightToLeft</enum>
-            </property>
-            <property name="text">
-             <string>  Play music</string>
             </property>
            </widget>
           </item>
@@ -154,6 +134,26 @@
             </property>
             <property name="checked">
              <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="music_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="text">
+             <string>  Music after</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="music_play_text">
+            <property name="layoutDirection">
+             <enum>Qt::RightToLeft</enum>
+            </property>
+            <property name="text">
+             <string>  Play music</string>
             </property>
            </widget>
           </item>
@@ -426,7 +426,7 @@
      <x>0</x>
      <y>0</y>
      <width>1360</width>
-     <height>25</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOptions">
@@ -470,10 +470,12 @@
       <string>Send</string>
      </property>
      <addaction name="action_send_animations"/>
+     <addaction name="action_send_calibrations"/>
+     <addaction name="separator"/>
+     <addaction name="action_send_aruco_map"/>
+     <addaction name="action_send_animation"/>
      <addaction name="action_send_configurations"/>
      <addaction name="action_send_launch_file"/>
-     <addaction name="action_send_aruco_map"/>
-     <addaction name="action_send_calibrations"/>
      <addaction name="action_send_fcu_parameters"/>
      <addaction name="separator"/>
      <addaction name="action_send_any_file"/>
@@ -538,7 +540,7 @@
   </action>
   <action name="action_send_launch_file">
    <property name="text">
-    <string>Launch files</string>
+    <string>Launch files folder</string>
    </property>
   </action>
   <action name="action_restart_clever">
@@ -639,7 +641,7 @@
   </action>
   <action name="action_send_fcu_parameters">
    <property name="text">
-    <string>FCU parameters</string>
+    <string>FCU parameters file</string>
    </property>
   </action>
   <action name="action_toggle_select">
@@ -705,6 +707,11 @@
   <action name="actionSomething">
    <property name="text">
     <string>something</string>
+   </property>
+  </action>
+  <action name="action_send_animation">
+   <property name="text">
+    <string>Animation</string>
    </property>
   </action>
  </widget>

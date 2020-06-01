@@ -9,7 +9,10 @@ import numpy
 try:
     from clever import srv
 except ImportError:
-    from clover import srv
+    try:
+        from clover import srv
+    except ImportError:
+        print("Can't import clever or clover")
 
 import datetime
 import logging
@@ -17,8 +20,17 @@ import threading
 import psutil
 import subprocess
 from collections import namedtuple
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-from FlightLib import FlightLib
+try:
+    from FlightLib import FlightLib
+except ImportError:
+    print("Can't import FlightLib")
+try:
+    from FlightLib import LedLib
+except ImportError:
+    print("Can't import LedLib")
 
 import client
 
@@ -33,7 +45,26 @@ from geometry_msgs.msg import Point, Quaternion, TransformStamped
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
 import tf2_ros
 
-static_bloadcaster = tf2_ros.StaticTransformBroadcaster()
+from geographiclib.geodesic import Geodesic
+
+Earth = Geodesic.WGS84
+
+def dist(x, y):
+    return math.sqrt(x**2+y**2)
+
+def azi(x, y):
+    return 90 - math.atan2(y,x)*180/math.pi
+
+def get_xy(dist, azi):
+    return dist*math.sin(math.radians(azi)), dist*math.cos(math.radians(azi))
+
+def valid(pos):
+    for coord in pos:
+        if math.isnan(coord):
+            return False
+    return True
+
+static_broadcaster = tf2_ros.StaticTransformBroadcaster()
 
 emergency = False
 
@@ -83,7 +114,8 @@ class CopterClient(client.Client):
     def __init__(self, config_path="config/client.ini"):
         super(CopterClient, self).__init__(config_path)
         self.load_config()
-        self.frames = {}
+        self.telemetry = None
+        self.animation = animation.Animation(self.config, "animation.csv")
 
     def load_config(self):
         super(CopterClient, self).load_config()
@@ -97,17 +129,22 @@ class CopterClient(client.Client):
         if self.config.led_use:
             from FlightLib import LedLib
             LedLib.init_led(self.config.led_pin)
-        task_manager_instance.start()  # TODO move to self
+        task_manager_instance.start()
+        start_subscriber()
+        self.telemetry = Telemetry()
+        self.telemetry.start_loop()
         if self.config.copter_frame_id == "floor":
             self.start_floor_frame_broadcast()
         elif self.config.copter_frame_id == "gps":
             self.start_gps_frame_broadcast()
-        start_subscriber()
-
-        telemetry.start_loop()
-        super(CopterClient, self).start()
+        client_thread = threading.Thread(target=super(CopterClient, self).start, name="Client thread")
+        client_thread.daemon = True
+        client_thread.start()
+        #super(CopterClient, self).start()
 
     def start_floor_frame_broadcast(self):
+        if self.config.floor_frame_parent == "gps":
+            self.start_gps_frame_broadcast()
         trans = TransformStamped()
         trans.transform.translation.x = self.config.floor_frame_translation[0]
         trans.transform.translation.y = self.config.floor_frame_translation[1]
@@ -117,10 +154,49 @@ class CopterClient(client.Client):
                                                                      math.radians(self.config.floor_frame_rotation[2])))
         trans.header.frame_id = self.config.floor_frame_parent
         trans.child_frame_id = self.config.copter_frame_id
-        static_bloadcaster.sendTransform(trans)
+        static_broadcaster.sendTransform(trans)
 
     def start_gps_frame_broadcast(self):
-        return
+        trans = TransformStamped()
+        trans.transform.translation.x = 0
+        trans.transform.translation.y = 0
+        trans.transform.translation.z = 0
+        trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
+        trans.header.frame_id = "map"
+        trans.child_frame_id = "gps"
+        static_broadcaster.sendTransform(trans)
+        gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
+        gps_frame_thread.daemon = True
+        gps_frame_thread.start()
+
+    def gps_frame_broadcast_loop(self):
+        rate = rospy.Rate(1)
+        while not rospy.is_shutdown():
+            telem = FlightLib.get_telemetry_locked(frame_id = "map")
+            if telem is not None:
+                if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
+                    logger.info("Can't get position from telemetry")
+                else:
+                    lat = float(self.config.gps_frame_lat)
+                    lon = float(self.config.gps_frame_lon)
+                    geo_delta = Earth.Inverse(telem.lat, telem.lon, lat, lon)
+                    #logger.info("dist: {} | azi: {}".format(geo_delta['s12'], geo_delta['azi1']))
+                    dx, dy = get_xy(geo_delta['s12'], geo_delta['azi1'])
+                    gps_dx = telem.x + dx
+                    gps_dy = telem.y + dy
+                    #logger.info("GPS frame dx: {} | dy: {}".format(gps_dx, gps_dy))
+                    trans = TransformStamped()
+                    trans.transform.translation.x = gps_dx
+                    trans.transform.translation.y = gps_dy
+                    trans.transform.translation.z = 0
+                    trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,
+                                                            math.radians(self.config.gps_frame_yaw)))
+                    trans.header.frame_id = "map"
+                    trans.child_frame_id = "gps"
+                    static_broadcaster.sendTransform(trans)
+
+            rate.sleep()
+
 
 def restart_service(name):
     os.system("systemctl restart {}".format(name))
@@ -260,13 +336,13 @@ def _execute(*args, **kwargs):
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
     if new_id is not None:
-        old_id = client.active_client.client_id
+        old_id = copter.client_id
         if new_id != old_id:
-            client.active_client.config.set('PRIVATE', 'id', new_id, write=True)
-            client.active_client.client_id = new_id
+            copter.config.set('PRIVATE', 'id', new_id, write=True)
+            copter.client_id = new_id
             if new_id != '/hostname':
-                if client.active_client.config.system_restart_after_rename:
-                    hostname = client.active_client.client_id
+                if copter.config.system_restart_after_rename:
+                    hostname = copter.client_id
                     configure_hostname(hostname)
                     configure_hosts(hostname)
                     configure_bashrc(hostname)
@@ -293,28 +369,14 @@ def _response_selfcheck(*args, **kwargs):
 
 @messaging.request_callback("telemetry")
 def _response_telemetry(*args, **kwargs):
-    telemetry.update()
-    return telemetry.create_msg_contents()
+    copter.telemetry.update()
+    return copter.telemetry.create_msg_contents()
 
 
 @messaging.request_callback("anim_id")
 def _response_animation_id(*args, **kwargs):
     # Load animation
-    result = animation.get_id()
-    if result != 'No animation':
-        logger.debug("Saving corrected animation")
-        offset = numpy.array(client.active_client.config.private_offset) + numpy.array(client.active_client.config.copter_common_offset)
-        frames = animation.load_animation(os.path.abspath("animation.csv"), client.active_client.config.animation_frame_delay,
-                                            offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
-        # Correct start and land frames in animation
-        corrected_frames, start_action, start_delay = animation.correct_animation(frames,
-                                                        check_takeoff=client.active_client.config.animation_takeoff_detection,
-                                                        check_land=client.active_client.config.animation_land_detection,
-                                                        )
-        logger.debug("Start action: {}".format(start_action))
-        # Save corrected animation
-        animation.save_corrected_animation(corrected_frames)
-    return result
+    return copter.animation.id
 
 
 @messaging.request_callback("batt_voltage")
@@ -351,9 +413,9 @@ def _response_cal_status(*args, **kwargs):
 
 @messaging.request_callback("position")
 def _response_position(*args, **kwargs):
-    telem = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
+    telem = copter.telemetry.ros_telemetry
     return "{:.2f} {:.2f} {:.2f} {:.1f} {}".format(
-        telem.x, telem.y, telem.z, math.degrees(telem.yaw), client.active_client.config.copter_frame_id)
+        telem.x, telem.y, telem.z, math.degrees(telem.yaw), copter.config.copter_frame_id)
 
 
 @messaging.request_callback("calibrate_gyro")
@@ -382,60 +444,61 @@ def _command_test(*args, **kwargs):
     print("stdout test")
 
 
+@messaging.message_callback("update_animation")
+def _command_update_animation(*args, **kwargs):
+    copter.animation.update_frames(copter.config, "animation.csv")
+
+
 @messaging.message_callback("move_start")
 def _command_move_start_to_current_position(*args, **kwargs):
-    x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
-                                            *client.active_client.config.animation_ratio)
-    logger.debug("x_start = {}, y_start = {}".format(x_start, y_start))
-    if not math.isnan(x_start):
-        telem = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
-        logger.debug("x_telem = {}, y_telem = {}".format(telem.x, telem.y))
-        if not math.isnan(telem.x):
-            client.active_client.config.set('PRIVATE', 'offset',
-                                            [telem.x - x_start, telem.y - y_start, client.active_client.config.private_offset[2]],
-                                            write=True)
-            logger.info("Set start delta: {:.2f} {:.2f}".format(client.active_client.config.private_offset[0],
-                                                                client.active_client.config.private_offset[1]))
-        else:
-            logger.debug("Wrong telemetry")
+    offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
+    try:
+        xs, ys, zs = copter.animation.get_start_point(copter.config.ratio, offset)
+    except ValueError:
+        logger.error("Can't get start point. Check animation file!")
     else:
-        logger.debug("Wrong animation file")
+        logger.debug("start x = {}, y = {}".format(xs, ys))
+        telem = copter.telemetry.ros_telemetry
+        logger.debug("telemetry x = {}, y = {}".format(telem.x, telem.y))
+        if valid([telem.x, telem.y, telem.z]):
+            copter.config.set('PRIVATE', 'offset',
+                [telem.x - xs, telem.y - ys, copter.config.private_offset[2]], write=True)
+            logger.info("Set start delta: {:.2f} {:.2f}".format(copter.config.private_offset[0],
+                                                                copter.config.private_offset[1]))
+        else:
+            logger.error("Wrong telemetry")
 
 
 @messaging.message_callback("reset_start")
 def _command_reset_start(*args, **kwargs):
-    client.active_client.config.set('PRIVATE', 'offset',
-                                    [0, 0, client.active_client.config.private_offset[2]],
-                                    write=True)
-    logger.info("Reset start to {:.2f} {:.2f}".format(client.active_client.config.private_offset[0],
-                                                    client.active_client.config.private_offset[1]))
+    copter.config.set('PRIVATE', 'offset',
+                                    [0, 0, copter.config.private_offset[2]], write=True)
+    logger.info("Reset start to {:.2f} {:.2f}".format(copter.config.private_offset[0],
+                                                    copter.config.private_offset[1]))
 
 
 @messaging.message_callback("set_z_to_ground")
 def _command_set_z(*args, **kwargs):
-    telem = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
-    client.active_client.config.set('PRIVATE', 'offset',
-                                    [client.active_client.config.private_offset[0], client.active_client.config.private_offset[1], telem.z],
-                                    write=True)
-    logger.info("Set z offset to {:.2f}".format(client.active_client.config.private_offset[2]))
+    telem = copter.telemetry.ros_telemetry
+    if valid([telem.x, telem.y, telem.z]):
+        copter.config.set('PRIVATE', 'offset',
+            [copter.config.private_offset[0], copter.config.private_offset[1], telem.z], write=True)
+        logger.info("Set z offset to {:.2f}".format(copter.config.private_offset[2]))
+    else:
+        logger.error("Wrong telemetry")
 
 
 @messaging.message_callback("reset_z_offset")
 def _command_reset_z(*args, **kwargs):
-    client.active_client.config.set('PRIVATE', 'offset',
-                                    [client.active_client.config.private_offset[0], client.active_client.config.private_offset[1], 0],
-                                    write=True)
-    logger.info("Reset z offset to {:.2f}".format(client.active_client.config.private_offset[2]))
+    copter.config.set('PRIVATE', 'offset',
+        [copter.config.private_offset[0], copter.config.private_offset[1], 0], write=True)
+    logger.info("Reset z offset to {:.2f}".format(copter.config.private_offset[2]))
 
 
 @messaging.message_callback("update_repo")
 def _command_update_repo(*args, **kwargs):
-    os.system("mv /home/pi/clever-show/Drone/client_config.ini /home/pi/clever-show/Drone/client_config_tmp.ini")
-    os.system("git reset --hard HEAD")
-    os.system("git checkout master")
     os.system("git fetch")
     os.system("git pull --rebase")
-    os.system("mv /home/pi/clever-show/Drone/client_config_tmp.ini /home/pi/clever-show/Drone/client_config.ini")
     os.system("chown -R pi:pi /home/pi/clever-show")
 
 
@@ -453,12 +516,16 @@ def _command_reboot(*args, **kwargs):
 @messaging.message_callback("service_restart")
 def _command_service_restart(*args, **kwargs):
     service = kwargs["name"]
+    if service=="clover":
+        restart_service("clever")
+    if service=="clever-show":
+        restart_service("clever-show@{}".format(copter.client_id))
     restart_service(service)
 
 
 @messaging.message_callback("repair_chrony")
 def _command_chrony_repair(*args, **kwargs):
-    repair_chrony(client.active_client.config.server_host)
+    repair_chrony(copter.config.server_host)
 
 
 @messaging.message_callback("led_test")
@@ -473,13 +540,12 @@ def _command_led_fill(*args, **kwargs):
     r = kwargs.get("red", 0)
     g = kwargs.get("green", 0)
     b = kwargs.get("blue", 0)
-
     LedLib.fill(r, g, b)
 
 
 @messaging.message_callback("flip")
 def _copter_flip(*args, **kwargs):
-    FlightLib.flip(frame_id=client.active_client.config.copter_frame_id)
+    FlightLib.flip(frame_id=copter.config.copter_frame_id)
 
 
 @messaging.message_callback("takeoff")
@@ -487,30 +553,36 @@ def _command_takeoff(*args, **kwargs):
     logger.info("Takeoff at {}".format(datetime.datetime.now()))
     task_manager.add_task(0, 0, animation.takeoff,
                           task_kwargs={
-                              "z": client.active_client.config.copter_takeoff_height,
-                              "timeout": client.active_client.config.copter_takeoff_time,
-                              "safe_takeoff": client.active_client.config.copter_safe_takeoff,
-                              "use_leds": client.active_client.config.led_use & client.active_client.config.led_takeoff_indication,
-                          }
-                          )
+                              "z": copter.config.copter_takeoff_height,
+                              "timeout": copter.config.copter_takeoff_time,
+                              "safe_takeoff": False,
+                              "use_leds": copter.config.led_use & copter.config.led_takeoff_indication,
+                          })
 
 
 @messaging.message_callback("takeoff_z")
 def _command_takeoff_z(*args, **kwargs):
-    z_str = kwargs.get("z", None)
-    if z_str is not None:
-        telem = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
-        logger.info("Takeoff to z = {} at {}".format(z_str, datetime.datetime.now()))
-        task_manager.add_task(0, 0, FlightLib.reach_point,
-                              task_kwargs={
-                                  "x": telem.x,
-                                  "y": telem.y,
-                                  "z": float(z_str),
-                                  "frame_id": client.active_client.config.copter_frame_id,
-                                  "timeout": client.active_client.config.copter_takeoff_time,
-                                  "auto_arm": True,
-                              }
-                              )
+    try:
+        z = float(kwargs.get("z", None))
+    except TypeError:
+        logger.error("takeoff_z: No z argument!")
+    except ValueError:
+        logger.error("takeoff_z: Wrong z argument!")
+    else:
+        telem = FlightLib.get_telemetry_locked(copter.config.copter_frame_id)
+        if valid([telem.x, telem.y, telem.z]):
+            logger.info("Takeoff to z = {} at {}".format(z, datetime.datetime.now()))
+            task_manager.add_task(0, 0, FlightLib.reach_point,
+                                task_kwargs={
+                                    "x": telem.x,
+                                    "y": telem.y,
+                                    "z": z,
+                                    "frame_id": copter.config.copter_frame_id,
+                                    "timeout": copter.config.copter_takeoff_time,
+                                    "auto_arm": True,
+                                })
+        else:
+            logger.error("Wrong telemetry!")
 
 
 @messaging.message_callback("land")
@@ -518,12 +590,11 @@ def _command_land(*args, **kwargs):
     task_manager.reset()
     task_manager.add_task(0, 0, animation.land,
                           task_kwargs={
-                              "z": client.active_client.config.copter_takeoff_height,
-                              "timeout": client.active_client.config.copter_takeoff_time,
-                              "frame_id": client.active_client.config.copter_frame_id,
-                              "use_leds": client.active_client.config.led_use & client.active_client.config.led_land_indication,
-                          }
-                          )
+                              "z": copter.config.copter_takeoff_height,
+                              "timeout": copter.config.copter_land_timeout,
+                              "frame_id": copter.config.copter_frame_id,
+                              "use_leds": copter.config.led_use & copter.config.led_land_indication,
+                          })
 
 
 @messaging.message_callback("emergency_land")
@@ -537,8 +608,7 @@ def _command_disarm(*args, **kwargs):
     task_manager.add_task(-5, 0, FlightLib.arming_wrapper,
                           task_kwargs={
                               "state": False
-                          }
-                          )
+                          })
 
 
 @messaging.message_callback("stop")
@@ -558,109 +628,107 @@ def _command_resume(*args, **kwargs):
 
 @messaging.message_callback("start")
 def _play_animation(*args, **kwargs):
-    start_time = float(kwargs["time"])
-    # Check if animation file is available
-    if animation.get_id() == 'No animation':
-        logger.error("Can't start animation without animation file!")
+
+    # Validate start_time
+    try:
+        start_time = float(kwargs["time"])
+    except ValueError:
+        logger.error("start: Wrong time argument!")
+        return
+    except KeyError:
+        logger.error("start: No time argument!")
         return
 
+    # Check animation state
+    if copter.animation.state is not "OK":
+        logger.error("start: Bad animation state")
+        return
+
+    # Get output frames
+    offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
+    frames = copter.animation.get_scaled_output(copter.config.animation_ratio, offset)
+    if not frames:
+        logger.error("start: No frames in animation!")
+        return
+
+    # Get current telemetry
+    telem = copter.telemetry.ros_telemetry
+    if not valid([telem.x, telem.y, telem.z]):
+        logger.error("start: Position is not valid!")
+        return
+
+    # Get start action and delay
+    try:
+        start_action, start_delay = copter.telemetry.start_position[-2:]
+    except ValueError:
+        logger.error("start: Can't get animation start position and delay")
+        return
+    # Reset task manager
     task_manager.reset(interrupt_next_task=False)
 
-    logger.info("Start time = {}, wait for {} seconds".format(start_time, start_time - time.time()))
-    # Load animation
-    offset = numpy.array(client.active_client.config.private_offset) + numpy.array(client.active_client.config.copter_common_offset)
-    frames = animation.load_animation(os.path.abspath("animation.csv"), client.active_client.config.animation_frame_delay, 
-                                            offset[0], offset[1], offset[2], *client.active_client.config.animation_ratio)
-    # Correct start and land frames in animation
-    corrected_frames, start_action, start_delay = animation.correct_animation(frames,
-                                                        check_takeoff=client.active_client.config.animation_takeoff_detection,
-                                                        check_land=client.active_client.config.animation_land_detection,
-                                                        )
-    # Choose start action
+    # Set animation logic
     if start_action == 'takeoff':
-        # Takeoff first
-        task_manager.add_task(start_time, 0, animation.takeoff,
+        # Takeoff first at start_time + start_delay_time
+        takeoff_time = start_time + start_delay
+        task_manager.add_task(takeoff_time, 0, animation.takeoff,
                               task_kwargs={
-                                  "z": client.active_client.config.copter_takeoff_height,
-                                  "timeout": client.active_client.config.copter_takeoff_time,
-                                  "safe_takeoff": client.active_client.config.copter_safe_takeoff,
-                                  # "frame_id": client.active_client.config.copter_frame_id,
-                                  "use_leds": client.active_client.config.led_use & client.active_client.config.led_takeoff_indication,
-                              }
-                              )
+                                  "z": copter.config.copter_takeoff_height,
+                                  "timeout": copter.config.copter_takeoff_time,
+                                  "safe_takeoff": False,
+                                  "use_leds": copter.config.led_use & copter.config.led_takeoff_indication,
+                              })
         # Fly to first point
-        rfp_time = start_time + client.active_client.config.copter_takeoff_time
-        if client.active_client.config.animation_yaw == "animation":
-            yaw = frame["yaw"]
-        else:
-            yaw = math.radians(float(client.active_client.config.animation_yaw))
+        rfp_time = takeoff_time + copter.config.copter_takeoff_time
         task_manager.add_task(rfp_time, 0, animation.execute_frame,
                               task_kwargs={
-                                  "point": animation.convert_frame(corrected_frames[0])[0],
-                                  "color": animation.convert_frame(corrected_frames[0])[1],
-                                  "yaw": yaw,
-                                  "frame_id": client.active_client.config.copter_frame_id,
-                                  "use_leds": client.active_client.config.led_use,
+                                  "frame": frames[0],
+                                  "frame_id": copter.config.copter_frame_id,
+                                  "use_leds": copter.config.led_use,
                                   "flight_func": FlightLib.reach_point,
-                              }
-                              )
+                              })
         # Calculate first frame start time
-        frame_time = rfp_time + client.active_client.config.copter_reach_first_point_time
+        frame_time = rfp_time + copter.config.copter_reach_first_point_time
 
-    elif start_action == 'arm':
+    elif start_action == 'fly':
         # Calculate start time
-        start_time += start_delay
-        frame_time = start_time  # + 1.0
-        point, color, yaw = animation.convert_frame(corrected_frames[0])
-        task_manager.add_task(frame_time, 0, animation.execute_frame,
+        arm_time = start_time + start_delay  # + 1.0
+        task_manager.add_task(arm_time, 0, animation.execute_frame,
                               task_kwargs={
-                                  "point": point,
-                                  "color": color,
-                                  "frame_id": client.active_client.config.copter_frame_id,
-                                  "use_leds": client.active_client.config.led_use,
+                                  "frame": frames[0],
+                                  "frame_id": copter.config.copter_frame_id,
+                                  "use_leds": copter.config.led_use,
                                   "flight_func": FlightLib.navto,
                                   "auto_arm": True,
-                              }
-                              )
+                              })
         # Calculate first frame start time
-        frame_time += corrected_frames[0]["delay"]  # TODO Think about arming time
-    logger.debug(task_manager.task_queue)
+        frame_time = arm_time + copter.config.copter_arming_time
+    logger.debug("Start queue {}".format(task_manager.task_queue))
     # Play animation file
-    for frame in corrected_frames:
-        point, color, yaw = animation.convert_frame(frame)
-        if client.active_client.config.animation_yaw == "animation":
-            yaw = frame["yaw"]
-        else:
-            yaw = math.radians(float(client.active_client.config.animation_yaw))
+    for frame in frames:
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                               task_kwargs={
-                                  "point": point,
-                                  "color": color,
-                                  "yaw": yaw,
-                                  "frame_id": client.active_client.config.copter_frame_id,
-                                  "use_leds": client.active_client.config.led_use,
+                                  "frame": frame,
+                                  "frame_id": copter.config.copter_frame_id,
+                                  "use_leds": copter.config.led_use,
                                   "flight_func": FlightLib.navto,
-                              }
-                              )
-        frame_time += frame["delay"]
-
+                              })
+        frame_time += frame.delay
     # Calculate land_time
-    land_time = frame_time + client.active_client.config.copter_land_time
+    land_time = frame_time + copter.config.copter_land_delay
     # Land
     task_manager.add_task(land_time, 0, animation.land,
                           task_kwargs={
-                              "timeout": client.active_client.config.copter_land_timeout,
-                              "frame_id": client.active_client.config.copter_frame_id,
-                              "use_leds": client.active_client.config.led_use & client.active_client.config.led_land_indication,
-                          },
-                          )
+                              "timeout": copter.config.copter_land_timeout,
+                              "frame_id": copter.config.copter_frame_id,
+                              "use_leds": copter.config.led_use & copter.config.led_land_indication,
+                          })
 
 
 # noinspection PyAttributeOutsideInit
 class Telemetry:
     params_default_dict = {
         "git_version": None,
-        "animation_id": None,
+        "animation_info": None,
         "battery": None,
         "armed": False,
         "fcu_status": None,
@@ -705,19 +773,25 @@ class Telemetry:
 
     @classmethod
     def get_config_version(cls):
-        return "{} V{}".format(client.active_client.config.config_name, client.active_client.config.config_version)
+        return "{} V{}".format(copter.config.config_name, copter.config.config_version)
 
-    @classmethod
-    def get_start_position(cls):
-        x_start, y_start = animation.get_start_xy(os.path.abspath("animation.csv"),
-                                                  *client.active_client.config.animation_ratio)
-        offset = numpy.array(client.active_client.config.private_offset) + numpy.array(client.active_client.config.copter_common_offset)
-        x = x_start + offset[0]
-        y = y_start + offset[1]
-        z = offset[2]
-        if not FlightLib._check_nans(x, y, z):
-            return x, y, z
-        return 'NO_POS'
+    def get_start_position(self):
+        offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
+        try:
+            x, y, z = copter.animation.get_start_point(copter.config.animation_ratio, offset)
+        except ValueError:
+            return [float('nan'),float('nan'),float('nan'),float('nan'),'error: no start pos in animation',float('nan')]
+        else:
+            start_delay = copter.animation.start_delay
+            yaw = copter.animation.get_start_yaw()
+            if not self.ros_telemetry:
+                start_action = 'error: no telemetry data'
+            else:
+                start_action = copter.animation.get_start_action(
+                                copter.config.animation_start_action, self.ros_telemetry.z,
+                                copter.config.animation_takeoff_level, copter.config.animation_ground_level,
+                                copter.config.animation_ratio, offset)
+            return [x,y,z,yaw,start_action,start_delay]
 
     @classmethod
     def get_battery(cls, ros_telemetry):
@@ -751,16 +825,21 @@ class Telemetry:
 
     @classmethod
     def get_position(cls, ros_telemetry):
-        x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
+        try:
+            x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
+        except AttributeError:
+            return 'NO_POS'
         if not math.isnan(x):
-            return x, y, z, math.degrees(ros_telemetry.yaw), client.active_client.config.copter_frame_id
+            return x, y, z, math.degrees(ros_telemetry.yaw), copter.config.copter_frame_id
         return 'NO_POS'
 
+    def get_ros_telemetry(self):
+        return self.ros_telemetry
+
     def update_telemetry_fast(self):
-        self.start_position = self.get_start_position()
         self.last_task = task_manager.get_current_task()
         try:
-            self.ros_telemetry = FlightLib.get_telemetry_locked(client.active_client.config.copter_frame_id)
+            self.ros_telemetry = FlightLib.get_telemetry_locked(copter.config.copter_frame_id)
             if self.ros_telemetry.connected:
                 self.armed = self.ros_telemetry.armed
                 self.mode = self.ros_telemetry.mode
@@ -779,9 +858,10 @@ class Telemetry:
         self.round_telemetry()
 
     def update_telemetry_slow(self):
-        self.animation_id = animation.get_id()
+        self.animation_info = [copter.animation.id, copter.animation.state]
         self.git_version = self.get_git_version()
         self.config_version = self.get_config_version()
+        self.start_position = self.get_start_position()
         try:
             self.calibration_status = get_calibration_status()
             self.fcu_status = get_sys_status()
@@ -848,7 +928,7 @@ class Telemetry:
 
     def transmit_message(self):  # todo if connected
         try:
-            client.active_client.server_connection.send_message('telemetry', kwargs={'value': self.create_msg_contents()})
+            copter.server_connection.send_message('telemetry', kwargs={'value': self.create_msg_contents()})
         except AttributeError as e:
             logger.debug(e)
 
@@ -878,7 +958,7 @@ class Telemetry:
             self.update_telemetry_fast()
             self.check_failsafe_and_interruption()
 
-            if client.active_client.config.telemetry_transmit and client.active_client.connected:
+            if copter.config.telemetry_transmit and copter.connected:
                 self.transmit_message()
 
             rate.sleep()
@@ -887,18 +967,20 @@ class Telemetry:
         rate = rospy.Rate(1)
         while not rospy.is_shutdown():
             self.update_telemetry_slow()
-            if client.active_client.config.telemetry_log_resources:
+            if copter.config.telemetry_log_resources:
                 self.log_cpu_and_memory()
             rate.sleep()
 
     def start_loop(self):
-        if client.active_client.config.telemetry_frequency > 0:
+        if copter.config.telemetry_frequency > 0:
             telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
-                                                args=(client.active_client.config.telemetry_frequency,))  # TODO MOVE? Daemon?
+                                                args=(copter.config.telemetry_frequency,))
+            telemetry_thread.daemon = True
+            telemetry_thread.start()
             slow_telemetry_thread = threading.Thread(target=self._slow_update_loop,
                                                      name="Slow telemetry getting thread")
+            slow_telemetry_thread.daemon = True
             slow_telemetry_thread.start()
-            telemetry_thread.start()
         else:
             logger.info("Telemetry loop is not created because of zero or negative telemetry frequency")
 
@@ -914,9 +996,25 @@ def emergency_callback(data):
     emergency = data.data
 
 
+class AnimationEventHandler(FileSystemEventHandler):
+    def on_any_event(self, event):
+        logger.info('{} is {}'.format(event.src_path, event.event_type))
+        # logger.info(os.path.splitext(event.src_path))
+        if (os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted") or event.src_path.split('/')[-1] == 'client.ini':
+            if os.path.exists("animation.csv"):
+                logger.info("Update frames from animation.csv")
+                copter.animation.update_frames(copter.config, "animation.csv")
+
+
 if __name__ == "__main__":
-    telemetry = Telemetry()
-    copter_client = CopterClient()
+    copter = CopterClient()
     task_manager = tasking.TaskManager()
     rospy.Subscriber('/emergency', Bool, emergency_callback)
-    copter_client.start(task_manager)
+    event_handler = AnimationEventHandler()
+    observer = Observer()
+    observer.schedule(event_handler, ".", recursive=True)
+    observer.daemon = True
+    observer.start()
+    copter.start(task_manager)
+    while not rospy.is_shutdown():
+        rospy.sleep(0.1)
