@@ -21,7 +21,7 @@ from quamash import QEventLoop
 # Importing gui form
 from server_gui import Ui_MainWindow
 
-from server import Server, Client, now
+from core_server import Server, Client, now
 
 import messaging_lib as messaging
 import config as cfg
