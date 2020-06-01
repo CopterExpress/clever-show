@@ -1,270 +1,1020 @@
 import os
 import sys
 import time
-import errno
-import random
-import socket
-import struct
+import math
+import rospy
+import numpy
+
+# for backward compatibility with clever
+try:
+    from clever import srv
+except ImportError:
+    try:
+        from clover import srv
+    except ImportError:
+        print("Can't import clever or clover")
+
+import datetime
 import logging
-import selectors2 as selectors
+import threading
+import psutil
+import subprocess
+from collections import namedtuple
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-from contextlib import closing
+try:
+    from FlightLib import FlightLib
+except ImportError:
+    print("Can't import FlightLib")
+try:
+    from FlightLib import LedLib
+except ImportError:
+    print("Can't import LedLib")
 
-import inspect  # Add parent dir to PATH to import messaging_lib
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
-
-logger = logging.getLogger(__name__)
+import client_core
 
 import messaging_lib as messaging
-from config import ConfigManager
+import tasking_lib as tasking
+import animation_lib as animation
 
-active_client = None  # needs to be refactored: Singleton \ factory callbacks
+from mavros_mavlink import *
+
+from std_msgs.msg import Bool
+from geometry_msgs.msg import Point, Quaternion, TransformStamped
+from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
+import tf2_ros
+
+from geographiclib.geodesic import Geodesic
+
+Earth = Geodesic.WGS84
+
+def dist(x, y):
+    return math.sqrt(x**2+y**2)
+
+def azi(x, y):
+    return 90 - math.atan2(y,x)*180/math.pi
+
+def get_xy(dist, azi):
+    return dist*math.sin(math.radians(azi)), dist*math.cos(math.radians(azi))
+
+def valid(pos):
+    for coord in pos:
+        if math.isnan(coord):
+            return False
+    return True
+
+static_broadcaster = tf2_ros.StaticTransformBroadcaster()
+
+emergency = False
+
+logging.basicConfig(  # TODO all prints as logs
+    level=logging.DEBUG,  # INFO
+    stream=sys.stdout,
+    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ])
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+handler.setFormatter(formatter)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
+
+animation_logger = logging.getLogger('animation_lib')
+animation_logger.setLevel(logging.INFO)
+animation_logger.addHandler(handler)
+
+client_logger = logging.getLogger('client')
+client_logger.setLevel(logging.DEBUG)
+client_logger.addHandler(handler)
+
+messaging_logger = logging.getLogger('messaging_lib')
+messaging_logger.setLevel(logging.INFO)
+messaging_logger.addHandler(handler)
+
+tasking_logger = logging.getLogger('tasking_lib')
+tasking_logger.setLevel(logging.INFO)
+tasking_logger.addHandler(handler)
+
+flightlib_logger = logging.getLogger('FlightLib')
+flightlib_logger.setLevel(logging.INFO)
+flightlib_logger.addHandler(handler)
+
+mavros_mavlink_logger = logging.getLogger('mavros_mavlink')
+mavros_mavlink_logger.setLevel(logging.INFO)
+mavros_mavlink_logger.addHandler(handler)
 
 
-class Client(object):
+class CopterClient(client_core.Client):
     def __init__(self, config_path="config/client.ini"):
-        self.selector = selectors.DefaultSelector()
-        self.client_socket = None
-
-        self.server_connection = messaging.ConnectionManager("pi")
-
-        self.connected = False
-        self.client_id = None
-
-        # Init configs
-        self.config = ConfigManager()
-        self.config_path = config_path
-
-        global active_client
-        active_client = self
+        super(CopterClient, self).__init__(config_path)
+        self.load_config()
+        self.telemetry = None
+        self.animation = animation.Animation(self.config, "animation.csv")
 
     def load_config(self):
-        self.config.load_config_and_spec(self.config_path)
+        super(CopterClient, self).load_config()
 
-        config_id = self.config.private_id.lower()
-        if config_id == '/default':
-            self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
-            self.config.set('PRIVATE', 'id', self.client_id, write=True) # set and write
-        elif config_id == '/hostname':
-            self.client_id = socket.gethostname()
-        elif config_id == '/ip':
-            self.client_id = messaging.get_ip_address()
-        else:
-            self.client_id = config_id
+    def on_broadcast_bind(self):
+        repair_chrony(self.config.server_host)
 
-        logger.info("Config loaded")
+    def start(self, task_manager_instance):
+        rospy.loginfo("Init ROS node")
+        rospy.init_node('clever_show_client', anonymous=True)
+        if self.config.led_use:
+            from FlightLib import LedLib
+            LedLib.init_led(self.config.led_pin)
+        task_manager_instance.start()
+        start_subscriber()
+        self.telemetry = Telemetry()
+        self.telemetry.start_loop()
+        if self.config.copter_frame_id == "floor":
+            self.start_floor_frame_broadcast()
+        elif self.config.copter_frame_id == "gps":
+            self.start_gps_frame_broadcast()
+        client_thread = threading.Thread(target=super(CopterClient, self).start, name="Client thread")
+        client_thread.daemon = True
+        client_thread.start()
+        #super(CopterClient, self).start()
 
-    @staticmethod
-    def get_ntp_time(ntp_host, ntp_port):
-        NTP_PACKET_FORMAT = "!12I"
-        NTP_DELTA = 2208988800L  # 1970-01-01 00:00:00
-        NTP_QUERY = '\x1b' + 47 * '\0'
+    def start_floor_frame_broadcast(self):
+        if self.config.floor_frame_parent == "gps":
+            self.start_gps_frame_broadcast()
+        trans = TransformStamped()
+        trans.transform.translation.x = self.config.floor_frame_translation[0]
+        trans.transform.translation.y = self.config.floor_frame_translation[1]
+        trans.transform.translation.z = self.config.floor_frame_translation[2]
+        trans.transform.rotation = Quaternion(*quaternion_from_euler(math.radians(self.config.floor_frame_rotation[0]),
+                                                                     math.radians(self.config.floor_frame_rotation[1]),
+                                                                     math.radians(self.config.floor_frame_rotation[2])))
+        trans.header.frame_id = self.config.floor_frame_parent
+        trans.child_frame_id = self.config.copter_frame_id
+        static_broadcaster.sendTransform(trans)
 
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
-            s.sendto(bytes(NTP_QUERY), (ntp_host, ntp_port))
-            msg, address = s.recvfrom(1024)
-        unpacked = struct.unpack(NTP_PACKET_FORMAT, msg[0:struct.calcsize(NTP_PACKET_FORMAT)])
-        return unpacked[10] + float(unpacked[11]) / 2 ** 32 - NTP_DELTA
+    def start_gps_frame_broadcast(self):
+        trans = TransformStamped()
+        trans.transform.translation.x = 0
+        trans.transform.translation.y = 0
+        trans.transform.translation.z = 0
+        trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
+        trans.header.frame_id = "map"
+        trans.child_frame_id = "gps"
+        static_broadcaster.sendTransform(trans)
+        gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
+        gps_frame_thread.daemon = True
+        gps_frame_thread.start()
 
-    def time_now(self):
-        if self.config.ntp_use:
-            timenow = self.get_ntp_time(self.config.ntp_host, self.config.ntp_port)
-        else:
-            timenow = time.time()
-        return timenow
-
-    def start(self):
-        self.load_config()
-
-        logger.info("Starting client")
-        messaging.NotifierSock().init(self.selector)
-
-        try:
-            while True:
-                self._reconnect()
-                self._process_connections()
-
-        except (KeyboardInterrupt, ):
-            logger.critical("Caught interrupt, exiting!")
-            self.selector.close()
-
-    def _reconnect(self, timeout=2.0, attempt_limit=3):  # TODO reconnecting broadcast listener in another thread
-        logger.info("Trying to connect to {}:{} ...".format(self.config.server_host, self.config.server_port))
-        attempt_count = 0
-        while not self.connected:
-            logger.info("Waiting for connection, attempt {}".format(attempt_count))
-            try:
-                self.client_socket = socket.socket()
-                self.client_socket.settimeout(timeout)
-                messaging.set_keepalive(self.client_socket)
-                self.client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                self.client_socket.connect((self.config.server_host, self.config.server_port))
-            except socket.error as error:
-                if isinstance(error, OSError):
-                    if error.errno == errno.EINTR:
-                        logger.critical("Shutting down on keyboard interrupt")
-                        raise KeyboardInterrupt
-
-                logger.warning("Can not connect due error: {}".format(error))
-                attempt_count += 1
-                time.sleep(timeout)
-
-            else:
-                logger.info("Connection to server successful!")
-                self._connect()
-                break
-
-            if attempt_count >= attempt_limit:
-                logger.info("Too many attempts. Trying to get new server IP")
-                self.broadcast_bind(timeout*2, attempt_limit)
-                attempt_count = 0
-
-    def _connect(self):
-        self.connected = True
-        self.client_socket.setblocking(False)
-        self.selector.register(self.client_socket, selectors.EVENT_READ, data=self.server_connection)
-        self.server_connection.connect(self.selector, self.client_socket,
-                                       (self.config.server_host, self.config.server_port))
-
-    def broadcast_bind(self, timeout=2.0, attempt_limit=3):
-        broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        broadcast_client.settimeout(timeout)
-        try:
-            broadcast_client.bind(("", self.config.broadcast_port))
-        except socket.error as error:
-            logger.error("Error during broadcast listening binding: {}".format(error))
-            return
-
-        attempt_count = 0
-        try:
-            while attempt_count <= attempt_limit:
-                try:
-                    data, addr = broadcast_client.recvfrom(self.config.server_buffer_size)
-                except socket.error as error:
-                    logger.warning("Could not receive broadcast due error: {}".format(error))
-                    attempt_count += 1
+    def gps_frame_broadcast_loop(self):
+        rate = rospy.Rate(1)
+        while not rospy.is_shutdown():
+            telem = FlightLib.get_telemetry_locked(frame_id = "map")
+            if telem is not None:
+                if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
+                    logger.info("Can't get position from telemetry")
                 else:
-                    message = messaging.MessageManager()
-                    message.income_raw = data
-                    message.process_message()
-                    if message.content and message.jsonheader["action"] == "server_ip":
-                        logger.info("Received broadcast message {} from {}".format(message.content, addr))
+                    lat = float(self.config.gps_frame_lat)
+                    lon = float(self.config.gps_frame_lon)
+                    geo_delta = Earth.Inverse(telem.lat, telem.lon, lat, lon)
+                    #logger.info("dist: {} | azi: {}".format(geo_delta['s12'], geo_delta['azi1']))
+                    dx, dy = get_xy(geo_delta['s12'], geo_delta['azi1'])
+                    gps_dx = telem.x + dx
+                    gps_dy = telem.y + dy
+                    #logger.info("GPS frame dx: {} | dy: {}".format(gps_dx, gps_dy))
+                    trans = TransformStamped()
+                    trans.transform.translation.x = gps_dx
+                    trans.transform.translation.y = gps_dy
+                    trans.transform.translation.z = 0
+                    trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,
+                                                            math.radians(self.config.gps_frame_yaw)))
+                    trans.header.frame_id = "map"
+                    trans.child_frame_id = "gps"
+                    static_broadcaster.sendTransform(trans)
 
-                        kwargs = message.content["kwargs"]
-                        self.config.set("SERVER", "port", int(kwargs["port"]))
-                        self.config.set("SERVER", "host", kwargs["host"])
-                        self.config.write()
-
-                        logger.info("Binding to new IP: {}:{}".format(
-                            self.config.server_host, self.config.server_port))
-                        self.on_broadcast_bind()
-                        break
-        finally:
-            broadcast_client.close()
-
-    def on_broadcast_bind(self):  # TODO move ALL binding code here
-        pass
-
-    def _process_connections(self):
-        while True:
-            events = self.selector.select(timeout=1)
-            for key, mask in events:
-                connection = key.data
-                if connection is not None:
-                    try:
-                        connection.process_events(mask)
-
-                    except Exception as error:
-                        logger.error(
-                            "Exception {} occurred for {}! Resetting connection!".format(error, connection.addr)
-                        )
-                        self.server_connection._close()
-                        self.connected = False
-
-                        if isinstance(error, OSError):
-                            if error.errno == errno.EINTR:
-                                raise KeyboardInterrupt
-            try:
-                mapping_fds = self.selector.get_map().keys() # file descriptors
-                notifier_fd = messaging.NotifierSock().get_sock().fileno()
-            except (KeyError, RuntimeError) as e:
-                logger.error("Exception {} occurred when getting connections map!".format(e))
-                logger.error("Connections changed during getting connections map, passing")
-            else:
-                notify_only= len(mapping_fds) == 1 and notifier_fd in mapping_fds
-                if notify_only or not mapping_fds:
-                    logger.warning("No active connections left!")
-                    return
+            rate.sleep()
 
 
-@messaging.message_callback("config")
-def _command_config_write(*args, **kwargs):
-    mode = kwargs.get("mode", "modify")
-    # exceptions would be risen in case of incorrect config
-    if mode == "rewrite":
-        active_client.config.load_from_dict(kwargs["config"], configspec=active_client.config_path)  # with validation
-    elif mode == "modify":
-        new_config = ConfigManager()
-        new_config.load_from_dict(kwargs["config"])
-        active_client.config.merge(new_config, validate=True)
+def restart_service(name):
+    os.system("systemctl restart {}".format(name))
 
-    active_client.config.write()
-    logger.info("Config successfully updated from command")
-    active_client.load_config()
+def repair_chrony(ip):
+    logger.info("Configure chrony ip to {}".format(ip))
+    configure_chrony_ip(ip)
+    restart_service("chrony")
 
-@messaging.request_callback("config")
-def _response_config(*args, **kwargs):
-    send_configspec = kwargs.get("send_configspec", False)
-    response = {"config": active_client.config.full_dict()}
-    if send_configspec:
-        response.update({"configspec": dict(active_client.config.config.configspec)})
-    return response
+def execute_command(command):
+    os.system(command)
 
-@messaging.request_callback("id")
+
+def configure_chrony_ip(ip, path="/etc/chrony/chrony.conf", ip_index=1):  # TODO simplify
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        logger.error("Reading error {}".format(e))
+        return False
+
+    content = raw_content.split(" ")
+
+    try:
+        current_ip = content[ip_index]
+    except IndexError:
+        logger.error("Something wrong with config")
+        return False
+
+    if "." not in current_ip:
+        logger.debug("That's not ip!")
+
+    if current_ip != ip:
+        content[ip_index] = ip
+
+        try:
+            with open(path, 'w') as f:
+                f.write(" ".join(content))
+        except IOError:
+            logger.error("Error writing")
+            return False
+
+    return True
+
+
+def configure_hostname(hostname):
+    path = "/etc/hostname"
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        logger.error("Reading error {}".format(e))
+        return False
+
+    current_hostname = str(raw_content)
+
+    if current_hostname != hostname:
+        content = hostname + '\n'
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except IOError:
+            logger.error("Error writing")
+            return False
+
+    return True
+
+
+def configure_hosts(hostname):
+    path = "/etc/hosts"
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        logger.error("Reading error {}".format(e))
+        return False
+
+    index_start = raw_content.find("127.0.1.1", )
+    index_stop = raw_content.find("\n", index_start)
+
+    hosts_array = raw_content[index_start:index_stop].split()
+    _ip = hosts_array[0]
+    current_hostname = hosts_array[1]
+    if current_hostname != hostname:
+        content = raw_content[:index_start] + "{}       {} {}.local".format(_ip, hostname, hostname) + raw_content[
+                                                                                                       index_stop:]
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except IOError:
+            logger.error("Error writing")
+            return False
+
+    return True
+
+
+def configure_motd(hostname):
+    with open("/etc/motd", "w") as f:
+        f.write("\r\n{}\r\n\r\n".format(hostname))
+
+
+def configure_bashrc(hostname):
+    path = "/home/pi/.bashrc"
+    try:
+        with open(path, 'r') as f:
+            raw_content = f.read()
+    except IOError as e:
+        logger.error("Reading error {}".format(e))
+        return False
+
+    index_start = raw_content.find("ROS_HOSTNAME='", ) + 14
+    index_stop = raw_content.find("'", index_start)
+
+    current_hostname = raw_content[index_start:index_stop]
+    if current_hostname != hostname:
+        content = raw_content[:index_start] + hostname + raw_content[index_stop:]
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except IOError:
+            logger.error("Error writing")
+            return False
+
+    return True
+
+
+@messaging.message_callback("execute")
+def _execute(*args, **kwargs):
+    command = kwargs.get("command", None)
+    if command is not None:
+        logger.info("Executing command: {}".format(command))
+        execute_command(command)
+        logger.info("Executing done")
+
+
+@messaging.message_callback("id")  # TODO redo
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
     if new_id is not None:
-        active_client.config.set("PRIVATE", "id", new_id, True)
-        active_client.load_config()
-        # TODO renaming here
+        old_id = copter.client_id
+        if new_id != old_id:
+            copter.config.set('PRIVATE', 'id', new_id, write=True)
+            copter.client_id = new_id
+            if new_id != '/hostname':
+                if copter.config.system_restart_after_rename:
+                    hostname = copter.client_id
+                    configure_hostname(hostname)
+                    configure_hosts(hostname)
+                    configure_bashrc(hostname)
+                    configure_motd(hostname)
+                    execute_command("systemctl stop clever-show & reboot")
+                    # execute_command("hostname {}".format(hostname))
+                    # restart_service("dhcpcd")
+                    # restart_service("avahi-daemon")
+                    # restart_service("smbd")
+                    # restart_service("roscore")
+                    # restart_service("clever")
+                restart_service("clever-show")
 
-    return active_client.client_id
+
+@messaging.request_callback("selfcheck")
+def _response_selfcheck(*args, **kwargs):
+    if check_state_topic(wait_new_status=True):
+        check = FlightLib.selfcheck()
+        return check if check else "OK"
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
 
 
-@messaging.request_callback("time")
-def _response_time(*args, **kwargs):
-    return active_client.time_now()
+@messaging.request_callback("telemetry")
+def _response_telemetry(*args, **kwargs):
+    copter.telemetry.update()
+    return copter.telemetry.create_msg_contents()
+
+
+@messaging.request_callback("anim_id")
+def _response_animation_id(*args, **kwargs):
+    # Load animation
+    return copter.animation.id
+
+
+@messaging.request_callback("batt_voltage")
+def _response_batt(*args, **kwargs):
+    if check_state_topic(wait_new_status=True):
+        return FlightLib.get_telemetry_locked('body').voltage
+    else:
+        stop_subscriber()
+        return float('nan')
+
+
+@messaging.request_callback("cell_voltage")
+def _response_cell(*args, **kwargs):
+    if check_state_topic(wait_new_status=True):
+        return FlightLib.get_telemetry_locked('body').cell_voltage
+    else:
+        stop_subscriber()
+        return float('nan')
+
+
+@messaging.request_callback("sys_status")
+def _response_sys_status(*args, **kwargs):
+    return get_sys_status()
+
+
+@messaging.request_callback("cal_status")
+def _response_cal_status(*args, **kwargs):
+    if check_state_topic(wait_new_status=True):
+        return get_calibration_status()
+    else:
+        stop_subscriber()
+        return "NOT_CONNECTED_TO_FCU"
+
+
+@messaging.request_callback("position")
+def _response_position(*args, **kwargs):
+    telem = copter.telemetry.ros_telemetry
+    return "{:.2f} {:.2f} {:.2f} {:.1f} {}".format(
+        telem.x, telem.y, telem.z, math.degrees(telem.yaw), copter.config.copter_frame_id)
+
+
+@messaging.request_callback("calibrate_gyro")
+def _calibrate_gyro(*args, **kwargs):
+    calibrate('gyro')
+    return get_calibration_status()
+
+
+@messaging.request_callback("calibrate_level")
+def _calibrate_level(*args, **kwargs):
+    calibrate('level')
+    return get_calibration_status()
+
+
+@messaging.request_callback("load_params")
+def _load_params(*args, **kwargs):
+    result = load_param_file('temp.params')
+    logger.info("Load parameters to FCU success: {}".format(result))
+    return result
+
+
+@messaging.message_callback("test")
+def _command_test(*args, **kwargs):
+    logger.info("logging info test")
+    rospy.logdebug("ros logdebug test")
+    print("stdout test")
+
+
+@messaging.message_callback("update_animation")
+def _command_update_animation(*args, **kwargs):
+    copter.animation.update_frames(copter.config, "animation.csv")
+
+
+@messaging.message_callback("move_start")
+def _command_move_start_to_current_position(*args, **kwargs):
+    offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
+    try:
+        xs, ys, zs = copter.animation.get_start_point(copter.config.ratio, offset)
+    except ValueError:
+        logger.error("Can't get start point. Check animation file!")
+    else:
+        logger.debug("start x = {}, y = {}".format(xs, ys))
+        telem = copter.telemetry.ros_telemetry
+        logger.debug("telemetry x = {}, y = {}".format(telem.x, telem.y))
+        if valid([telem.x, telem.y, telem.z]):
+            copter.config.set('PRIVATE', 'offset',
+                [telem.x - xs, telem.y - ys, copter.config.private_offset[2]], write=True)
+            logger.info("Set start delta: {:.2f} {:.2f}".format(copter.config.private_offset[0],
+                                                                copter.config.private_offset[1]))
+        else:
+            logger.error("Wrong telemetry")
+
+
+@messaging.message_callback("reset_start")
+def _command_reset_start(*args, **kwargs):
+    copter.config.set('PRIVATE', 'offset',
+                                    [0, 0, copter.config.private_offset[2]], write=True)
+    logger.info("Reset start to {:.2f} {:.2f}".format(copter.config.private_offset[0],
+                                                    copter.config.private_offset[1]))
+
+
+@messaging.message_callback("set_z_to_ground")
+def _command_set_z(*args, **kwargs):
+    telem = copter.telemetry.ros_telemetry
+    if valid([telem.x, telem.y, telem.z]):
+        copter.config.set('PRIVATE', 'offset',
+            [copter.config.private_offset[0], copter.config.private_offset[1], telem.z], write=True)
+        logger.info("Set z offset to {:.2f}".format(copter.config.private_offset[2]))
+    else:
+        logger.error("Wrong telemetry")
+
+
+@messaging.message_callback("reset_z_offset")
+def _command_reset_z(*args, **kwargs):
+    copter.config.set('PRIVATE', 'offset',
+        [copter.config.private_offset[0], copter.config.private_offset[1], 0], write=True)
+    logger.info("Reset z offset to {:.2f}".format(copter.config.private_offset[2]))
+
+
+@messaging.message_callback("update_repo")
+def _command_update_repo(*args, **kwargs):
+    os.system("git fetch")
+    os.system("git pull --rebase")
+    os.system("chown -R pi:pi /home/pi/clever-show")
+
+
+@messaging.message_callback("reboot_all")
+def _command_reboot_all(*args, **kwargs):
+    reboot_fcu()
+    execute_command("reboot")
+
+
+@messaging.message_callback("reboot_fcu")
+def _command_reboot(*args, **kwargs):
+    reboot_fcu()
+
+
+@messaging.message_callback("service_restart")
+def _command_service_restart(*args, **kwargs):
+    service = kwargs["name"]
+    if service=="clover":
+        restart_service("clever")
+    if service=="clever-show":
+        restart_service("clever-show@{}".format(copter.client_id))
+    restart_service(service)
+
+
+@messaging.message_callback("repair_chrony")
+def _command_chrony_repair(*args, **kwargs):
+    repair_chrony(copter.config.server_host)
+
+
+@messaging.message_callback("led_test")
+def _command_led_test(*args, **kwargs):
+    LedLib.chase(255, 255, 255)
+    time.sleep(2)
+    LedLib.off()
+
+
+@messaging.message_callback("led_fill")
+def _command_led_fill(*args, **kwargs):
+    r = kwargs.get("red", 0)
+    g = kwargs.get("green", 0)
+    b = kwargs.get("blue", 0)
+    LedLib.fill(r, g, b)
+
+
+@messaging.message_callback("flip")
+def _copter_flip(*args, **kwargs):
+    FlightLib.flip(frame_id=copter.config.copter_frame_id)
+
+
+@messaging.message_callback("takeoff")
+def _command_takeoff(*args, **kwargs):
+    logger.info("Takeoff at {}".format(datetime.datetime.now()))
+    task_manager.add_task(0, 0, animation.takeoff,
+                          task_kwargs={
+                              "z": copter.config.copter_takeoff_height,
+                              "timeout": copter.config.copter_takeoff_time,
+                              "safe_takeoff": False,
+                              "use_leds": copter.config.led_use & copter.config.led_takeoff_indication,
+                          })
+
+
+@messaging.message_callback("takeoff_z")
+def _command_takeoff_z(*args, **kwargs):
+    try:
+        z = float(kwargs.get("z", None))
+    except TypeError:
+        logger.error("takeoff_z: No z argument!")
+    except ValueError:
+        logger.error("takeoff_z: Wrong z argument!")
+    else:
+        telem = FlightLib.get_telemetry_locked(copter.config.copter_frame_id)
+        if valid([telem.x, telem.y, telem.z]):
+            logger.info("Takeoff to z = {} at {}".format(z, datetime.datetime.now()))
+            task_manager.add_task(0, 0, FlightLib.reach_point,
+                                task_kwargs={
+                                    "x": telem.x,
+                                    "y": telem.y,
+                                    "z": z,
+                                    "frame_id": copter.config.copter_frame_id,
+                                    "timeout": copter.config.copter_takeoff_time,
+                                    "auto_arm": True,
+                                })
+        else:
+            logger.error("Wrong telemetry!")
+
+
+@messaging.message_callback("land")
+def _command_land(*args, **kwargs):
+    task_manager.reset()
+    task_manager.add_task(0, 0, animation.land,
+                          task_kwargs={
+                              "z": copter.config.copter_takeoff_height,
+                              "timeout": copter.config.copter_land_timeout,
+                              "frame_id": copter.config.copter_frame_id,
+                              "use_leds": copter.config.led_use & copter.config.led_land_indication,
+                          })
+
+
+@messaging.message_callback("emergency_land")
+def _emergency_land(*args, **kwargs):
+    logger.info(FlightLib.emergency_land().message)
+
+
+@messaging.message_callback("disarm")
+def _command_disarm(*args, **kwargs):
+    task_manager.reset()
+    task_manager.add_task(-5, 0, FlightLib.arming_wrapper,
+                          task_kwargs={
+                              "state": False
+                          })
+
+
+@messaging.message_callback("stop")
+def _command_stop(*args, **kwargs):
+    task_manager.reset()
+
+
+@messaging.message_callback("pause")
+def _command_pause(*args, **kwargs):
+    task_manager.pause()
+
+
+@messaging.message_callback("resume")
+def _command_resume(*args, **kwargs):
+    task_manager.resume(time_to_start_next_task=kwargs.get("time", 0))
+
+
+@messaging.message_callback("start")
+def _play_animation(*args, **kwargs):
+
+    # Validate start_time
+    try:
+        start_time = float(kwargs["time"])
+    except ValueError:
+        logger.error("start: Wrong time argument!")
+        return
+    except KeyError:
+        logger.error("start: No time argument!")
+        return
+
+    # Check animation state
+    if copter.animation.state is not "OK":
+        logger.error("start: Bad animation state")
+        return
+
+    # Get output frames
+    offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
+    frames = copter.animation.get_scaled_output(copter.config.animation_ratio, offset)
+    if not frames:
+        logger.error("start: No frames in animation!")
+        return
+
+    # Get current telemetry
+    telem = copter.telemetry.ros_telemetry
+    if not valid([telem.x, telem.y, telem.z]):
+        logger.error("start: Position is not valid!")
+        return
+
+    # Get start action and delay
+    try:
+        start_action, start_delay = copter.telemetry.start_position[-2:]
+    except ValueError:
+        logger.error("start: Can't get animation start position and delay")
+        return
+    # Reset task manager
+    task_manager.reset(interrupt_next_task=False)
+
+    # Set animation logic
+    if start_action == 'takeoff':
+        # Takeoff first at start_time + start_delay_time
+        takeoff_time = start_time + start_delay
+        task_manager.add_task(takeoff_time, 0, animation.takeoff,
+                              task_kwargs={
+                                  "z": copter.config.copter_takeoff_height,
+                                  "timeout": copter.config.copter_takeoff_time,
+                                  "safe_takeoff": False,
+                                  "use_leds": copter.config.led_use & copter.config.led_takeoff_indication,
+                              })
+        # Fly to first point
+        rfp_time = takeoff_time + copter.config.copter_takeoff_time
+        task_manager.add_task(rfp_time, 0, animation.execute_frame,
+                              task_kwargs={
+                                  "frame": frames[0],
+                                  "frame_id": copter.config.copter_frame_id,
+                                  "use_leds": copter.config.led_use,
+                                  "flight_func": FlightLib.reach_point,
+                              })
+        # Calculate first frame start time
+        frame_time = rfp_time + copter.config.copter_reach_first_point_time
+
+    elif start_action == 'fly':
+        # Calculate start time
+        arm_time = start_time + start_delay  # + 1.0
+        task_manager.add_task(arm_time, 0, animation.execute_frame,
+                              task_kwargs={
+                                  "frame": frames[0],
+                                  "frame_id": copter.config.copter_frame_id,
+                                  "use_leds": copter.config.led_use,
+                                  "flight_func": FlightLib.navto,
+                                  "auto_arm": True,
+                              })
+        # Calculate first frame start time
+        frame_time = arm_time + copter.config.copter_arming_time
+    logger.debug("Start queue {}".format(task_manager.task_queue))
+    # Play animation file
+    for frame in frames:
+        task_manager.add_task(frame_time, 0, animation.execute_frame,
+                              task_kwargs={
+                                  "frame": frame,
+                                  "frame_id": copter.config.copter_frame_id,
+                                  "use_leds": copter.config.led_use,
+                                  "flight_func": FlightLib.navto,
+                              })
+        frame_time += frame.delay
+    # Calculate land_time
+    land_time = frame_time + copter.config.copter_land_delay
+    # Land
+    task_manager.add_task(land_time, 0, animation.land,
+                          task_kwargs={
+                              "timeout": copter.config.copter_land_timeout,
+                              "frame_id": copter.config.copter_frame_id,
+                              "use_leds": copter.config.led_use & copter.config.led_land_indication,
+                          })
+
+
+# noinspection PyAttributeOutsideInit
+class Telemetry:
+    params_default_dict = {
+        "git_version": None,
+        "animation_info": None,
+        "battery": None,
+        "armed": False,
+        "fcu_status": None,
+        "calibration_status": None,
+        "mode": None,
+        "selfcheck": None,
+        "current_position": None,
+        "start_position": None,
+        "last_task": None,
+        "time_delta": None,
+        "config_version": None,
+    }
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._last_state = []
+        self._interruption_counter = 0
+        self._max_interruptions = 2
+        self._tasks_cleared = False
+        self.ros_telemetry = None
+
+        for key, value in self.params_default_dict.items():
+            setattr(self, key, value)
+
+    def __setattr__(self, key, value):
+        if key in self.params_default_dict:
+            with self.__dict__['_lock']:
+                self.__dict__[key] = value
+        else:
+            self.__dict__[key] = value
+
+    def __getattr__(self, item):
+        if item in self.params_default_dict:
+            with self.__dict__['_lock']:
+                return self.__dict__[item]
+
+        return self.__dict__[item]
+
+    @classmethod
+    def get_git_version(cls):
+        return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True)
+
+    @classmethod
+    def get_config_version(cls):
+        return "{} V{}".format(copter.config.config_name, copter.config.config_version)
+
+    def get_start_position(self):
+        offset = numpy.array(copter.config.private_offset) + numpy.array(copter.config.copter_common_offset)
+        try:
+            x, y, z = copter.animation.get_start_point(copter.config.animation_ratio, offset)
+        except ValueError:
+            return [float('nan'),float('nan'),float('nan'),float('nan'),'error: no start pos in animation',float('nan')]
+        else:
+            start_delay = copter.animation.start_delay
+            yaw = copter.animation.get_start_yaw()
+            if not self.ros_telemetry:
+                start_action = 'error: no telemetry data'
+            else:
+                start_action = copter.animation.get_start_action(
+                                copter.config.animation_start_action, self.ros_telemetry.z,
+                                copter.config.animation_takeoff_level, copter.config.animation_ground_level,
+                                copter.config.animation_ratio, offset)
+            return [x,y,z,yaw,start_action,start_delay]
+
+    @classmethod
+    def get_battery(cls, ros_telemetry):
+        if ros_telemetry is None:
+            return float('nan'), float('nan')
+
+        battery_v = ros_telemetry.voltage
+
+        batt_empty_param = get_param('BAT_V_EMPTY')
+        batt_charged_param = get_param('BAT_V_CHARGED')
+        batt_cells_param = get_param('BAT_N_CELLS')
+
+        if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
+            batt_empty = batt_empty_param.value.real
+            batt_charged = batt_charged_param.value.real
+            batt_cells = batt_cells_param.value.integer
+
+            battery_p = (ros_telemetry.voltage / batt_cells - batt_empty) / (batt_charged - batt_empty) * 1.
+            battery_p = max(min(battery_p, 1.), 0.)
+        else:
+            battery_p = float('nan')
+
+        return battery_v, battery_p
+
+    @classmethod
+    def get_selfcheck(cls):
+        check = FlightLib.selfcheck()
+        if not check:
+            check = "OK"
+        return check
+
+    @classmethod
+    def get_position(cls, ros_telemetry):
+        try:
+            x, y, z = ros_telemetry.x, ros_telemetry.y, ros_telemetry.z
+        except AttributeError:
+            return 'NO_POS'
+        if not math.isnan(x):
+            return x, y, z, math.degrees(ros_telemetry.yaw), copter.config.copter_frame_id
+        return 'NO_POS'
+
+    def get_ros_telemetry(self):
+        return self.ros_telemetry
+
+    def update_telemetry_fast(self):
+        self.last_task = task_manager.get_current_task()
+        try:
+            self.ros_telemetry = FlightLib.get_telemetry_locked(copter.config.copter_frame_id)
+            if self.ros_telemetry.connected:
+                self.armed = self.ros_telemetry.armed
+                self.mode = self.ros_telemetry.mode
+                self.selfcheck = self.get_selfcheck()
+                self.current_position = self.get_position(self.ros_telemetry)
+            else:
+                self.reset_telemetry_values()
+        except rospy.ServiceException:
+            rospy.logdebug("Some service is unavailable")
+            self.selfcheck = ["WAIT_ROS"]
+        except AttributeError as e:
+            rospy.logdebug(e)
+        except rospy.TransportException as e:
+            rospy.logdebug(e)
+        self.time_delta = time.time()
+        self.round_telemetry()
+
+    def update_telemetry_slow(self):
+        self.animation_info = [copter.animation.id, copter.animation.state]
+        self.git_version = self.get_git_version()
+        self.config_version = self.get_config_version()
+        self.start_position = self.get_start_position()
+        try:
+            self.calibration_status = get_calibration_status()
+            self.fcu_status = get_sys_status()
+            self.battery = self.get_battery(self.ros_telemetry)
+        except rospy.ServiceException:
+            rospy.logdebug("Some service is unavailable")
+            self.selfcheck = ["WAIT_ROS"]
+        except AttributeError as e:
+            rospy.logdebug(e)
+        except rospy.TransportException as e:
+            rospy.logdebug(e)
+
+    def update(self):
+        self.update_telemetry_fast()
+        self.update_telemetry_slow()
+
+    def round_telemetry(self):
+        round_list = ["battery", "start_position", "current_position"]
+        for key in round_list:
+            if self.__dict__[key] not in [None, 'NO_POS', 'NO_FCU']:
+                self.__dict__[key] = [round(v, 2) if type(v) == float else v for v in self.__dict__[key]]
+
+    def reset_telemetry_values(self):
+        self.battery = float('nan'), float('nan')
+        self.calibration_status = 'NO_FCU'
+        self.fcu_status = 'NO_FCU'
+        self.mode = 'NO_FCU'
+        self.selfcheck = ['NO_FCU']
+        self.current_position = 'NO_POS'
+
+    def check_failsafe_and_interruption(self):
+        global emergency
+        # check current state
+        state = [self.mode, self.armed, task_manager.get_last_task_name()]
+        mode, armed, last_task = state
+        # check external interruption
+        external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
+        log_msg = ''
+        if emergency:
+            log_msg += 'emergency and '
+        if external_interruption:
+            log_msg += 'external interruption and '
+            # count interruptions to avoid px4 mode glitches
+            if state == self._last_state:
+                self._interruption_counter += 1
+            else:
+                self._interruption_counter = 0
+            logger.info("Possible expernal interruption, state_counter = {}".format(self._interruption_counter))
+        # delete last ' end ' from log message
+        if len(log_msg) > 5:
+            log_msg = log_msg[:-5]
+        # clear task manager if emergency or external interruption
+        if emergency or (external_interruption and self._interruption_counter >= self._max_interruptions):
+            if not self._tasks_cleared:
+                logger.info("Clear task manager because of {}".format(log_msg))
+                logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
+                task_manager.reset()
+                FlightLib.reset_delta()
+                self._tasks_cleared = True
+                self._interruption_counter = 0
+        else:
+            self._tasks_cleared = False
+        self._last_state = state
+
+    def transmit_message(self):  # todo if connected
+        try:
+            copter.server_connection.send_message('telemetry', kwargs={'value': self.create_msg_contents()})
+        except AttributeError as e:
+            logger.debug(e)
+
+    @classmethod
+    def log_cpu_and_memory(cls):
+        cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
+        mem_usage = psutil.virtual_memory().percent
+        cpu_temp_info = psutil.sensors_temperatures()['cpu-thermal'][0]
+        cpu_temp = cpu_temp_info.current
+        # https://github.com/raspberrypi/documentation/blob/JamesH65-patch-vcgencmd-vcdbg-docs/raspbian/applications/vcgencmd.md
+        throttled_hex = subprocess.check_output("vcgencmd get_throttled", shell=True).split('=')[1]
+        under_voltage = bool(int(bin(int(throttled_hex, 16))[2:][-1]))
+        power_state = 'normal' if not under_voltage else 'under voltage!'
+        if cpu_temp_info.critical:
+            cpu_temp_state = 'critical'
+        elif cpu_temp_info.high:
+            cpu_temp_state = 'high'
+        else:
+            cpu_temp_state = 'normal'
+        logger.info("CPU usage: {} | Memory: {} % | T: {} ({}) | Power: {}".format(
+            cpu_usage, mem_usage, cpu_temp, cpu_temp_state, power_state))
+
+    def _update_loop(self, freq):  # TODO extract?
+        rate = rospy.Rate(freq)
+        while not rospy.is_shutdown():
+
+            self.update_telemetry_fast()
+            self.check_failsafe_and_interruption()
+
+            if copter.config.telemetry_transmit and copter.connected:
+                self.transmit_message()
+
+            rate.sleep()
+
+    def _slow_update_loop(self):
+        rate = rospy.Rate(1)
+        while not rospy.is_shutdown():
+            self.update_telemetry_slow()
+            if copter.config.telemetry_log_resources:
+                self.log_cpu_and_memory()
+            rate.sleep()
+
+    def start_loop(self):
+        if copter.config.telemetry_frequency > 0:
+            telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
+                                                args=(copter.config.telemetry_frequency,))
+            telemetry_thread.daemon = True
+            telemetry_thread.start()
+            slow_telemetry_thread = threading.Thread(target=self._slow_update_loop,
+                                                     name="Slow telemetry getting thread")
+            slow_telemetry_thread.daemon = True
+            slow_telemetry_thread.start()
+        else:
+            logger.info("Telemetry loop is not created because of zero or negative telemetry frequency")
+
+    def create_msg_contents(self, keys=None):  # keys: set or list
+        if keys is None:
+            keys = self.params_default_dict.keys()
+        # return only existing keys from 'keys'
+        return {k: self.__dict__[k] for k in keys if k in self.params_default_dict}
+
+
+def emergency_callback(data):
+    global emergency
+    emergency = data.data
+
+
+class AnimationEventHandler(FileSystemEventHandler):
+    def on_any_event(self, event):
+        logger.info('{} is {}'.format(event.src_path, event.event_type))
+        # logger.info(os.path.splitext(event.src_path))
+        if (os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted") or event.src_path.split('/')[-1] == 'client.ini':
+            if os.path.exists("animation.csv"):
+                logger.info("Update frames from animation.csv")
+                copter.animation.update_frames(copter.config, "animation.csv")
 
 
 if __name__ == "__main__":
-    startup_cwd = os.getcwd()
-
-    import threading
-
-
-    def restart():  # move to core
-        args = sys.argv[:]
-        logging.info('Restarting {}'.format(args))
-        args.insert(0, sys.executable)
-        if sys.platform == 'win32':
-            args = ['"%s"' % arg for arg in args]
-        os.chdir(startup_cwd)
-        os.execv(sys.executable, args)
-
-    def mock_telem():
-        while True:
-            time.sleep(5)
-            #t = dict([('fcu_status', None), ('current_position', [-2.89, 2.12, 3.64, 15.22, 'aruco_map']), ('animation_id', 'two_drones_test'), ('selfcheck', 'OK'), ('battery', None), ('git_version', '01bf95e'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]), ('mode', 'MANUAL'), ('time_delta', 1581338473.438682), ('armed', False), ('config_version', None), ('last_task', 'No task')])
-            t = dict([('fcu_status', 'STANDBY'), ('current_position', [-1.17, 2.04, 3.45, 0, "11"]), ('animation_id', 'two_drones_test'), ('selfcheck', 'OK'), ('battery', [12.2, 1.0]), ('git_version', '42aee96'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]), ('mode', 'MANUAL'), ('time_delta', 1581342970.889573), ('armed', False), ('config_version', 'Copter config V0.0'), ('last_task', 'No task')])
-            if active_client.connected:
-                active_client.server_connection.send_message("telemetry", kwargs={"value": t})
-
-    logging.basicConfig(level=logging.DEBUG)
-    client = Client()
-    tr = threading.Thread(target=mock_telem)
-    tr.start()
-    client.start()
-
+    copter = CopterClient()
+    task_manager = tasking.TaskManager()
+    rospy.Subscriber('/emergency', Bool, emergency_callback)
+    event_handler = AnimationEventHandler()
+    observer = Observer()
+    observer.schedule(event_handler, ".", recursive=True)
+    observer.daemon = True
+    observer.start()
+    copter.start(task_manager)
+    while not rospy.is_shutdown():
+        rospy.sleep(0.1)
