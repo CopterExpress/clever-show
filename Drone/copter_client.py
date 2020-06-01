@@ -162,7 +162,7 @@ class CopterClient(client.Client):
         trans.header.frame_id = "map"
         trans.child_frame_id = "gps"
         static_broadcaster.sendTransform(trans)
-        gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
+        gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread", daemon=True)
         gps_frame_thread.start()
 
     def gps_frame_broadcast_loop(self):
@@ -966,9 +966,9 @@ class Telemetry:
     def start_loop(self):
         if copter.config.telemetry_frequency > 0:
             telemetry_thread = threading.Thread(target=self._update_loop, name="Telemetry getting thread",
-                                                args=(copter.config.telemetry_frequency,))  # TODO MOVE? Daemon?
+                                                args=(copter.config.telemetry_frequency,), daemon=True)  # TODO MOVE? Daemon?
             slow_telemetry_thread = threading.Thread(target=self._slow_update_loop,
-                                                     name="Slow telemetry getting thread")
+                                                     name="Slow telemetry getting thread", daemon=True)
             slow_telemetry_thread.start()
             telemetry_thread.start()
         else:
