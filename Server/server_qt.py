@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QInputDialog
 from quamash import QEventLoop
 
 # Importing gui form
-from server_gui import Ui_MainWindow
+from server import Ui_MainWindow
 
 from core_server import Server, Client, now
 
