@@ -1003,11 +1003,9 @@ if __name__ == "__main__":
     copter = CopterClient()
     task_manager = tasking.TaskManager()
     rospy.Subscriber('/emergency', Bool, emergency_callback)
-    #event_handler = AnimationEventHandler()
-    #observer = Observer()
-    #observer.schedule(event_handler, ".", recursive=True)
-    #observer.daemon = True
-    #observer.start()
+    event_handler = AnimationEventHandler()
+    observer = Observer()
+    observer.schedule(event_handler, ".", recursive=True)
+    observer.daemon = True
+    observer.start()
     copter.start(task_manager)
-    #observer.stop()
-    #observer.join()
