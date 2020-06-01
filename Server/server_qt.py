@@ -288,7 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 col = self.model.columns.index(key)
             except ValueError:
-                logging.error(f"No column {key} present!")
+                logging.debug(f"No column {key} present!")
             else:
                 row_data = self.model.get_row_by_attr("client", client)
                 row_num = self.model.get_row_index(row_data)
@@ -647,7 +647,7 @@ if __name__ == "__main__":
     msgbox_handler.setLevel(logging.CRITICAL)
 
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
         handlers=[
             logging.FileHandler("server_logs/{}.log".format(now)),
