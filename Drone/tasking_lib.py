@@ -31,8 +31,8 @@ class TaskManager(object):
         self.task_queue = []
         self._counter = itertools.count()     # unique sequence count
 
-        self._processor_thread = threading.Thread(target=self._task_processor, name="Task processing thread", daemon=True)
-        #self._processor_thread.daemon = True
+        self._processor_thread = threading.Thread(target=self._task_processor, name="Task processing thread")
+        self._processor_thread.daemon = True
         self._task_queue_lock = threading.RLock()
 
         self._running_event = threading.Event()
