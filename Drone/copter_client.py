@@ -137,7 +137,10 @@ class CopterClient(client.Client):
             self.start_floor_frame_broadcast()
         elif self.config.copter_frame_id == "gps":
             self.start_gps_frame_broadcast()
-        super(CopterClient, self).start()
+        client_thread = threading.Thread(target=super(CopterClient, self).start, name="Client thread")
+        client_thread.daemon = True
+        client_thread.start()
+        #super(CopterClient, self).start()
 
     def start_floor_frame_broadcast(self):
         if self.config.floor_frame_parent == "gps":
@@ -1009,3 +1012,5 @@ if __name__ == "__main__":
     observer.daemon = True
     observer.start()
     copter.start(task_manager)
+    while not rospy.is_shutdown():
+        rospy.sleep(0.1)
