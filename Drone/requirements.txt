@@ -1,3 +1,4 @@
 selectors2
 psutil
 configobj
+watchdog
