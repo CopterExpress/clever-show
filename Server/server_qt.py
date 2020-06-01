@@ -622,7 +622,7 @@ class MainWindow(QtWidgets.QMainWindow):
         def save_callback():
             config.write()
 
-        ConfigDialog().call_config_dialog(config, save_callback, restart, name="Server config")
+        ConfigDialog().call_config_dialog(config, save_callback, restart, name="server config")
 
     def register_callbacks(self):
         @messaging.message_callback("telemetry")

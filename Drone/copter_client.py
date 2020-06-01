@@ -429,12 +429,12 @@ def _command_reset_z(*args, **kwargs):
 
 @messaging.message_callback("update_repo")
 def _command_update_repo(*args, **kwargs):
-    os.system("mv /home/pi/clever-show/Drone/client_config.ini /home/pi/clever-show/Drone/client_config_tmp.ini")
+    os.system("mv /home/pi/clever-show/drone/client_config.ini /home/pi/clever-show/drone/client_config_tmp.ini")
     os.system("git reset --hard HEAD")
     os.system("git checkout master")
     os.system("git fetch")
     os.system("git pull --rebase")
-    os.system("mv /home/pi/clever-show/Drone/client_config_tmp.ini /home/pi/clever-show/Drone/client_config.ini")
+    os.system("mv /home/pi/clever-show/drone/client_config_tmp.ini /home/pi/clever-show/drone/client_config.ini")
     os.system("chown -R pi:pi /home/pi/clever-show")
 
 

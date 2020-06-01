@@ -311,15 +311,15 @@ class ConfigManager:
 
 if __name__ == '__main__':
     cfg = ConfigManager()
-    cfg.load_from_file('Drone/config/client.ini')
-    # cfg.load_from_file('Server/config/server.ini')
-    #cfg.load_from_file('Drone/config/spec/configspec_client.ini')
+    cfg.load_from_file('drone/config/client.ini')
+    # cfg.load_from_file('server/config/server.ini')
+    #cfg.load_from_file('drone/config/spec/configspec_client.ini')
     print(dict(cfg.full_dict(include_defaults=True)))
     cfg.config.pop("PRIVATE", None)
     print(cfg.config)
 
 
-    # cfg.load_config_and_spec('Drone/config/client.ini')
+    # cfg.load_config_and_spec('drone/config/client.ini')
     # #print(cfg.config.comments)
     # #print(cfg.server_host)
     # cfg.server_host = '192.168.1.103'
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     import pprint
     #pprint.pprint(cfg.full_dict)
     # cfg2 = ConfigManager()
-    # #cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='Drone/config/spec/configspec_client.ini')
+    # #cfg2.load_from_dict({"PRIVATE": {"offset": [1, 2, 3]}}, configspec='drone/config/spec/configspec_client.ini')
     # cfg2.load_from_dict({"PRIVATE": {"id": "heh"}})
     # #pprint.pprint(cfg2.full_dict)
     # #cfg.merge(cfg2)
@@ -350,7 +350,7 @@ if __name__ == '__main__':
 
     # #print(cfg.full_dict)
     #
-    # #cfg.load_from_dict(cfg.full_dict, 'Drone/config/client.ini')
+    # #cfg.load_from_dict(cfg.full_dict, 'drone/config/client.ini')
     # #print(cfg.config.initial_comment, cfg.config.final_comment)
     # #cfg.write()
     #

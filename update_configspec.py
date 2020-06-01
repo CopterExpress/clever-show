@@ -1,5 +1,5 @@
 import config
-from Server.copter_table_models import CopterDataModel
+from server.copter_table_models import CopterDataModel
 
 cfg_server = config.ConfigObj('SERVER/config/spec/configspec_server.ini', list_values=False)
 widths = {"copter_id": 150}
