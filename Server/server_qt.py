@@ -168,7 +168,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_retrive_any_file.triggered.connect(b_partial(self.request_any_file, client_path=None))
 
         self.ui.action_restart_clever.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", command_kwargs={"name": "clever"}))
+            b_partial(self.send_to_selected, "service_restart", command_kwargs={"name": "clover"}))
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
