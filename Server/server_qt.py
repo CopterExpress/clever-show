@@ -112,10 +112,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.init_model()
 
-        # self.statusBar = QStatusBar()
-        # self.setStatusBar(self.statusBar)
-        # self.statusBar.showMessage("Hey", 2000)
-
         self.register_callbacks()
         self.player = QtMultimedia.QMediaPlayer()
 
@@ -161,6 +157,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ui.action_send_animations.triggered.connect(self.send_animations)
         self.ui.action_send_calibrations.triggered.connect(self.send_calibrations)
+        self.ui.action_send_animation.triggered.connect(self.send_animation)
         self.ui.action_send_configurations.triggered.connect(self.send_config)
         self.ui.action_send_aruco_map.triggered.connect(self.send_aruco)
         self.ui.action_send_launch_file.triggered.connect(self.send_launch)
@@ -171,7 +168,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_retrive_any_file.triggered.connect(b_partial(self.request_any_file, client_path=None))
 
         self.ui.action_restart_clever.triggered.connect(
-            b_partial(self.send_to_selected, "service_restart", command_kwargs={"name": "clever"}))
+            b_partial(self.send_to_selected, "service_restart", command_kwargs={"name": "clover"}))
         self.ui.action_restart_clever_show.triggered.connect(self.restart_clever_show)
         self.ui.action_restart_chrony.triggered.connect(self.restart_chrony)
         self.ui.action_reboot_all.triggered.connect(b_partial(self.send_to_selected, "reboot_all"))
@@ -291,7 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 col = self.model.columns.index(key)
             except ValueError:
-                logging.error(f"No column {key} present!")
+                logging.debug(f"No column {key} present!")
             else:
                 row_data = self.model.get_row_by_attr("client", client)
                 row_num = self.model.get_row_index(row_data)
@@ -482,6 +479,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                   client_path="", client_filename="animation.csv")
 
     @pyqtSlot()
+    def send_animation(self):
+        self.send_files("Select animation file", "Animation files (*.csv)", onefile=True, client_filename="animation.csv")
+
+    @pyqtSlot()
     def send_calibrations(self):
         self.send_directory_files("Select directory with calibrations", ('.yaml', ), match_id=True,
                                   client_path=os.path.join(self.server.config.client_clever_dir,"camera_info/"),
@@ -646,7 +647,7 @@ if __name__ == "__main__":
     msgbox_handler.setLevel(logging.CRITICAL)
 
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
         handlers=[
             logging.FileHandler("server_logs/{}.log".format(now)),

@@ -226,8 +226,8 @@ class CopterTableWidget(QTableView):
     @pyqtSlot(QtCore.QPoint)
     def open_menu(self, point):
         menu = QMenu(self)
-        index = self.indexAt(point)
-        item = self.model.get_row_data(index)
+        id = self.indexAt(point).siblingAtColumn(0).data()
+        item = self.model.get_row_by_attr('copter_id', id)
 
         edit_config = QAction("Edit config")
         edit_config.triggered.connect(partial(self.edit_copter_config, item))

@@ -81,16 +81,19 @@ class ModelChecks:
 def check_ver(item):
     if not ModelChecks.check_git:
         return True
-    
+
     version = get_git_version()
     if version is not None:
         return version == item
     return True
 
 
-@ModelChecks.column_check("animation_id")
+@ModelChecks.column_check("animation_info")
 def check_anim(item):
-    return str(item) != 'No animation'
+    if item:
+        return str(item[1]) == 'OK'
+    else:
+        return False
 
 
 @ModelChecks.column_check("battery")
@@ -142,6 +145,10 @@ def check_time_delta(item):
 @ModelChecks.column_check("start_position", pass_context=True)
 def check_start_pos(item, context):
 
+    if len(item) == 6:
+        if not item[4] in ["takeoff", "fly"]:
+            return False
+
     if ModelChecks.start_pos_delta_max == 0:
         return True
 
@@ -150,6 +157,7 @@ def check_start_pos(item, context):
 
     delta = get_distance(get_position(context.current_position),
                          get_position(context.start_position))
+
     if math.isnan(delta):
         return False
 
@@ -157,7 +165,7 @@ def check_start_pos(item, context):
 
 
 def get_position(position):
-    if position != 'NO_POS' and position[0] != 'nan':  # float('nan')?
+    if not isinstance(position, str) and position[0] != float('nan'):
         return position[:3]
     return [float('nan')] * 3
 
@@ -276,6 +284,17 @@ def place_id(value):
         msgbox.exec_()
         return None
 
+@ModelFormatter.view_formatter("animation_info")
+def view_animation_info(value):
+    try:
+        id, state = value
+    except ValueError:
+        return ""
+    else:
+        if state == 'OK':
+            return id
+        else:
+            return state
 
 @ModelFormatter.place_formatter("battery")
 def place_battery(value):
@@ -307,15 +326,18 @@ def view_selfcheck(value):
 def view_current_position(value):
     if isinstance(value, list):
         x, y, z, yaw, frame = value
-        return f"{x: .2f} {y: .2f} {z: .2f} {int(yaw): d} {frame}"
+        return f"{x: .2f} {y: .2f} {z: .2f} {yaw: .0f} {frame}"
     return value
 
 
 @ModelFormatter.view_formatter("start_position")
 def view_start_position(value):
     if isinstance(value, list):
-        x, y, z = value
-        return f"{x: .2f} {y: .2f} {z: .2f}"
+        x, y, z, yaw, action, delay = value
+        if action in ['fly', 'takeoff']:
+            return f"{x: .2f} {y: .2f} {z: .2f} {yaw: .0f} {action} {delay: .1f}"
+        else:
+            return f"{action}"
     return value
 
 
@@ -340,14 +362,14 @@ class CopterDataModel(QtCore.QAbstractTableModel):
     columns_dict = {'copter_id': 'copter ID',
                     'git_version': 'version',
                     'config_version': 'configuration',
-                    'animation_id': ' animation ID ',
+                    'animation_info': 'animation ID',
                     'battery': '  battery  ',
                     'fcu_status': 'FCU status',
                     'calibration_status': 'sensors',
                     'mode': '  mode  ',
                     'selfcheck': ' checks ',
                     'current_position': 'current x y z yaw frame_id',
-                    'start_position': '    start x y z     ',
+                    'start_position': 'start x y z yaw action delay',
                     'last_task': 'last task',
                     'time_delta': 'dt',
                     }
