@@ -205,7 +205,7 @@ def strip_off():
 
 def led_thread():
     global mode
-    logger.info("Starting LedLib thread")
+    logger.info("Starting led control thread")
     iteration = 0
     while True:
         if mode == "rainbow":
@@ -242,7 +242,7 @@ def led_thread():
 
 
 # init
-def init_led(led_pin = LED_PIN):
+def init(led_pin = LED_PIN):
     global strip
     strip = Adafruit_NeoPixel(LED_COUNT, led_pin, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
@@ -252,7 +252,7 @@ def init_led(led_pin = LED_PIN):
 
 
 if __name__ == '__main__':
-    init_led()
+    init()
     try:
         rainbow()
     except KeyboardInterrupt:

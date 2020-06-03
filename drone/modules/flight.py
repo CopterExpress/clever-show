@@ -29,7 +29,7 @@ arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
 landing = rospy.ServiceProxy('/land', Trigger)
 emergency_land = rospy.ServiceProxy('/emergency_land', Trigger)
 
-services_list = ['/navigate', '/set_position', '/set_rates', '/mavros/set_mode', 
+services_list = ['/navigate', '/set_position', '/set_rates', '/mavros/set_mode',
                 '/get_telemetry', '/mavros/cmd/arming', '/land', '/mavros/param/get']
 
 logger.info("Proxy services inited")
