@@ -2,49 +2,60 @@ import os
 import sys
 import time
 import math
-import rospy
 import numpy
+import psutil
+import logging
+import datetime
+import threading
+import subprocess
+from collections import namedtuple
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-# for backward compatibility with clever
+# Import rospy
+try:
+    import rospy
+except ImportError:
+    print("Can't import rospy! Please check your ROS installation.")
+    exit()
+
+# Import clever or clover package
 try:
     from clever import srv
 except ImportError:
     try:
         from clover import srv
     except ImportError:
-        print("Can't import clever or clover")
+        print("Can't import clever or clover! Please check installation of clover ROS package.")
+        exit()
 
-import datetime
-import logging
-import threading
-import psutil
-import subprocess
-from collections import namedtuple
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
+# Import flight control
 try:
-    from FlightLib import FlightLib
+    import modules.flight as flight
 except ImportError:
-    print("Can't import FlightLib")
+    print("Can't import flight control module!")
+
+# Import led control
 try:
-    from FlightLib import LedLib
+    import modules.led as led
 except ImportError:
-    print("Can't import LedLib")
+    print("Can't import led control module for Raspberry Pi!")
 
-import client_core
+# Add parent dir to PATH to import messaging_lib and config_lib
+current_dir = (os.path.dirname(os.path.realpath(__file__)))
+lib_dir = os.path.realpath(os.path.join(current_dir, '../lib'))
+sys.path.insert(0, lib_dir)
 
-import messaging_lib as messaging
-import tasking_lib as tasking
-import animation_lib as animation
-
-from mavros_mavlink import *
+import messaging
+import modules.client_core as client_core
+import modules.animation as animation
+import modules.mavros_wrapper as mavros
+import modules.tasking as tasking
 
 from std_msgs.msg import Bool
 from geometry_msgs.msg import Point, Quaternion, TransformStamped
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply
 import tf2_ros
-
 from geographiclib.geodesic import Geodesic
 
 Earth = Geodesic.WGS84
@@ -85,27 +96,27 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
-animation_logger = logging.getLogger('animation_lib')
+animation_logger = logging.getLogger('modules.animation')
 animation_logger.setLevel(logging.INFO)
 animation_logger.addHandler(handler)
 
-client_logger = logging.getLogger('client')
+client_logger = logging.getLogger('modules.client_core')
 client_logger.setLevel(logging.DEBUG)
 client_logger.addHandler(handler)
 
-messaging_logger = logging.getLogger('messaging_lib')
+messaging_logger = logging.getLogger('messaging')
 messaging_logger.setLevel(logging.INFO)
 messaging_logger.addHandler(handler)
 
-tasking_logger = logging.getLogger('tasking_lib')
+tasking_logger = logging.getLogger('modules.tasking')
 tasking_logger.setLevel(logging.INFO)
 tasking_logger.addHandler(handler)
 
-flightlib_logger = logging.getLogger('FlightLib')
-flightlib_logger.setLevel(logging.INFO)
-flightlib_logger.addHandler(handler)
+flight_logger = logging.getLogger('modules.flight')
+flight_logger.setLevel(logging.INFO)
+flight_logger.addHandler(handler)
 
-mavros_mavlink_logger = logging.getLogger('mavros_mavlink')
+mavros_mavlink_logger = logging.getLogger('modules.mavros_wrapper')
 mavros_mavlink_logger.setLevel(logging.INFO)
 mavros_mavlink_logger.addHandler(handler)
 
@@ -127,10 +138,9 @@ class CopterClient(client_core.Client):
         rospy.loginfo("Init ROS node")
         rospy.init_node('clever_show_client', anonymous=True)
         if self.config.led_use:
-            from FlightLib import LedLib
-            LedLib.init_led(self.config.led_pin)
+            led.init(self.config.led_pin)
         task_manager_instance.start()
-        start_subscriber()
+        mavros.start_subscriber()
         self.telemetry = Telemetry()
         self.telemetry.start_loop()
         if self.config.copter_frame_id == "floor":
@@ -172,7 +182,7 @@ class CopterClient(client_core.Client):
     def gps_frame_broadcast_loop(self):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown():
-            telem = FlightLib.get_telemetry_locked(frame_id = "map")
+            telem = flight.get_telemetry_locked(frame_id = "map")
             if telem is not None:
                 if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
                     logger.info("Can't get position from telemetry")
@@ -359,11 +369,11 @@ def _response_id(*args, **kwargs):
 
 @messaging.request_callback("selfcheck")
 def _response_selfcheck(*args, **kwargs):
-    if check_state_topic(wait_new_status=True):
-        check = FlightLib.selfcheck()
+    if mavros.check_state_topic(wait_new_status=True):
+        check = flight.selfcheck()
         return check if check else "OK"
     else:
-        stop_subscriber()
+        mavros.stop_subscriber()
         return "NOT_CONNECTED_TO_FCU"
 
 
@@ -381,33 +391,33 @@ def _response_animation_id(*args, **kwargs):
 
 @messaging.request_callback("batt_voltage")
 def _response_batt(*args, **kwargs):
-    if check_state_topic(wait_new_status=True):
-        return FlightLib.get_telemetry_locked('body').voltage
+    if mavros.check_state_topic(wait_new_status=True):
+        return flight.get_telemetry_locked('body').voltage
     else:
-        stop_subscriber()
+        mavros.stop_subscriber()
         return float('nan')
 
 
 @messaging.request_callback("cell_voltage")
 def _response_cell(*args, **kwargs):
-    if check_state_topic(wait_new_status=True):
-        return FlightLib.get_telemetry_locked('body').cell_voltage
+    if mavros.check_state_topic(wait_new_status=True):
+        return flight.get_telemetry_locked('body').cell_voltage
     else:
-        stop_subscriber()
+        mavros.stop_subscriber()
         return float('nan')
 
 
 @messaging.request_callback("sys_status")
 def _response_sys_status(*args, **kwargs):
-    return get_sys_status()
+    return mavros.get_sys_status()
 
 
 @messaging.request_callback("cal_status")
 def _response_cal_status(*args, **kwargs):
-    if check_state_topic(wait_new_status=True):
-        return get_calibration_status()
+    if mavros.check_state_topic(wait_new_status=True):
+        return mavros.get_calibration_status()
     else:
-        stop_subscriber()
+        mavros.stop_subscriber()
         return "NOT_CONNECTED_TO_FCU"
 
 
@@ -420,19 +430,19 @@ def _response_position(*args, **kwargs):
 
 @messaging.request_callback("calibrate_gyro")
 def _calibrate_gyro(*args, **kwargs):
-    calibrate('gyro')
-    return get_calibration_status()
+    mavros.calibrate('gyro')
+    return mavros.get_calibration_status()
 
 
 @messaging.request_callback("calibrate_level")
 def _calibrate_level(*args, **kwargs):
-    calibrate('level')
-    return get_calibration_status()
+    mavros.calibrate('level')
+    return mavros.get_calibration_status()
 
 
 @messaging.request_callback("load_params")
 def _load_params(*args, **kwargs):
-    result = load_param_file('temp.params')
+    result = mavros.load_param_file('temp.params')
     logger.info("Load parameters to FCU success: {}".format(result))
     return result
 
@@ -471,10 +481,8 @@ def _command_move_start_to_current_position(*args, **kwargs):
 
 @messaging.message_callback("reset_start")
 def _command_reset_start(*args, **kwargs):
-    copter.config.set('PRIVATE', 'offset',
-                                    [0, 0, copter.config.private_offset[2]], write=True)
-    logger.info("Reset start to {:.2f} {:.2f}".format(copter.config.private_offset[0],
-                                                    copter.config.private_offset[1]))
+    copter.config.set('PRIVATE', 'offset', [0, 0, copter.config.private_offset[2]], write=True)
+    logger.info("Reset start to {:.2f} {:.2f}".format(copter.config.private_offset[0], copter.config.private_offset[1]))
 
 
 @messaging.message_callback("set_z_to_ground")
@@ -504,13 +512,13 @@ def _command_update_repo(*args, **kwargs):
 
 @messaging.message_callback("reboot_all")
 def _command_reboot_all(*args, **kwargs):
-    reboot_fcu()
+    mavros.reboot_fcu()
     execute_command("reboot")
 
 
 @messaging.message_callback("reboot_fcu")
 def _command_reboot(*args, **kwargs):
-    reboot_fcu()
+    mavros.reboot_fcu()
 
 
 @messaging.message_callback("service_restart")
@@ -530,9 +538,9 @@ def _command_chrony_repair(*args, **kwargs):
 
 @messaging.message_callback("led_test")
 def _command_led_test(*args, **kwargs):
-    LedLib.chase(255, 255, 255)
+    led.chase(255, 255, 255)
     time.sleep(2)
-    LedLib.off()
+    led.off()
 
 
 @messaging.message_callback("led_fill")
@@ -540,12 +548,12 @@ def _command_led_fill(*args, **kwargs):
     r = kwargs.get("red", 0)
     g = kwargs.get("green", 0)
     b = kwargs.get("blue", 0)
-    LedLib.fill(r, g, b)
+    led.fill(r, g, b)
 
 
 @messaging.message_callback("flip")
 def _copter_flip(*args, **kwargs):
-    FlightLib.flip(frame_id=copter.config.copter_frame_id)
+    flight.flip(frame_id=copter.config.copter_frame_id)
 
 
 @messaging.message_callback("takeoff")
@@ -569,10 +577,10 @@ def _command_takeoff_z(*args, **kwargs):
     except ValueError:
         logger.error("takeoff_z: Wrong z argument!")
     else:
-        telem = FlightLib.get_telemetry_locked(copter.config.copter_frame_id)
+        telem = flight.get_telemetry_locked(copter.config.copter_frame_id)
         if valid([telem.x, telem.y, telem.z]):
             logger.info("Takeoff to z = {} at {}".format(z, datetime.datetime.now()))
-            task_manager.add_task(0, 0, FlightLib.reach_point,
+            task_manager.add_task(0, 0, flight.reach_point,
                                 task_kwargs={
                                     "x": telem.x,
                                     "y": telem.y,
@@ -599,13 +607,13 @@ def _command_land(*args, **kwargs):
 
 @messaging.message_callback("emergency_land")
 def _emergency_land(*args, **kwargs):
-    logger.info(FlightLib.emergency_land().message)
+    logger.info(flight.emergency_land().message)
 
 
 @messaging.message_callback("disarm")
 def _command_disarm(*args, **kwargs):
     task_manager.reset()
-    task_manager.add_task(-5, 0, FlightLib.arming_wrapper,
+    task_manager.add_task(-5, 0, flight.arming_wrapper,
                           task_kwargs={
                               "state": False
                           })
@@ -684,7 +692,7 @@ def _play_animation(*args, **kwargs):
                                   "frame": frames[0],
                                   "frame_id": copter.config.copter_frame_id,
                                   "use_leds": copter.config.led_use,
-                                  "flight_func": FlightLib.reach_point,
+                                  "flight_func": flight.reach_point,
                               })
         # Calculate first frame start time
         frame_time = rfp_time + copter.config.copter_reach_first_point_time
@@ -697,7 +705,7 @@ def _play_animation(*args, **kwargs):
                                   "frame": frames[0],
                                   "frame_id": copter.config.copter_frame_id,
                                   "use_leds": copter.config.led_use,
-                                  "flight_func": FlightLib.navto,
+                                  "flight_func": flight.navto,
                                   "auto_arm": True,
                               })
         # Calculate first frame start time
@@ -710,7 +718,7 @@ def _play_animation(*args, **kwargs):
                                   "frame": frame,
                                   "frame_id": copter.config.copter_frame_id,
                                   "use_leds": copter.config.led_use,
-                                  "flight_func": FlightLib.navto,
+                                  "flight_func": flight.navto,
                               })
         frame_time += frame.delay
     # Calculate land_time
@@ -800,9 +808,9 @@ class Telemetry:
 
         battery_v = ros_telemetry.voltage
 
-        batt_empty_param = get_param('BAT_V_EMPTY')
-        batt_charged_param = get_param('BAT_V_CHARGED')
-        batt_cells_param = get_param('BAT_N_CELLS')
+        batt_empty_param = mavros.get_param('BAT_V_EMPTY')
+        batt_charged_param = mavros.get_param('BAT_V_CHARGED')
+        batt_cells_param = mavros.get_param('BAT_N_CELLS')
 
         if batt_empty_param.success and batt_charged_param.success and batt_cells_param.success:
             batt_empty = batt_empty_param.value.real
@@ -818,7 +826,7 @@ class Telemetry:
 
     @classmethod
     def get_selfcheck(cls):
-        check = FlightLib.selfcheck()
+        check = flight.selfcheck()
         if not check:
             check = "OK"
         return check
@@ -839,7 +847,7 @@ class Telemetry:
     def update_telemetry_fast(self):
         self.last_task = task_manager.get_current_task()
         try:
-            self.ros_telemetry = FlightLib.get_telemetry_locked(copter.config.copter_frame_id)
+            self.ros_telemetry = flight.get_telemetry_locked(copter.config.copter_frame_id)
             if self.ros_telemetry.connected:
                 self.armed = self.ros_telemetry.armed
                 self.mode = self.ros_telemetry.mode
@@ -863,8 +871,8 @@ class Telemetry:
         self.config_version = self.get_config_version()
         self.start_position = self.get_start_position()
         try:
-            self.calibration_status = get_calibration_status()
-            self.fcu_status = get_sys_status()
+            self.calibration_status = mavros.get_calibration_status()
+            self.fcu_status = mavros.get_sys_status()
             self.battery = self.get_battery(self.ros_telemetry)
         except rospy.ServiceException:
             rospy.logdebug("Some service is unavailable")
@@ -919,7 +927,7 @@ class Telemetry:
                 logger.info("Clear task manager because of {}".format(log_msg))
                 logger.info("Mode: {} | armed: {} | last task: {} ".format(mode, armed, last_task))
                 task_manager.reset()
-                FlightLib.reset_delta()
+                flight.reset_delta()
                 self._tasks_cleared = True
                 self._interruption_counter = 0
         else:

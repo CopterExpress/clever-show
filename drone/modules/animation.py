@@ -8,16 +8,19 @@ import rospy
 import logging
 import threading
 
-try:
-    from FlightLib import FlightLib
-except ImportError:
-    print("Can't import FlightLib")
-try:
-    from FlightLib import LedLib
-except ImportError:
-    print("Can't import LedLib")
-
 logger = logging.getLogger(__name__)
+
+# Import flight control
+try:
+    import modules.flight as flight
+except ImportError:
+    logger.debug("Can't import flight control module!")
+
+# Import led control
+try:
+    import modules.led as led
+except ImportError:
+    logger.debug("Can't import led control module for Raspberry Pi!")
 
 interrupt_event = threading.Event()
 
@@ -350,7 +353,7 @@ class Animation(object):
 
 try:
     def execute_frame(frame, frame_id='aruco_map', use_leds=True,
-                    flight_func=FlightLib.navto, auto_arm=False, flight_kwargs=None, interrupter=interrupt_event):
+                    flight_func=flight.navto, auto_arm=False, flight_kwargs=None, interrupter=interrupt_event):
         if flight_kwargs is None:
             flight_kwargs = {}
         if frame.pose_is_valid():
@@ -359,27 +362,27 @@ try:
             logger.debug("Frame pose is not valid for flying")
         if use_leds:
             if frame.get_color:
-                LedLib.fill(*color)
+                led.fill(*color)
 
     def takeoff(z=1.5, safe_takeoff=True, frame_id='map', timeout=5.0, use_leds=True,
                 interrupter=interrupt_event):
         if use_leds:
-            LedLib.wipe_to(255, 0, 0, interrupter=interrupter)
-        result = FlightLib.takeoff(height=z, timeout_takeoff=timeout, frame_id=frame_id,
+            led.wipe_to(255, 0, 0, interrupter=interrupter)
+        result = flight.takeoff(height=z, timeout_takeoff=timeout, frame_id=frame_id,
                                 emergency_land=safe_takeoff, interrupter=interrupter)
         if result == 'not armed' or result == 'timeout':
             raise Exception('STOP')  # Raise exception to clear task_manager if copter can't arm
         if use_leds:
-            LedLib.blink(0, 255, 0, wait=50, interrupter=interrupter)
+            led.blink(0, 255, 0, wait=50, interrupter=interrupter)
 
 
     def land(z=1.5, descend=False, timeout=5.0, frame_id='aruco_map', use_leds=True,
             interrupter=interrupt_event):
         if use_leds:
-            LedLib.blink(255, 0, 0, interrupter=interrupter)
-        FlightLib.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
+            led.blink(255, 0, 0, interrupter=interrupter)
+        flight.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
         if use_leds:
-            LedLib.off()
+            led.off()
 
 except NameError:
     print("Can't create flying functions")

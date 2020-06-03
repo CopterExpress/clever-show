@@ -136,7 +136,7 @@ def load_param_file(px4_file):
     try:
         px4_params = open(px4_file)
     except IOError:
-        logger.error("File {} can't be opened".format(filepath))
+        logger.error("File {} can't be opened".format(px4_file))
         result = False
     else:
         with open(px4_file) as px4_params:
