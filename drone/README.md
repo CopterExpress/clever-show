@@ -1,4 +1,4 @@
-# Client of clever-show
+# clever-show drone client
 
 Application for remote synchronized control of drones and failsafe drone protection module.
 

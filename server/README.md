@@ -1,4 +1,4 @@
-# Server of clever-show
+# clever-show server
 
 Application for creating and running drone shows, adjusting drones, animations and music.
 
