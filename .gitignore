@@ -18,17 +18,19 @@ images/
 show-env/
 builder/clever-config
 
-Server/tests.py
-Server/convert_ui.sh
-Server/config/server.ini
-Server/server_logs
-Server/testj\.ipynb
-Server/tst_client\.py
-Server/tst\.py
+server/tests.py
+server/test
+server/convert_ui.sh
+server/config/server.ini
+server/server_logs
+server/testj\.ipynb
+server/tst_client\.py
+server/tst\.py
 
-Drone/test_animation/
-Drone/animation.csv
-Drone/client_logs
-Drone/config/client.ini
-Drone/_copter_client_old_\.py
-Drone/test_cl\.py
+drone/test_animation/
+drone/test
+drone/animation.csv
+drone/client_logs
+drone/config/client.ini
+drone/_copter_client_old_\.py
+drone/test_cl\.py
