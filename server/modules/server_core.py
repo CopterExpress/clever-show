@@ -10,13 +10,13 @@ import selectors
 import collections
 import traceback
 
-import inspect  # Add parent dir to PATH to import messaging_lib and config_lib
+# Add parent dir to PATH to import messaging_lib and config_lib
+current_dir = (os.path.dirname(os.path.realpath(__file__)))
+lib_dir = os.path.realpath(os.path.join(current_dir, '../../lib'))
+sys.path.insert(0, lib_dir)
 
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
-
-import messaging_lib as messaging
+# Import modules from lib dir
+import messaging
 from config import ConfigManager
 
 random.seed()
@@ -38,7 +38,7 @@ ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "val
 
 
 class Server(messaging.Singleton):
-    def __init__(self, server_id=None, config_path="config/server.ini"):
+    def __init__(self, server_id=None, config_path="../config/server.ini"):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
 
