@@ -20,6 +20,7 @@ builder/clever-config
 
 server/tests.py
 server/test
+server/server_venv
 server/convert_ui.sh
 server/config/server.ini
 server/server_logs
@@ -29,6 +30,7 @@ server/tst\.py
 
 drone/test_animation/
 drone/test
+drone/drone_venv
 drone/animation.csv
 drone/client_logs
 drone/config/client.ini
