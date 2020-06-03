@@ -1,3 +1,5 @@
+import os
+import sys
 import pickle
 import logging
 from ast import literal_eval
@@ -10,14 +12,12 @@ from PyQt5.QtGui import QCursor, QKeySequence
 from PyQt5.QtWidgets import QAbstractItemView, QTreeView, QMenu, QAction, QMessageBox, QInputDialog, QFileDialog, \
     QShortcut
 
-import config_editor
+import modules.ui.config_editor as config_editor
 
-import sys
-import os, inspect  # Add parent dir to PATH to import messaging_lib
-
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+# Add parent dir to PATH to import messaging_lib and config_lib
+current_dir = (os.path.dirname(os.path.realpath(__file__)))
+lib_dir = os.path.realpath(os.path.join(current_dir, '../../lib'))
+sys.path.insert(0, lib_dir)
 
 import config
 

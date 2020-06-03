@@ -8,8 +8,8 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QTableView, QMessageBox, QMenu, QAction, QWidgetAction, QListWidget, \
     QAbstractItemView, QListWidgetItem, QVBoxLayout, QHBoxLayout, QPushButton, QInputDialog, QLineEdit, QApplication
 
-from config_editor_models import ConfigDialog
-import copter_table_models as table
+from modules.config_editor_models import ConfigDialog
+import modules.copter_table_models as table
 
 
 def save_preset(config, current, header_dict):

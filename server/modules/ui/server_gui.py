@@ -381,7 +381,7 @@ class Ui_MainWindow(object):
         self.reboot_fcu.setText(_translate("MainWindow", "Reboot FCU"))
         self.calibrate_gyro.setText(_translate("MainWindow", "Calibrate gyro"))
         self.calibrate_level.setText(_translate("MainWindow", "Calibrate level"))
-        self.menuOptions.setTitle(_translate("MainWindow", "server"))
+        self.menuOptions.setTitle(_translate("MainWindow", "Server"))
         self.menuMusic_2.setTitle(_translate("MainWindow", "Music"))
         self.menuTable.setTitle(_translate("MainWindow", "Table"))
         self.menuDrone_2.setTitle(_translate("MainWindow", "Selected drones"))

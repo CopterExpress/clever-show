@@ -2,7 +2,7 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QKeySequence
 from PyQt5 import QtWidgets
 
-import visual_land
+import modules.ui.visual_land as visual_land
 import math
 import logging
 import sys

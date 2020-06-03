@@ -38,7 +38,7 @@ ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "val
 
 
 class Server(messaging.Singleton):
-    def __init__(self, server_id=None, config_path="../config/server.ini"):
+    def __init__(self, config_path="../config/server.ini", server_id=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
 

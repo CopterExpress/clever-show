@@ -8,30 +8,33 @@ import asyncio
 import platform
 import itertools
 import subprocess
-from functools import partial, wraps
 
+from functools import partial, wraps
+from quamash import QEventLoop
+
+# Import server routines
+from modules.server_core import Server, Client, now
+
+# Import modules from lib, that was added to PATH on the previous step
+import messaging
+import config as cfg
+from lib import b_partial
+
+# Import PyQt5 related functions
 from PyQt5 import QtWidgets, QtMultimedia, QtCore
 from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import Qt, pyqtSlot, QUrl
-
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication, QInputDialog, QLineEdit, QStatusBar, \
     QSplashScreen, QProgressBar
-from quamash import QEventLoop
 
-# Importing gui form
-from server_gui import Ui_MainWindow
+# Import gui form
+from modules.ui.server_gui import Ui_MainWindow
 
-from core_server import Server, Client, now
-
-import messaging_lib as messaging
-import config as cfg
-
-import copter_table_models as table
-from copter_table import CopterTableWidget, HeaderEditDialog
-from visual_land_dialog import VisualLandDialog
-from config_editor_models import ConfigDialog
-
-from lib import b_partial
+# Import gui logic
+import modules.copter_table_models as table
+from modules.copter_table import CopterTableWidget, HeaderEditDialog
+from modules.visual_land_dialog import VisualLandDialog
+from modules.config_editor_models import ConfigDialog
 
 startup_cwd = os.getcwd()
 
@@ -683,7 +686,7 @@ if __name__ == "__main__":
 
     # app.exec_()
     with loop:
-        server = ServerQt()
+        server = ServerQt(config_path="config/server.ini")
         window = MainWindow(server)
 
         Client.on_first_connect = window.new_client_connected
