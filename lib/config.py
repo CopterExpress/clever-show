@@ -60,7 +60,10 @@ class ConfigManager:
         return self.config[section][option]
 
     def set(self, section, option, value, write=False):
-        self.config[section][option] = value
+        if section:
+            self.config[section][option] = value
+        else:
+            self.config[option] = value
         if write:
             self.write()
 
