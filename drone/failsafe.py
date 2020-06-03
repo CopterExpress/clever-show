@@ -8,9 +8,9 @@ import threading
 
 # for backward compatibility with clever
 try:
-    from clever import SetAttitude
+    from clever import srv
 except ImportError:
-    from clover import SetAttitude
+    from clover import srv
 
 from sensor_msgs.msg import Range
 from mavros_msgs.msg import State, PositionTarget
@@ -19,23 +19,23 @@ from std_msgs.msg import Bool
 from std_srvs.srv import Trigger, TriggerResponse
 from geometry_msgs.msg import PoseStamped
 
-import inspect  # Add parent dir to PATH to import messaging_lib
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+# Add parent dir to PATH to import messaging_lib and config_lib
+current_dir = (os.path.dirname(os.path.realpath(__file__)))
+lib_dir = os.path.realpath(os.path.join(current_dir, '../lib'))
+sys.path.insert(0, lib_dir)
 
 from config import ConfigManager
 
 config = ConfigManager()
 config.load_config_and_spec("config/client.ini")
 
-watchdog_is_enabled = config.position_watchdog_enabled
-log_state = config.position_watchdog_log_state
-vision_pose_delay_after_arm = config.position_watchdog_vision_pose_delay_after_arm
-visual_pose_timeout = config.position_watchdog_vision_pose_timeout
-pos_delta_max = config.position_watchdog_position_delta_max
-watchdog_action = config.position_watchdog_action
-timeout_to_disarm = config.position_watchdog_disarm_timeout
+watchdog_is_enabled = config.failsafe_enabled
+log_state = config.failsafe_log_state
+vision_pose_delay_after_arm = config.failsafe_vision_pose_delay_after_arm
+visual_pose_timeout = config.failsafe_vision_pose_timeout
+pos_delta_max = config.failsafe_position_delta_max
+watchdog_action = config.failsafe_action
+timeout_to_disarm = config.failsafe_disarm_timeout
 emergency_land_thrust = config.emergency_land_thrust
 emergency_land_decrease_thrust_after = config.emergency_land_decrease_thrust_after
 
@@ -58,7 +58,7 @@ logger.addHandler(handler)
 
 set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
 arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
-set_attitude = rospy.ServiceProxy('/set_attitude', SetAttitude)
+set_attitude = rospy.ServiceProxy('/set_attitude', srv.SetAttitude)
 
 visual_pose_last_timestamp = 0
 armed = False
