@@ -43,10 +43,10 @@ class Client(object):
     def load_config(self):
         self.config.load_config_and_spec(self.config_path)
 
-        config_id = self.config.private_id.lower()
+        config_id = self.config.id.lower()
         if config_id == '/default':
             self.client_id = 'copter' + str(random.randrange(9999)).zfill(4)
-            self.config.set('PRIVATE', 'id', self.client_id, write=True) # set and write
+            self.config.set('', 'id', self.client_id, write=True) # set and write
         elif config_id == '/hostname':
             self.client_id = socket.gethostname()
         elif config_id == '/ip':

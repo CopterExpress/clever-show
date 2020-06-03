@@ -327,10 +327,18 @@ class Animation(object):
         if not self.output_frames:
             return 'error: empty output frames'
         if math.isnan(current_height):
-            return 'error: bad current_height'
+            return 'error: bad copter height'
         # Check that bottom point of animation is higher than ground level
+        if ground_level == 'current':
+            ground_level = current_height
+        try:
+            ground_level = float(ground_level)
+        except ValueError:
+            return 'error in [ANIMATION] ground_level parameter'
         if ground_level > self.get_scaled_output_min_z(ratio, offset):
-            return 'error: some animation points are lower than ground level'
+            return 'error: some animation points are lower than ground level for {:.2f}m (max)'.format(
+                ground_level - self.get_scaled_output_min_z(ratio, offset)
+            )
         # Select start action
         if start_action == 'auto':
             if self.get_start_point(ratio, offset)[2] - current_height > takeoff_level:
@@ -340,7 +348,7 @@ class Animation(object):
         elif start_action in ('takeoff', 'fly'):
             return start_action
         else:
-            return 'error'
+            return 'error in [ANIMATION] start_action parameter'
 
     # Need for tests
     def save_corrected_animation(self):
