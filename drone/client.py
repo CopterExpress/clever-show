@@ -607,7 +607,11 @@ def _command_land(*args, **kwargs):
 
 @messaging.message_callback("emergency_land")
 def _emergency_land(*args, **kwargs):
-    logger.info(flight.emergency_land().message)
+    try:
+        result = flight.emergency_land()
+        logger.info(result.message)
+    except rospy.ServiceException:
+        logger.error("Can't execute emergency land: service is unavailable!")
 
 
 @messaging.message_callback("disarm")
@@ -798,7 +802,7 @@ class Telemetry:
                 start_action = copter.animation.get_start_action(
                                 copter.config.animation_start_action, self.ros_telemetry.z,
                                 copter.config.animation_takeoff_level, copter.config.animation_ground_level,
-                                copter.config.animation_ratio, offset)
+                                copter.config.animation_ratio, offset, self.fcu_status)
             return [x,y,z,yaw,start_action,start_delay]
 
     @classmethod

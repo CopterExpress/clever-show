@@ -322,7 +322,7 @@ class Animation(object):
         return ground_level <= self.get_scaled_output_min_z(ratio, offset)
 
     def get_start_action(self, start_action, current_height, takeoff_level,
-                                ground_level, ratio=(1,1,1), offset=(0,0,0)):
+                                ground_level, ratio=(1,1,1), offset=(0,0,0), state="STANDBY"):
         # Check output frames
         if not self.output_frames:
             return 'error: empty output frames'
@@ -335,7 +335,7 @@ class Animation(object):
             ground_level = float(ground_level)
         except ValueError:
             return 'error in [ANIMATION] ground_level parameter'
-        if ground_level > self.get_scaled_output_min_z(ratio, offset):
+        if state != "ACTIVE" and ground_level > self.get_scaled_output_min_z(ratio, offset):
             return 'error: some animation points are lower than ground level for {:.2f}m (max)'.format(
                 ground_level - self.get_scaled_output_min_z(ratio, offset)
             )
