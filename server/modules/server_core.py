@@ -286,6 +286,7 @@ class Client(messaging.ConnectionManager):
     def __init__(self, ip):
         super().__init__()
         self.copter_id = None
+        self.clover_dir = None
         self.connected = False
 
         self.clients[ip] = self
@@ -316,8 +317,14 @@ class Client(messaging.ConnectionManager):
         old_id = self.copter_id
         self.copter_id = value
 
+        if old_id is None:
+            self.get_response("clover_dir", self._got_clover_dir)
+
         if old_id is None and self.on_first_connect:
             self.on_first_connect(self)
+
+    def _got_clover_dir(self, _client, value):
+        self.clover_dir = value
 
     def close(self, inner=False):
         self.connected = False

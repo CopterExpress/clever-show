@@ -381,7 +381,7 @@ class MainWindow(QtWidgets.QMainWindow):
             data = str(value)
             self.model.update_data(row, col, data, table.ModelDataRole)
 
-    def _send_files(self, files, copters=None, client_path="", client_filename="", match_id=False, callback=None):
+    def _send_files(self, files, copters=None, client_path="", client_filename="", match_id=False, callback=None, clover_dir=False):
         if copters is None:
             copters = self.model.user_selected()
         copters = list(copters)
@@ -404,12 +404,19 @@ class MainWindow(QtWidgets.QMainWindow):
             filename = client_filename.format(num, filename) or filename
 
             for copter in to_send:
-                copter.client.send_file(file, os.path.join(client_path, filename))
+                if clover_dir:
+                    if copter.client.clover_dir != 'error':
+                        path_to_send = os.path.realpath(os.path.join(copter.client.clover_dir, client_path))
+                    else:
+                        logging.error("Can't send files to clover ROS package on {}".format(copter.copter_id))
+                else:
+                    path_to_send = client_path
+                copter.client.send_file(file, os.path.join(path_to_send, filename))
                 if callback is not None:
                     callback(copter)
 
     def send_files(self, prompt, ext_filter, copters=None, client_path="", client_filename="", match_id=False,
-                   onefile=False, callback=None):
+                   onefile=False, callback=None, clover_dir=False):
         if onefile:
             file = QFileDialog.getOpenFileName(self, prompt, filter=ext_filter)[0]
             files = [file] if file else []
@@ -419,10 +426,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if not files:
             return
 
-        self._send_files(files, copters, client_path, client_filename, match_id, callback)
+        self._send_files(files, copters, client_path, client_filename, match_id, callback, clover_dir)
 
     def send_directory_files(self, prompt, extensions=(), copters=None, client_path="", client_filename="",
-                             match_id=False, callback=None):
+                             match_id=False, callback=None, clover_dir=False):
         path = QFileDialog.getExistingDirectory(self, prompt)
 
         if not path:
@@ -434,7 +441,7 @@ class MainWindow(QtWidgets.QMainWindow):
             patterns = [path+'/*.*']
 
         files = multi_glob(*patterns)
-        self._send_files(files, copters, client_path, client_filename, match_id, callback)
+        self._send_files(files, copters, client_path, client_filename, match_id, callback, clover_dir)
 
     def request_any_file(self, client_path=None, copters=None):
         if client_path is None:
@@ -488,25 +495,21 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def send_calibrations(self):
         self.send_directory_files("Select directory with calibrations", ('.yaml', ), match_id=True,
-                                  client_path=os.path.join(self.server.config.client_clever_dir,"camera_info/"),
-                                  client_filename="calibration.yaml")  # TODO callback to reload clever?
-
-        # from os.path import expanduser # TODO on client
-        # home = expanduser("~") -> "~catkin_ws/src/clever/clever/camera_info/"
+                                  client_path="camera_info", client_filename="calibration.yaml", clover_dir=True)
 
     @pyqtSlot()
     def send_aruco(self):
         def callback(copter):
-            copter.client.send_message("service_restart", kwargs={"name": "clever"})
+            copter.client.send_message("service_restart", kwargs={"name": "clover"})
 
         self.send_files("Select aruco map configuration file", "Aruco map files (*.txt)", onefile=True,
-                        client_path=os.path.abspath(os.path.join(self.server.config.client_clever_dir,"../aruco_pose/map/")),
-                        client_filename="animation_map.txt", callback=callback)
+                        client_path="../aruco_pose/map/", client_filename="animation_map.txt",
+                        callback=callback, clover_dir=True)
 
     @pyqtSlot()
     def send_launch(self):
         self.send_directory_files("Select directory with launch files", ('.launch', '.yaml'), match_id=False,
-                                  client_path=os.path.join(self.server.config.client_clever_dir,"launch/"))  # TODO clever restart callback?
+                                  client_path="launch", clover_dir=True)
 
     @pyqtSlot()
     def send_fcu_parameters(self):
@@ -549,7 +552,6 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def restart_clever_show(self):
         for copter in self.model.user_selected():
-            copter.client.send_message("service_restart", kwargs={"name": "visual_pose_watchdog"})
             copter.client.send_message("service_restart", kwargs={"name": "clever-show"})
 
     @pyqtSlot()

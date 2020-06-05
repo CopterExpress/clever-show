@@ -223,6 +223,10 @@ def _response_config(*args, **kwargs):
         response.update({"configspec": dict(active_client.config.config.configspec)})
     return response
 
+@messaging.request_callback("clover_dir")
+def _response_clover_dir(*args, **kwargs):
+    return active_client.config.clover_dir
+
 @messaging.request_callback("id")
 def _response_id(*args, **kwargs):
     new_id = kwargs.get("new_id", None)
