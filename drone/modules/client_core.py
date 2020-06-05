@@ -28,7 +28,7 @@ class Client(object):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
 
-        self.server_connection = messaging.ConnectionManager("pi")
+        self.server_connection = messaging.ConnectionManager()
 
         self.connected = False
         self.client_id = None

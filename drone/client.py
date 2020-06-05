@@ -145,6 +145,8 @@ class CopterClient(client_core.Client):
             except rospkg.common.ResourceNotFound:
                 path = 'error'
         self.config.set('', 'clover_dir', path, write=True)
+        if path.count("/pi/"):
+            self.server_connection.whoami = "pi"
 
     def on_broadcast_bind(self):
         repair_chrony(self.config.server_host)
