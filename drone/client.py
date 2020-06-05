@@ -19,6 +19,8 @@ except ImportError:
     print("Can't import rospy! Please check your ROS installation.")
     exit()
 
+import rospkg
+
 # Import clever or clover package
 try:
     from clever import srv
@@ -125,11 +127,24 @@ class CopterClient(client_core.Client):
     def __init__(self, config_path="config/client.ini"):
         super(CopterClient, self).__init__(config_path)
         self.load_config()
+        if self.config.clover_dir == 'auto':
+            self.check_clover_dir()
         self.telemetry = None
         self.animation = animation.Animation(self.config, "animation.csv")
 
     def load_config(self):
         super(CopterClient, self).load_config()
+
+    def check_clover_dir(self):
+        rospack = rospkg.RosPack()
+        try:
+            path = rospack.get_path('clever')
+        except rospkg.common.ResourceNotFound:
+            try:
+                path = rospack.get_path('clover')
+            except rospkg.common.ResourceNotFound:
+                path = 'error'
+        self.config.set('', 'clover_dir', path, write=True)
 
     def on_broadcast_bind(self):
         repair_chrony(self.config.server_host)
@@ -150,7 +165,6 @@ class CopterClient(client_core.Client):
         client_thread = threading.Thread(target=super(CopterClient, self).start, name="Client thread")
         client_thread.daemon = True
         client_thread.start()
-        #super(CopterClient, self).start()
 
     def start_floor_frame_broadcast(self):
         if self.config.floor_frame_parent == "gps":
