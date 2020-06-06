@@ -42,6 +42,14 @@ jobs:
         draft: true
         name: ${TRAVIS_TAG}
 
+    - stage: Test
+      name: Execute auto tests
+      language: python
+      python: 2.7
+      script:
+        - cd test
+        - pytest
+
     - stage: Annotate
       name: Auto-generate changelog
       language: python
@@ -50,11 +58,8 @@ jobs:
         - pip install GitPython PyGithub
       script:
         - PYTHONUNBUFFERED=1 python ./builder/assets/gen_changelog.py
+
 stages:
   - Build
+  - Test
   - Annotate
-# More info there
-# https://github.com/travis-ci/travis-ci/issues/6893
-# https://docs.travis-ci.com/user/customizing-the-build/
-# https://docs.travis-ci.com/user/deployment/releases
-# https://docs.travis-ci.com/user/environment-variables/
