@@ -47,8 +47,8 @@ jobs:
       language: python
       python: 2.7
       script:
+        - cd drone/tests
         - pip install -r drone/requirements.txt
-        - cd test
         - pytest
 
     - stage: Annotate
