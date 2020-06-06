@@ -51,16 +51,6 @@ jobs:
         - pip install -r drone/requirements.txt
         - pytest
 
-    - stage: Annotate
-      name: Auto-generate changelog
-      language: python
-      python: 3.6
-      install:
-        - pip install GitPython PyGithub
-      script:
-        - PYTHONUNBUFFERED=1 python ./builder/assets/gen_changelog.py
-
 stages:
   - Test
   - Build
-  - Annotate
