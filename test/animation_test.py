@@ -7,9 +7,11 @@ import pytest
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = (os.path.dirname(os.path.realpath(__file__)))
 lib_dir = os.path.realpath(os.path.join(current_dir, '../lib'))
-drone_dir = os.path.realpath(os.path.join(current_dir, '../drone'))
+modules_dir = os.path.realpath(os.path.join(current_dir, '../drone/modules'))
 sys.path.insert(0, lib_dir)
-sys.path.insert(0, drone_dir)
+sys.path.insert(0, modules_dir)
+
+print("PATH: {}".format(sys.path))
 
 from config import ConfigManager
 
@@ -30,7 +32,7 @@ config.load_config_and_spec(os.path.join(config_path,'client.ini'))
 
 assert config.config_name == "client"
 
-import modules.animation as animation
+import animation
 
 a = animation.Animation()
 
