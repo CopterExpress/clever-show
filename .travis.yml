@@ -43,10 +43,11 @@ jobs:
         name: ${TRAVIS_TAG}
 
     - stage: Test
-      name: Execute auto tests
+      name: Execute auto tests for drone modules
       language: python
       python: 2.7
       script:
+        - pip install -r drone/requirements.txt
         - cd test
         - pytest
 
@@ -60,6 +61,6 @@ jobs:
         - PYTHONUNBUFFERED=1 python ./builder/assets/gen_changelog.py
 
 stages:
-  - Build
   - Test
+  - Build
   - Annotate

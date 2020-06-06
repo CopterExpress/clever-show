@@ -4,7 +4,6 @@ import copy
 import math
 import time
 import numpy
-import rospy
 import logging
 import threading
 
