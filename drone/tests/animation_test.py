@@ -38,8 +38,10 @@ import animation
 
 a = animation.Animation()
 
+assets_dir = os.path.realpath(os.path.join(root_dir, 'drone/tests/assets'))
+
 def test_animation_1():
-    a.update_frames(config, "assets/animation_1.csv")
+    a.update_frames(config, os.path.join(assets_dir, 'animation_1.csv'))
     assert a.id == 'basic'
     assert approx(a.original_frames[0].get_pos()) == [0,0,0]
     assert a.original_frames[0].get_color() == [204,2,0]
@@ -58,7 +60,7 @@ def test_animation_1():
     assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4.,5.,6.3]
 
 def test_animation_2():
-    a.update_frames(config, "assets/animation_2.csv")
+    a.update_frames(config, os.path.join(assets_dir, 'animation_2.csv'))
     assert a.id == 'parad'
     assert approx(a.original_frames[271].get_pos()) == [-1.00519,2.65699,0.24386]
     assert a.original_frames[271].get_color() == [7,255,0]
@@ -77,7 +79,7 @@ def test_animation_2():
     assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [2.99481, 10.31398, 6.73158]
 
 def test_animation_3():
-    a.update_frames(config, "assets/animation_3.csv")
+    a.update_frames(config, os.path.join(assets_dir, 'animation_3.csv'))
     assert a.id == 'route'
     assert approx(a.original_frames[9].get_pos()) == [0.97783,0.0,1.0]
     assert a.original_frames[9].get_color() == [0,204,2]
@@ -95,7 +97,7 @@ def test_animation_3():
     assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4,5,9]
 
 def test_animation_4():
-    a.update_frames(config, "assets/animation_4.csv")
+    a.update_frames(config, os.path.join(assets_dir, 'animation_4.csv'))
     assert a.id == 'two_drones_test'
     assert approx(a.original_frames[11].get_pos()) == [0.21774,1.4,1.0]
     assert a.original_frames[11].get_color() == [0,0,0]
