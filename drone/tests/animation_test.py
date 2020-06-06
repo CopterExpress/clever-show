@@ -6,12 +6,13 @@ import pytest
 
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = (os.path.dirname(os.path.realpath(__file__)))
-lib_dir = os.path.realpath(os.path.join(current_dir, '../lib'))
-modules_dir = os.path.realpath(os.path.join(current_dir, '../drone/modules'))
+root_dir = os.path.realpath(os.path.join(current_dir,'../..'))
+lib_dir = os.path.realpath(os.path.join(root_dir, 'lib'))
+modules_dir = os.path.realpath(os.path.join(root_dir, 'drone/modules'))
 sys.path.insert(0, lib_dir)
 sys.path.insert(0, modules_dir)
 
-print("PATH: {}".format(sys.path))
+# print("PATH: {}".format(sys.path))
 
 from config import ConfigManager
 
@@ -25,7 +26,8 @@ if not os.path.exists(spec_path):
     else:
         print("Successfully created the directory {}".format(spec_path))
 
-shutil.copy("../drone/config/spec/configspec_client.ini", spec_path)
+configspec_path = os.path.realpath(os.path.join(root_dir,"drone/config/spec/configspec_client.ini"))
+shutil.copy(configspec_path, spec_path)
 
 config = ConfigManager()
 config.load_config_and_spec(os.path.join(config_path,'client.ini'))
