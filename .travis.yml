@@ -47,7 +47,7 @@ jobs:
       language: python
       python: 2.7
       script:
-        - cd drone/tests
+        - cd drone
         - pip install -r drone/requirements.txt
         - pytest
 
