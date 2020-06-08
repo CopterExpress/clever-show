@@ -2,7 +2,7 @@
 
 set -e # Exit immidiately on non-zero result
 
-SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.18/clever_v0.18.img.zip"
+SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.20/clever_v0.20.img.zip"
 
 export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:='noninteractive'}
 export LANG=${LANG:='C.UTF-8'}
@@ -118,12 +118,15 @@ img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 
 # Copy service files for clever show client and visual_pose_watchdog
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
-img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/visual_pose_watchdog.service' '/lib/systemd/system/'
+img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/failsafe.service' '/lib/systemd/system/'
+
+# Copy client-setup script to /usr/local/bin to provide wide access
+img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/client-setup' '/usr/local/bin/'
 
 # Copy config files for clever
-if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
-if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clever/aruco_pose'; fi
-if [[ -d "${CONFIG_DIR}/camera_info" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/camera_info' '/home/pi/catkin_ws/src/clever/clever'; fi
+# if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
+# if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clever/aruco_pose'; fi
+# if [[ -d "${CONFIG_DIR}/camera_info" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/camera_info' '/home/pi/catkin_ws/src/clever/clever'; fi
 
 # Shrink image
 img-resize ${IMAGE_PATH}
