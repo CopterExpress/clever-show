@@ -71,7 +71,7 @@ get_image() {
 get_image ${IMAGE_PATH} ${SOURCE_IMAGE}
 
 # Make free space
-img-resize ${IMAGE_PATH} max '5G'
+img-resize ${IMAGE_PATH} max '6G'
 
 # Reconfiguring clever show repository for simplier unshallowing
 # git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
