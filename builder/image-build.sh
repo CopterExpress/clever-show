@@ -2,7 +2,7 @@
 
 set -e # Exit immidiately on non-zero result
 
-SOURCE_IMAGE="https://github.com/CopterExpress/clever/releases/download/v0.20/clever_v0.20.img.zip"
+SOURCE_IMAGE="https://github.com/CopterExpress/clover/releases/download/v0.20/clover_v0.20.img.zip"
 
 export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:='noninteractive'}
 export LANG=${LANG:='C.UTF-8'}
@@ -57,7 +57,7 @@ get_image() {
   echo_stamp "RPI_IMAGE_NAME=${RPI_IMAGE_NAME}" "INFO"
 
   if [ ! -e "${BUILD_DIR}/${RPI_ZIP_NAME}" ]; then
-    echo_stamp "Downloading original clever distribution"
+    echo_stamp "Downloading original clover distribution"
     wget --progress=dot:giga -O ${BUILD_DIR}/${RPI_ZIP_NAME} $2
     echo_stamp "Downloading complete" "SUCCESS"
   else echo_stamp "Clever distribution already downloaded" "INFO"; fi
