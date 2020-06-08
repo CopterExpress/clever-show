@@ -123,6 +123,9 @@ img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/failsafe.service' '/lib/sys
 # Copy client-setup script to /usr/local/bin to provide wide access
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/client-setup' '/usr/local/bin/'
 
+# Copy chrony configuration
+img-chroot ${IMAGE_PATH} copy ${REPO_DIR}'/examples/chrony/client.conf' '/etc/chrony/chrony.conf'
+
 # Copy config files for clever
 # if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
 # if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clever/aruco_pose'; fi
