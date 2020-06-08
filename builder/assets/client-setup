@@ -2,7 +2,6 @@
 
 # $1 - ssid, $2 - password of wifi router
 # $3 - hostname of rpi
-# $4 - server ip
 
 if [ $(whoami) != "root" ]; then
   echo -e "\nThis should be run as root!\n"
@@ -10,10 +9,10 @@ if [ $(whoami) != "root" ]; then
 fi
 
 # check if enough arguments
-if [[ $# -ne 4 ]] ; then
-    echo -e "\nPlease, enter arguments: router ssid, wifi password, copter id and server ip"
-    echo -e "\nExample: sudo $0 clever-swarm swarmwifi clever-1 192.168.1.100\n"
-    exit 0
+if [[ $# -ne 3 ]] ; then
+    echo -e "\nPlease, enter 3 positional arguments: router ssid, wifi password and copter id"
+    echo -e "\nExample: sudo client-setup droneshow dronewifi clover-1\n"
+    exit 1
 fi
 
 # stop and disable dnsmasq service (to set wifi in client mode)
@@ -61,20 +60,9 @@ $3
 
 EOF
 
-# configure chrony as client
-cat << EOF | tee /etc/chrony/chrony.conf
-server $4 iburst
-driftfile /var/lib/chrony/drift
-makestep 1.0 -1
-rtcsync
-EOF
-
-# change server ip in client_config
-sed -i "0,/^host/s/\(^h.*\)/host = $4/" client_config.ini
-
-# enable clever show service and visual_pose_watchdog service
+# enable clever show service and failsafe service
 systemctl enable clever-show.service
-systemctl enable visual_pose_watchdog.service
+systemctl enable failsafe.service
 
 # restart clever
 reboot
