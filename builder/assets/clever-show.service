@@ -4,9 +4,9 @@ Requires=roscore.service
 After=clover.service
 
 [Service]
-WorkingDirectory=/home/pi/clever-show/Drone
+WorkingDirectory=/home/pi/clever-show/drone
 ExecStart=/bin/bash -c ". /home/pi/catkin_ws/devel/setup.sh; \
-                      ROS_HOSTNAME=`hostname`.local /usr/bin/python /home/pi/clever-show/Drone/client.py"
+                      ROS_HOSTNAME=`hostname`.local /usr/bin/python /home/pi/clever-show/drone/client.py"
 KillSignal=SIGKILL
 Restart=on-failure
 RestartSec=3
