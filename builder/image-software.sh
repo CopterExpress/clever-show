@@ -49,6 +49,9 @@ my_travis_retry() {
   return $result
 }
 
+echo_stamp "Move /etc/ld.so.preload out of the way"
+mv /etc/ld.so.preload /etc/ld.so.preload.disabled-for-build
+
 echo_stamp "Update apt cache"
 apt-get update -qq
 

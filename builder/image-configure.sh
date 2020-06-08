@@ -39,3 +39,6 @@ Defaults        env_keep += "ROS_LOG_DIR"
 EOT
 
 echo_stamp "Image was configured!" "SUCCESS"
+
+echo "Move /etc/ld.so.preload back to its original position"
+mv /etc/ld.so.preload.disabled-for-build /etc/ld.so.preload

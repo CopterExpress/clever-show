@@ -113,9 +113,6 @@ losetup -d ${DEV_IMAGE}
 # Install software
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-software.sh'
 
-# Configure image
-img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
-
 # Copy service files for clever show client and visual_pose_watchdog
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/clever-show.service' '/lib/systemd/system/'
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/failsafe.service' '/lib/systemd/system/'
@@ -125,6 +122,9 @@ img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/client-setup' '/usr/local/b
 
 # Copy chrony configuration
 img-chroot ${IMAGE_PATH} copy ${REPO_DIR}'/examples/chrony/client.conf' '/etc/chrony/chrony.conf'
+
+# Configure image
+img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 
 # Copy config files for clever
 # if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
