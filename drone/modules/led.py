@@ -2,7 +2,7 @@ from __future__ import print_function
 import threading
 import time
 from rpi_ws281x import *
-from tasking_lib import wait as wait_until
+from tasking import wait as wait_until
 import logging
 logger = logging.getLogger(__name__)
 # LED strip configuration:
