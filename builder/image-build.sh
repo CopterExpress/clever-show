@@ -127,9 +127,9 @@ img-chroot ${IMAGE_PATH} copy ${REPO_DIR}'/examples/chrony/client.conf' '/etc/ch
 img-chroot ${IMAGE_PATH} exec ${SCRIPTS_DIR}'/image-configure.sh'
 
 # Copy config files for clover
-if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clever/clever'; fi
-if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clever/aruco_pose'; fi
-if [[ -d "${CONFIG_DIR}/camera_info" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/camera_info' '/home/pi/catkin_ws/src/clever/clever'; fi
+if [[ -d "${CONFIG_DIR}/launch" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/launch' '/home/pi/catkin_ws/src/clover/clover'; fi
+if [[ -d "${CONFIG_DIR}/map" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/map' '/home/pi/catkin_ws/src/clover/aruco_pose'; fi
+if [[ -d "${CONFIG_DIR}/camera_info" ]]; then img-chroot ${IMAGE_PATH} copy ${CONFIG_DIR}'/camera_info' '/home/pi/catkin_ws/src/clover/clover'; fi
 
 # Shrink image
 img-resize ${IMAGE_PATH}
