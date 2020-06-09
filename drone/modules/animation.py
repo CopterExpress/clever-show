@@ -19,7 +19,7 @@ except ImportError:
 try:
     import modules.led as led
 except ImportError:
-    logger.debug("Can't import led control module for Raspberry Pi!")
+    logger.debug("Can't import led control module!")
 
 interrupt_event = threading.Event()
 
@@ -366,30 +366,34 @@ try:
         if frame.pose_is_valid():
             flight_func(x=frame.x, y=frame.y, z=frame.z, yaw=frame.yaw, frame_id=frame_id, auto_arm=auto_arm, interrupter=interrupt_event, **flight_kwargs)
         else:
-            logger.debug("Frame pose is not valid for flying")
+            logger.error("Frame pose is not valid for flying")
         if use_leds:
-            if frame.get_color:
-                led.fill(*color)
+            try:
+                red, green, blue = frame.get_color()
+            except ValueError:
+                logger.error("Can't get frame color!")
+            else:
+                led.set_effect(r=red, g=green, b=blue)
 
     def takeoff(z=1.5, safe_takeoff=True, frame_id='map', timeout=5.0, use_leds=True,
                 interrupter=interrupt_event):
         if use_leds:
-            led.wipe_to(255, 0, 0, interrupter=interrupter)
+            led.set_effect(effect='wipe', r=255, g=0, b=0)
         result = flight.takeoff(height=z, timeout_takeoff=timeout, frame_id=frame_id,
                                 emergency_land=safe_takeoff, interrupter=interrupter)
-        if result == 'not armed' or result == 'timeout':
+        if result == 'not armed':
             raise Exception('STOP')  # Raise exception to clear task_manager if copter can't arm
         if use_leds:
-            led.blink(0, 255, 0, wait=50, interrupter=interrupter)
+            led.set_effect(effect='flash', r=0, g=255, b=0)
 
 
     def land(z=1.5, descend=False, timeout=5.0, frame_id='aruco_map', use_leds=True,
             interrupter=interrupt_event):
         if use_leds:
-            led.blink(255, 0, 0, interrupter=interrupter)
+            led.set_effect(effect='blink', r=255, g=0, b=0)
         flight.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
         if use_leds:
-            led.off()
+            led.set_effect(r=0, g=0, b=0)
 
 except NameError:
     print("Can't create flying functions")
