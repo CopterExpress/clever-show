@@ -41,7 +41,7 @@ except ImportError:
 try:
     import modules.led as led
 except ImportError:
-    print("Can't import led control module for Raspberry Pi!")
+    print("Can't import led control module!")
 
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = (os.path.dirname(os.path.realpath(__file__)))
@@ -154,8 +154,6 @@ class CopterClient(client_core.Client):
     def start(self, task_manager_instance):
         rospy.loginfo("Init ROS node")
         rospy.init_node('clever_show_client', anonymous=True)
-        if self.config.led_use:
-            led.init(self.config.led_pin)
         task_manager_instance.start()
         mavros.start_subscriber()
         self.telemetry = Telemetry()
@@ -554,17 +552,15 @@ def _command_chrony_repair(*args, **kwargs):
 
 @messaging.message_callback("led_test")
 def _command_led_test(*args, **kwargs):
-    led.chase(255, 255, 255)
-    time.sleep(2)
-    led.off()
+    led.set_effect(effect='flash', r=255, g=255, b=255)
 
 
 @messaging.message_callback("led_fill")
 def _command_led_fill(*args, **kwargs):
-    r = kwargs.get("red", 0)
-    g = kwargs.get("green", 0)
-    b = kwargs.get("blue", 0)
-    led.fill(r, g, b)
+    red = kwargs.get("red", 0)
+    green = kwargs.get("green", 0)
+    blue = kwargs.get("blue", 0)
+    led.set_effect(r=red, g=green, b=blue)
 
 
 @messaging.message_callback("flip")
