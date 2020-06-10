@@ -477,7 +477,7 @@ def _command_update_animation(*args, **kwargs):
 def _command_move_start_to_current_position(*args, **kwargs):
     offset = numpy.array(copter.config.animation_private_offset) + numpy.array(copter.config.animation_common_offset)
     try:
-        xs, ys, zs = copter.animation.get_start_point(copter.config.ratio, offset)
+        xs, ys, zs = copter.animation.get_start_point(copter.config.animation_ratio, offset)
     except ValueError:
         logger.error("Can't get start point. Check animation file!")
     else:
