@@ -475,7 +475,8 @@ def _command_update_animation(*args, **kwargs):
 
 @messaging.message_callback("move_start")
 def _command_move_start_to_current_position(*args, **kwargs):
-    offset = numpy.array(copter.config.animation_private_offset) + numpy.array(copter.config.animation_common_offset)
+    private_offset = copter.config.animation_private_offset
+    offset = numpy.array(private_offset) + numpy.array(copter.config.animation_common_offset)
     try:
         xs, ys, zs = copter.animation.get_start_point(copter.config.animation_ratio, offset)
     except ValueError:
@@ -486,7 +487,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
         logger.debug("telemetry x = {}, y = {}".format(telem.x, telem.y))
         if valid([telem.x, telem.y, telem.z]):
             copter.config.set('ANIMATION', 'private_offset',
-                [telem.x - xs, telem.y - ys, copter.config.animation_private_offset[2]], write=True)
+                [private_offset[0] + telem.x - xs, private_offset[1] + telem.y - ys, private_offset[2]], write=True)
             logger.info("Set start delta: {:.2f} {:.2f}".format(copter.config.animation_private_offset[0],
                                                                 copter.config.animation_private_offset[1]))
         else:
