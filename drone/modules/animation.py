@@ -384,13 +384,13 @@ try:
         if result == 'not armed':
             raise Exception('STOP')  # Raise exception to clear task_manager if copter can't arm
         if use_leds:
-            led.set_effect(effect='flash', r=0, g=255, b=0)
+            led.set_effect(effect='blink_fast', r=0, g=255, b=0)
 
 
     def land(z=1.5, descend=False, timeout=5.0, frame_id='aruco_map', use_leds=True,
             interrupter=interrupt_event):
         if use_leds:
-            led.set_effect(effect='blink', r=255, g=0, b=0)
+            led.set_effect(effect='blink_fast', r=255, g=0, b=0)
         flight.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
         if use_leds:
             led.set_effect(r=0, g=0, b=0)
