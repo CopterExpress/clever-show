@@ -485,7 +485,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
         telem = copter.telemetry.ros_telemetry
         logger.debug("telemetry x = {}, y = {}".format(telem.x, telem.y))
         if valid([telem.x, telem.y, telem.z]):
-            copter.config.set('animation', 'private_offset',
+            copter.config.set('ANIMATION', 'private_offset',
                 [telem.x - xs, telem.y - ys, copter.config.animation_private_offset[2]], write=True)
             logger.info("Set start delta: {:.2f} {:.2f}".format(copter.config.animation_private_offset[0],
                                                                 copter.config.animation_private_offset[1]))
@@ -495,7 +495,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
 
 @messaging.message_callback("reset_start")
 def _command_reset_start(*args, **kwargs):
-    copter.config.set('animation', 'private_offset', [0, 0, copter.config.animation_private_offset[2]], write=True)
+    copter.config.set('ANIMATION', 'private_offset', [0, 0, copter.config.animation_private_offset[2]], write=True)
     logger.info("Reset start to {:.2f} {:.2f}".format(copter.config.animation_private_offset[0], copter.config.animation_private_offset[1]))
 
 
@@ -503,7 +503,7 @@ def _command_reset_start(*args, **kwargs):
 def _command_set_z(*args, **kwargs):
     telem = copter.telemetry.ros_telemetry
     if valid([telem.x, telem.y, telem.z]):
-        copter.config.set('animation', 'private_offset',
+        copter.config.set('ANIMATION', 'private_offset',
             [copter.config.animation_private_offset[0], copter.config.animation_private_offset[1], telem.z], write=True)
         logger.info("Set z offset to {:.2f}".format(copter.config.animation_private_offset[2]))
     else:
@@ -512,7 +512,7 @@ def _command_set_z(*args, **kwargs):
 
 @messaging.message_callback("reset_z_offset")
 def _command_reset_z(*args, **kwargs):
-    copter.config.set('animation', 'private_offset',
+    copter.config.set('ANIMATION', 'private_offset',
         [copter.config.animation_private_offset[0], copter.config.animation_private_offset[1], 0], write=True)
     logger.info("Reset z offset to {:.2f}".format(copter.config.animation_private_offset[2]))
 
