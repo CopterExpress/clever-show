@@ -396,7 +396,7 @@ try:
             while (flight.get_telemetry_locked().armed):
                 if interrupter.is_set():
                     break
-                rospy.sleep(0.5)
+                time.sleep(0.5)
             led.set_effect(r=0, g=0, b=0)
 
 except NameError:
