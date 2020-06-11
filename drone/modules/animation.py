@@ -392,11 +392,11 @@ try:
         if use_leds:
             led.set_effect(effect='blink_fast', r=255, g=0, b=0)
         flight.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
-        while (flight.get_telemetry_locked().armed):
-            if interrupter.is_set():
-                break
-            rospy.sleep(0.5)
         if use_leds:
+            while (flight.get_telemetry_locked().armed):
+                if interrupter.is_set():
+                    break
+                rospy.sleep(0.5)
             led.set_effect(r=0, g=0, b=0)
 
 except NameError:
