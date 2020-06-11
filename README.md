@@ -2,9 +2,9 @@
 
 [Русская версия](README_RU.md)
 
-Software for making the drone show controlled by Raspberry Pi, PX4 and COEX [Clever](https://github.com/CopterExpress/clever) package.
+Software for making the drone show with drones controlled by [Raspberry Pi](https://www.raspberrypi.org/) with COEX [Clover](https://github.com/CopterExpress/clover) package and flight controller with [PX4](https://github.com/PX4/Firmware) firmware.
 
-Create animation in Blender, convert it to drone paths, set up the drones and run your own show!
+Create animation in [Blender](https://www.blender.org/), convert it to drone paths, set up the drones and run your own show!
 
 [![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
 
@@ -16,9 +16,9 @@ Create animation in Blender, convert it to drone paths, set up the drones and ru
 
 ## This software includes
 
-* [Drone side](https://github.com/CopterExpress/clever-show/tree/master/Drone) for remote synchronized control of drones with emergency drone protection module
-* [Server side](https://github.com/CopterExpress/clever-show/tree/master/Server) for making the drone show with ability of tuning drones, animation and music
-* [Blender 2.8 addon](https://github.com/CopterExpress/clever-show/tree/master/blender-addon) for exporting animation to drone paths
+* [Drone side](drone/) for remote synchronized control of drones with emergency drone protection module
+* [Server side](server/) for making the drone show with ability of tuning drones, animation and music
+* [Blender 2.8 addon](blender-addon/) for exporting animation to drone paths
 * [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
 
 ## Documentation
@@ -27,4 +27,4 @@ Create animation in Blender, convert it to drone paths, set up the drones and ru
 
 Start tutorial is located [here](docs/ru/start-tutorial.md).
 
-Detailed documentation is located in the [docs](https://github.com/CopterExpress/clever-show/tree/master/docs) folder.
+Detailed documentation is located in the [docs](docs/) folder.

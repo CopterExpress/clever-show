@@ -23,7 +23,7 @@ echo_stamp() {
 }
 
 # rename wifi ssid
-sed -i "s/NEW_SSID='CLEVER/NEW_SSID='CLEVERSHOW/" /root/init_rpi.sh
+sed -i "s/NEW_SSID='clover/NEW_SSID='clever-show/" /root/init_rpi.sh
 
 # add sudoers variables to make sudo works with ros (for led strip)
 grep -qxF 'Defaults        env_keep += "ROS_LOG_DIR"' /etc/sudoers || cat << EOT >> /etc/sudoers
@@ -40,3 +40,5 @@ EOT
 
 echo_stamp "Image was configured!" "SUCCESS"
 
+echo "Move /etc/ld.so.preload back to its original position"
+mv /etc/ld.so.preload.disabled-for-build /etc/ld.so.preload

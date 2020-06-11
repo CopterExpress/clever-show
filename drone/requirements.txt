@@ -1,0 +1,5 @@
+selectors2
+psutil
+configobj
+watchdog
+geographiclib

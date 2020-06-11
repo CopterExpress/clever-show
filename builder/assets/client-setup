@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# $1 - ssid, $2 - password of wifi router
+# $3 - hostname of rpi
+
+if [ $(whoami) != "root" ]; then
+  echo -e "\nThis should be run as root!\n"
+  exit 1
+fi
+
+# check if enough arguments
+if [[ $# -ne 3 ]] ; then
+    echo -e "\nPlease, enter 3 positional arguments: router ssid, wifi password and copter id"
+    echo -e "\nExample: sudo client-setup droneshow dronewifi clover-1\n"
+    exit 1
+fi
+
+# stop and disable dnsmasq service (to set wifi in client mode)
+systemctl stop dnsmasq
+systemctl disable dnsmasq
+
+# enable getting auto ip
+sed -i 's/interface wlan0//' /etc/dhcpcd.conf
+sed -i 's/static ip_address=192.168.11.1\/24//' /etc/dhcpcd.conf
+
+# make backup of wpa_supplicant.conf
+if ! [ -f "/etc/wpa_supplicant/wpa_supplicant.conf.OLD" ] ; then
+    cp /etc/wpa_supplicant/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf.OLD
+fi
+
+# set ssid and password of the router
+cat << EOF | tee /etc/wpa_supplicant/wpa_supplicant.conf
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=GB
+
+network={
+    ssid="$1"
+    psk="$2"
+    scan_ssid=1
+}
+EOF
+
+# restart dhcpcd to connect to wifi as a client
+systemctl restart dhcpcd
+
+# set hostname for linux
+cat << EOF | tee /etc/hostname
+$3
+EOF
+sed -i "/127.0.1.1/c 127.0.1.1       $3 $3.local" /etc/hosts
+
+# set hostname for ROS
+sed -i "/ROS_HOSTNAME/c ROS_HOSTNAME=\'$3\'" /home/pi/.bashrc
+
+# set ssh message
+cat << EOF | tee /etc/motd
+
+$3
+
+EOF
+
+# enable clever show service and failsafe service
+systemctl enable clever-show.service
+systemctl enable failsafe.service
+
+# restart clever
+reboot

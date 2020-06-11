@@ -49,19 +49,21 @@ my_travis_retry() {
   return $result
 }
 
+echo_stamp "Move /etc/ld.so.preload out of the way"
+mv /etc/ld.so.preload /etc/ld.so.preload.disabled-for-build
+
 echo_stamp "Update apt cache"
 apt-get update -qq
 
 echo_stamp "Software installing"
 apt-get install -y \
-samba \
 chrony \
 && echo_stamp "Everything was installed!" "SUCCESS" \
 || (echo_stamp "Some packages wasn't installed!" "ERROR"; exit 1)
 
 echo_stamp "Install python libs"
-my_travis_retry pip install selectors2
-my_travis_retry pip install psutil
+cd /home/pi/clever-show/drone
+my_travis_retry pip install -r requirements.txt
 
 echo_stamp "Install catkin packages"
 cd /home/pi/catkin_ws/src
