@@ -130,7 +130,9 @@ class CopterClient(client_core.Client):
         if self.config.clover_dir == 'auto':
             self.check_clover_dir()
         self.telemetry = None
-        self.animation = animation.Animation(self.config, "animation.csv")
+        self.animation = animation.Animation("animation.csv", self.config)
+        self.gps_thread_run = False
+        self.gps_thread_is_running = False
 
     def load_config(self):
         super(CopterClient, self).load_config()
@@ -166,6 +168,15 @@ class CopterClient(client_core.Client):
         client_thread.daemon = True
         client_thread.start()
 
+    def on_config_update(self):
+        self.gps_thread_run = False
+        self.load_config()
+        self.animation.on_config_update(self.config)
+        if self.config.flight_frame_id == "floor":
+            self.start_floor_frame_broadcast()
+        elif self.config.flight_frame_id == "gps":
+            self.start_gps_frame_broadcast()
+
     def start_floor_frame_broadcast(self):
         if self.config.floor_frame_parent == "gps":
             self.start_gps_frame_broadcast()
@@ -194,8 +205,13 @@ class CopterClient(client_core.Client):
         gps_frame_thread.start()
 
     def gps_frame_broadcast_loop(self):
+        while self.gps_thread_is_running:
+            rospy.sleep(1)
+            logger.info("Wait until previous gps thread stop")
+        self.gps_thread_run = True
+        self.gps_thread_is_running = True
         rate = rospy.Rate(1)
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and self.gps_thread_run:
             telem = flight.get_telemetry_locked(frame_id = "map")
             if telem is not None:
                 if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
@@ -220,6 +236,7 @@ class CopterClient(client_core.Client):
                     static_broadcaster.sendTransform(trans)
 
             rate.sleep()
+        self.gps_thread_is_running = False
 
 
 def restart_service(name):
@@ -470,7 +487,8 @@ def _command_test(*args, **kwargs):
 
 @messaging.message_callback("update_animation")
 def _command_update_animation(*args, **kwargs):
-    copter.animation.update_frames(copter.config, "animation.csv")
+    pass # should be updated via watchdog event
+    #copter.animation.update_frames(copter.config, "animation.csv")
 
 
 @messaging.message_callback("move_start")
@@ -478,7 +496,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
     private_offset = copter.config.animation_private_offset
     offset = numpy.array(private_offset) + numpy.array(copter.config.animation_common_offset)
     try:
-        xs, ys, zs = copter.animation.get_start_point(copter.config.animation_ratio, offset)
+        xs, ys, zs = copter.animation.get_start_frame(copter.telemetry.start_action).pos()
     except ValueError:
         logger.error("Can't get start point. Check animation file!")
     else:
@@ -670,8 +688,7 @@ def _play_animation(*args, **kwargs):
         return
 
     # Get output frames
-    offset = numpy.array(copter.config.animation_private_offset) + numpy.array(copter.config.animation_common_offset)
-    frames = copter.animation.get_scaled_output(copter.config.animation_ratio, offset)
+    frames = copter.animation.get_output_frames(copter.telemetry.start_action)
     if not frames:
         logger.error("start: No frames in animation!")
         return
@@ -682,72 +699,15 @@ def _play_animation(*args, **kwargs):
         logger.error("start: Position is not valid!")
         return
 
-    # Get start action and delay
-    try:
-        start_action, start_delay = copter.telemetry.start_position[-2:]
-    except ValueError:
-        logger.error("start: Can't get animation start position and delay")
-        return
-    # Reset task manager
-    task_manager.reset(interrupt_next_task=False)
-
-    # Set animation logic
-    if start_action == 'takeoff':
-        # Takeoff first at start_time + start_delay_time
-        takeoff_time = start_time + start_delay
-        task_manager.add_task(takeoff_time, 0, animation.takeoff,
-                              task_kwargs={
-                                  "z": copter.config.flight_takeoff_height,
-                                  "timeout": copter.config.flight_takeoff_time,
-                                  "safe_takeoff": False,
-                                  "use_leds": copter.config.led_use & copter.config.led_takeoff_indication,
-                              })
-        # Fly to first point
-        rfp_time = takeoff_time + copter.config.flight_takeoff_time
-        task_manager.add_task(rfp_time, 0, animation.execute_frame,
-                              task_kwargs={
-                                  "frame": frames[0],
-                                  "frame_id": copter.config.flight_frame_id,
-                                  "use_leds": copter.config.led_use,
-                                  "flight_func": flight.reach_point,
-                              })
-        # Calculate first frame start time
-        frame_time = rfp_time + copter.config.flight_reach_first_point_time
-
-    elif start_action == 'fly':
-        # Calculate start time
-        arm_time = start_time + start_delay  # + 1.0
-        task_manager.add_task(arm_time, 0, animation.execute_frame,
-                              task_kwargs={
-                                  "frame": frames[0],
-                                  "frame_id": copter.config.flight_frame_id,
-                                  "use_leds": copter.config.led_use,
-                                  "flight_func": flight.navto,
-                                  "auto_arm": True,
-                              })
-        # Calculate first frame start time
-        frame_time = arm_time + copter.config.flight_arming_time
-    logger.debug("Start queue {}".format(task_manager.task_queue))
-    # Play animation file
+    # Play animation!
+    frame_time = start_time
     for frame in frames:
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                               task_kwargs={
                                   "frame": frame,
-                                  "frame_id": copter.config.flight_frame_id,
-                                  "use_leds": copter.config.led_use,
-                                  "flight_func": flight.navto,
+                                  "config": config,
                               })
         frame_time += frame.delay
-    # Calculate land_time
-    land_time = frame_time + copter.config.flight_land_delay
-    # Land
-    task_manager.add_task(land_time, 0, animation.land,
-                          task_kwargs={
-                              "timeout": copter.config.flight_land_timeout,
-                              "frame_id": copter.config.flight_frame_id,
-                              "use_leds": copter.config.led_use & copter.config.led_land_indication,
-                          })
-
 
 # noinspection PyAttributeOutsideInit
 class Telemetry:
@@ -774,6 +734,7 @@ class Telemetry:
         self._max_interruptions = 2
         self._tasks_cleared = False
         self.ros_telemetry = None
+        self.start_action = None
 
         for key, value in self.params_default_dict.items():
             setattr(self, key, value)
@@ -801,22 +762,18 @@ class Telemetry:
         return "{} V{}".format(copter.config.config_name, copter.config.config_version)
 
     def get_start_position(self):
-        offset = numpy.array(copter.config.animation_private_offset) + numpy.array(copter.config.animation_common_offset)
         try:
-            x, y, z = copter.animation.get_start_point(copter.config.animation_ratio, offset)
+            x, y, z = copter.animation.get_start_frame('fly').get_pos()
         except ValueError:
             return [float('nan'),float('nan'),float('nan'),float('nan'),'error: no start pos in animation',float('nan')]
         else:
-            start_delay = copter.animation.start_delay
-            yaw = copter.animation.get_start_yaw()
+            start_delay = copter.animation.start_time
+            yaw = copter.animation.get_start_frame('fly').yaw
             if not self.ros_telemetry:
-                start_action = 'error: no telemetry data'
+                self.start_action = 'error: no telemetry data'
             else:
-                start_action = copter.animation.get_start_action(
-                                copter.config.animation_start_action, self.ros_telemetry.z,
-                                copter.config.animation_takeoff_level, copter.config.animation_ground_level,
-                                copter.config.animation_ratio, offset, self.fcu_status)
-            return [x,y,z,yaw,start_action,start_delay]
+                self.start_action = copter.animation.get_start_action(self.ros_telemetry.z, self.fcu_status)
+            return [x,y,z,yaw,self.start_action,start_delay]
 
     @classmethod
     def get_battery(cls, ros_telemetry):
@@ -1025,10 +982,14 @@ class AnimationEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         logger.info('{} is {}'.format(event.src_path, event.event_type))
         # logger.info(os.path.splitext(event.src_path))
-        if (os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted") or event.src_path.split('/')[-1] == 'client.ini':
+        if event.src_path.split('/')[-1] == 'client.ini':
             if os.path.exists("animation.csv"):
-                logger.info("Update frames from animation.csv")
-                copter.animation.update_frames(copter.config, "animation.csv")
+                copter.on_config_update()
+                logger.info("Config updated!")
+        elif (os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted"):
+            if os.path.exists("animation.csv"):
+                copter.animation.on_animation_update("animation.csv")
+                logger.info("Animation updated!")
 
 
 if __name__ == "__main__":
