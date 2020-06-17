@@ -34,6 +34,24 @@ def get_numbers(frames):
         numbers.append(frame.number)
     return numbers
 
+def get_actions(frames):
+    actions = []
+    for frame in frames:
+        actions.append(frame.action)
+    return actions
+
+def get_delays(frames):
+    delays = []
+    for frame in frames:
+        delays.append(frame.delay)
+    return delays
+
+def get_stats(frames):
+    stats = []
+    for frame in frames:
+        stats.append([frame.number, frame.action, frame.delay])
+    return stats
+
 def get_duration(frames):
     duration = 0
     for frame in frames:
@@ -208,37 +226,47 @@ class Animation(object):
         '''
         if len(self.original_frames) == 0:
             return
+        self.land_index = len(self.original_frames) - 1
         frames = copy.deepcopy(self.original_frames)
         # Get takeoff index
         i = 0 # Moving index from the beginning
+        self.takeoff_index = 0
         while i < len(frames):
             if moving(frames[i], frames[i+1], move_delta):
                 break
             i += 1
-        self.takeoff_index = i
+        if i > 0:
+            self.takeoff_index = i+1
         # Get route index
+        i = self.takeoff_index
+        self.route_index = self.takeoff_index
         while i < len(frames):
             if moving(frames[i], frames[i+1], move_delta, z = False) or (frames[i+1].z - frames[i].z <= 0):
                 break
             i += 1
-        self.route_index = i
+        if i - self.route_index > 0:
+            self.route_index = i+1
         # Get static end index
         i = len(frames) - 1 # Moving index from the end
+        self.static_end_index = len(self.original_frames) - 1
         while i >= 0:
             if moving(frames[i], frames[i-1], move_delta):
                 break
             i -= 1
-        self.static_end_index = i
+        if self.static_end_index - i > 0:
+            self.static_end_index = i
         # Get land index
+        self.land_index = self.static_end_index
         while i >= 0:
             if moving(frames[i], frames[i-1], move_delta, z = False) or (frames[i-1].z - frames[i].z <= 0):
                 break
             i -= 1
-        self.land_index = i
+        if self.land_index - i > 0:
+            self.land_index = i
 
     def transform(self):
         try:
-            x0, y0, z0 = self.config.animation_offset
+            x0, y0, z0 = numpy.array(self.config.animation_common_offset) + numpy.array(self.config.animation_private_offset)
         except (ValueError, KeyError):
             self.set_state("Can't transform animation: bad or empty config (offset in 'ANIMATION')", log_error=True)
             return
@@ -297,22 +325,24 @@ class Animation(object):
         except (ValueError, KeyError):
             self.set_state("Can't set frame actions: bad or empty config (takeoff_level in 'ANIMATION')", log_error=True)
             return
+        output_frames = copy.deepcopy(self.transformed_frames)
+        output_frames_takeoff = copy.deepcopy(self.transformed_frames)
         if static_begin:
-            self.output_frames += self.transformed_frames[:self.takeoff_index]
-            self.output_frames_takeoff += self.transformed_frames[:self.takeoff_index]
+            self.output_frames += output_frames[:self.takeoff_index]
+            self.output_frames_takeoff += output_frames_takeoff[:self.takeoff_index]
         if takeoff:
-            self.output_frames += self.transformed_frames[self.takeoff_index:self.route_index]
+            self.output_frames += output_frames[self.takeoff_index:self.route_index]
             if self.transformed_frames[self.takeoff_index].z >= takeoff_level:
-                self.output_frames_takeoff += self.transformed_frames[self.takeoff_index:self.route_index]
+                self.output_frames_takeoff += output_frames_takeoff[self.takeoff_index:self.route_index]
         if route:
-            self.output_frames += self.transformed_frames[self.route_index:self.land_index]
-            self.output_frames_takeoff += self.transformed_frames[self.route_index:self.land_index]
+            self.output_frames += output_frames[self.route_index:self.land_index]
+            self.output_frames_takeoff += output_frames_takeoff[self.route_index:self.land_index]
         if land:
-            self.output_frames += self.transformed_frames[self.land_index:self.static_end_index]
-            self.output_frames_takeoff += self.transformed_frames[self.land_index:self.static_end_index]
+            self.output_frames += output_frames[self.land_index:self.static_end_index]
+            self.output_frames_takeoff += output_frames_takeoff[self.land_index:self.static_end_index]
         if static_end:
-            self.output_frames += self.transformed_frames[self.static_end_index:]
-            self.output_frames_takeoff += self.transformed_frames[self.static_end_index:]
+            self.output_frames += output_frames[self.static_end_index:]
+            self.output_frames_takeoff += output_frames_takeoff[self.static_end_index:]
         if self.output_frames:
             self.output_frames_min_z = min(self.output_frames, key = lambda p: p.z).z
         if self.output_frames_takeoff:
@@ -356,20 +386,26 @@ class Animation(object):
         while i >=0:
             if self.output_frames[i].action == 'fly':
                 frame = copy.deepcopy(self.output_frames[i])
-                frame.action = 'land'
-                self.output_frames[i].delay = land_delay
+                frame.delay = land_delay
+                self.output_frames[i].action = 'land'
                 self.output_frames.insert(i, frame)
+                break
+            i -= 1
         i = len(self.output_frames_takeoff) - 1
         # add land frame to output_frames_takeoff
         while i >=0:
             if self.output_frames_takeoff[i].action == 'fly':
                 frame = copy.deepcopy(self.output_frames_takeoff[i])
-                frame.action = 'land'
-                self.output_frames_takeoff[i].delay = land_delay
+                frame.delay = land_delay
+                self.output_frames_takeoff[i].action = 'land'
                 self.output_frames_takeoff.insert(i, frame)
+                break
+            i -= 1
 
-    def on_animation_update(self, filepath="animation.csv"):
-        self.filepath = filepath
+    def on_animation_update(self, filepath="animation.csv", config=None):
+        if config is None:
+            config = self.config
+        self.reset(filepath, config)
         self.load()
         if self.original_frames:
             self.on_config_update(self.config)
@@ -377,7 +413,7 @@ class Animation(object):
     def on_config_update(self, config):
         self.config = config
         self.transform()
-        self.mark_stand_frames
+        self.mark_stand_frames()
         self.apply_flags()
         self.mark_flight()
 
@@ -386,7 +422,7 @@ class Animation(object):
             return Frame()
         return self.output_frames[0]
 
-    def get_start_action(self, current_height, state="STANDBY", tolerance = 0.2):
+    def get_start_action(self, current_height=0, state="STANDBY", tolerance = 0.2):
         # Check output frames
         if not self.output_frames:
             return 'error: empty output frames'
