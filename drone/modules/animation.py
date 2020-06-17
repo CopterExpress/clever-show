@@ -52,6 +52,15 @@ def get_stats(frames):
         stats.append([frame.number, frame.action, frame.delay])
     return stats
 
+def get_start_frame_index(frames):
+    index = 0
+    for frame in frames:
+        if frame.action == 'stand':
+            index += 1
+        else:
+            break
+    return index
+
 def get_duration(frames):
     duration = 0
     for frame in frames:
@@ -130,6 +139,7 @@ class Animation(object):
         self.output_frames_min_z = None
         self.output_frames_takeoff = []
         self.output_frames_takeoff_min_z = None
+        self.start_time = None
         self.filepath = filepath
         self.config = config
         self.state = None
@@ -349,6 +359,8 @@ class Animation(object):
             self.output_frames_takeoff_min_z = min(self.output_frames_takeoff, key = lambda p: p.z).z
 
     def mark_flight(self):
+        if not self.output_frames:
+            return
         try:
             arming_time = self.config.flight_arming_time
             takeoff_time = self.config.flight_takeoff_time
@@ -401,6 +413,8 @@ class Animation(object):
                 self.output_frames_takeoff.insert(i, frame)
                 break
             i -= 1
+        self.start_frame_index = get_start_frame_index(self.output_frames)
+        self.start_time = get_duration(self.output_frames[:self.start_frame_index])
 
     def on_animation_update(self, filepath="animation.csv", config=None):
         if config is None:
@@ -417,10 +431,26 @@ class Animation(object):
         self.apply_flags()
         self.mark_flight()
 
-    def get_start_frame(self):
-        if not self.output_frames:
-            return Frame()
-        return self.output_frames[0]
+    def get_start_frame(self, action):
+        if action == 'fly':
+            return self.output_frames[self.start_frame_index]
+        if action == 'takeoff':
+            return self.output_frames_takeoff[self.start_frame_index]
+        return None
+
+    def get_output_frames(self, action):
+        if action == 'fly':
+            return self.output_frames
+        if action == 'takeoff':
+            return self.output_frames_takeoff
+        return []
+
+    def get_min_z(self, action):
+        if action == 'fly':
+            return self.output_frames_min_z
+        if action == 'takeoff':
+            return self.output_frames_takeoff_min_z
+        return []
 
     def get_start_action(self, current_height=0, state="STANDBY", tolerance = 0.2):
         # Check output frames
@@ -429,18 +459,6 @@ class Animation(object):
         # Check current_height
         if math.isnan(current_height):
             return 'error: bad copter height'
-        # Check that bottom point of animation is higher than ground level
-        try:
-            ground_level = self.config.animation_ground_level
-            if ground_level == 'current':
-                ground_level = current_height
-            ground_level = float(ground_level)
-        except (ValueError, KeyError):
-            return 'error in [ANIMATION] ground_level parameter'
-        if state != "ACTIVE" and ground_level - tolerance > self.output_frames_min_z:
-            return 'error: animation is lower than ground level for {:.2f}m'.format(
-                ground_level - self.output_frames_min_z
-            )
         # Select start action
         try:
             start_action = self.config.animation_start_action
@@ -451,24 +469,46 @@ class Animation(object):
         except (ValueError, KeyError):
             return 'error in [ANIMATION] takeoff_level'
         if start_action == 'auto':
-            if self.get_start_frame().z > takeoff_level:
-                return 'takeoff'
+            if self.output_frames[0].z > takeoff_level:
+                start_action = 'takeoff'
             else:
-                return 'fly'
+                start_action = 'fly'
         elif start_action in ('takeoff', 'fly'):
-            return start_action
+            pass
         else:
             return 'error in [ANIMATION] start_action parameter'
+        # Check that bottom point of animation is higher than ground level
+        try:
+            ground_level = self.config.animation_ground_level
+            if ground_level == 'current':
+                ground_level = current_height
+            ground_level = float(ground_level)
+        except (ValueError, KeyError):
+            return 'error in [ANIMATION] ground_level parameter'
+        if state != "ACTIVE" and ground_level - tolerance > self.get_min_z(start_action):
+            return 'error: animation is lower than ground level for {:.2f}m'.format(
+                ground_level - self.output_frames_min_z
+            )
+        return start_action
 
 try:
-    def execute_frame(frame, frame_id='map', use_leds=True, auto_arm=False, interrupter=interrupt_event, flight_kwargs=None):
-        if flight_kwargs is None:
-            flight_kwargs = {}
+    def execute_frame(frame, config, interrupter=interrupt_event):
+        auto_arm = False
+        use_leds = config.led_use
+        frame_id = config.frame_id
+        if frame.action == 'takeoff':
+            use_leds = use_leds & config.led_takeoff_indication
+            takeoff(z=config.flight_takeoff_height, frame_id=frame_id, timeout=config.flight_takeoff_time, use_leds=use_leds, interrupter=interrupter)
+            return
+        if frame.action == 'land':
+            use_leds = use_leds & config.led_land_indication
+            land(frame_id=frame_id, timeout=config.flight_land_timeout, use_leds=use_leds, interrupter=interrupter)
+            return
         if frame.action in ('fly', 'arm'):
             if frame.action == 'arm':
                 auto_arm = True
             if frame.pose_is_valid():
-                flight_func(x=frame.x, y=frame.y, z=frame.z, yaw=frame.yaw, frame_id=frame_id, auto_arm=auto_arm, interrupter=interrupt_event, **flight_kwargs)
+                flight.navto(x=frame.x, y=frame.y, z=frame.z, yaw=frame.yaw, frame_id=frame_id, auto_arm=auto_arm, interrupter=interrupter)
             else:
                 logger.error("Frame pose is not valid for flying")
         if use_leds:
@@ -479,7 +519,7 @@ try:
             else:
                 led.set_effect(r=red, g=green, b=blue)
 
-    def takeoff(z=1.5, safe_takeoff=True, frame_id='map', timeout=5.0, use_leds=True,
+    def takeoff(z=1.5, safe_takeoff=False, frame_id='map', timeout=5.0, use_leds=True,
                 interrupter=interrupt_event):
         if use_leds:
             led.set_effect(effect='wipe', r=255, g=0, b=0)
