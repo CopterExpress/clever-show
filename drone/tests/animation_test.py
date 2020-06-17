@@ -3,6 +3,15 @@ import sys
 import shutil
 from pytest import approx
 import pytest
+import logging
+
+logging.basicConfig(  # TODO all prints as logs
+    level=logging.DEBUG,  # INFO
+    stream=sys.stdout,
+    format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ])
 
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = (os.path.dirname(os.path.realpath(__file__)))
@@ -36,111 +45,113 @@ assert config.config_name == "client"
 
 import animation
 
-a = animation.Animation()
-
 assets_dir = os.path.realpath(os.path.join(root_dir, 'drone/tests/assets'))
 
-def test_animation_1():
-    a.update_frames(config, os.path.join(assets_dir, 'animation_1.csv'))
+def test_animation_1_2():
+    a = animation.Animation(os.path.join(assets_dir, 'animation_1.csv'), config)
     assert a.id == 'basic'
+    assert a.state == "OK"
     assert approx(a.original_frames[0].get_pos()) == [0,0,0]
     assert a.original_frames[0].get_color() == [204,2,0]
     assert a.original_frames[0].pose_is_valid()
-    assert animation.get_numbers(a.static_begin_frames) == range(1,11)
-    assert animation.get_numbers(a.takeoff_frames) == range(11,21)
-    assert animation.get_numbers(a.route_frames) == range(21,31)
-    assert animation.get_numbers(a.land_frames) == range(31, 41)
-    assert animation.get_numbers(a.static_end_frames) == range(41, 51)
-    assert animation.get_numbers(a.output_frames) == range(11,31)
-    assert approx(a.static_begin_time) == 1
-    assert approx(a.takeoff_time) == 1
-    assert approx(a.output_frames_min_z) == 0.1
-    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [4.,5.,6.3]
-    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 6.3
-    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4.,5.,6.3]
+    assert a.takeoff_index == 10
+    assert a.route_index == 20
+    assert a.land_index == 29
+    assert a.static_end_index == 39
+    assert a.output_frames[a.takeoff_index].action == 'arm'
+    assert a.output_frames_takeoff[a.takeoff_index].action == 'takeoff'
+    assert approx(a.output_frames_min_z) == 0
+    assert a.get_start_action() == 'fly'
+    config.set('ANIMATION', 'ratio', [1,2,3])
+    config.set('ANIMATION', 'common_offset', [4,5,6])
+    a.on_config_update(config)
+    assert approx(a.output_frames[0].get_pos()) == [4.,5.,6.]
+    assert approx(a.output_frames_min_z) == 6.
+    assert approx(a.get_start_frame().get_pos()) == [4.,5.,6.]
+    assert a.get_start_action() == 'takeoff'
+    config.set('ANIMATION', 'ratio', [1,1,1])
+    config.set('ANIMATION', 'common_offset', [0,0,0])
 
-def test_animation_2():
-    a.update_frames(config, os.path.join(assets_dir, 'animation_2.csv'))
+    a.on_animation_update(os.path.join(assets_dir, 'animation_2.csv'), config)
     assert a.id == 'parad'
+    assert a.state == "OK"
     assert approx(a.original_frames[271].get_pos()) == [-1.00519,2.65699,0.24386]
     assert a.original_frames[271].get_color() == [7,255,0]
     assert a.original_frames[271].pose_is_valid()
-    assert animation.get_numbers(a.static_begin_frames) == range(271)
-    assert animation.get_numbers(a.takeoff_frames) == range(271,285)
-    assert animation.get_numbers(a.route_frames) == range(285,1065)
-    assert animation.get_numbers(a.land_frames) == []
-    assert animation.get_numbers(a.static_end_frames) == []
-    assert animation.get_numbers(a.output_frames) == range(271, 1065)
-    assert approx(a.static_begin_time) == 27.1
-    assert approx(a.takeoff_time) == 1.4
-    assert approx(a.output_frames_min_z) == 0.24386
-    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [2.99481, 10.31398, 6.73158]
-    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 6.73158
-    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [2.99481, 10.31398, 6.73158]
+    assert a.takeoff_index == 271
+    assert a.route_index == 285
+    assert a.land_index == 1064
+    assert a.static_end_index == 1064
+    assert a.output_frames[a.takeoff_index].action == 'arm'
+    assert a.output_frames_takeoff[a.takeoff_index].action == 'takeoff'
+    assert approx(a.output_frames_min_z) == 0.21
+    assert a.get_start_action() == 'fly'
+    config.set('ANIMATION', 'ratio', [1,2,3])
+    config.set('ANIMATION', 'common_offset', [4,5,6])
+    a.on_config_update(config)
+    assert approx(a.output_frames[0].get_pos()) == [2.99481, 10.31398, 6.63]
+    assert approx(a.output_frames_min_z) == 6.63
+    assert approx(a.get_start_frame().get_pos()) == [2.99481, 10.31398, 6.63]
+    assert a.get_start_action() == 'takeoff'
+    config.set('ANIMATION', 'ratio', [1,1,1])
+    config.set('ANIMATION', 'common_offset', [0,0,0])
 
 def test_animation_3():
-    a.update_frames(config, os.path.join(assets_dir, 'animation_3.csv'))
+    a = animation.Animation(os.path.join(assets_dir, 'animation_3.csv'), config)
     assert a.id == 'route'
+    assert a.state == "OK"
     assert approx(a.original_frames[9].get_pos()) == [0.97783,0.0,1.0]
     assert a.original_frames[9].get_color() == [0,204,2]
     assert a.original_frames[9].pose_is_valid()
-    assert animation.get_numbers(a.static_begin_frames) == []
-    assert animation.get_numbers(a.takeoff_frames) == []
-    assert animation.get_numbers(a.route_frames) == range(20,31)
-    assert animation.get_numbers(a.land_frames) == []
-    assert animation.get_numbers(a.static_end_frames) == []
-    assert approx(a.static_begin_time) == 0
-    assert approx(a.takeoff_time) == 0
+    assert a.takeoff_index == 0
+    assert a.route_index == 0
+    assert a.land_index == 10
+    assert a.static_end_index == 10
+    assert a.output_frames[a.takeoff_index].action == 'arm'
+    assert a.output_frames_takeoff[a.takeoff_index].action == 'takeoff'
     assert approx(a.output_frames_min_z) == 1
-    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [4,5,9]
-    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 9
-    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4,5,9]
+    assert a.get_start_action() == 'takeoff'
+    config.set('ANIMATION', 'ratio', [1,2,3])
+    config.set('ANIMATION', 'common_offset', [4,5,6])
+    a.on_config_update(config)
+    assert approx(a.output_frames[0].get_pos()) == [4,5,9]
+    assert approx(a.output_frames_min_z) == 9
+    assert approx(a.get_start_frame().get_pos()) == [4,5,9]
+    assert a.get_start_action() == 'takeoff'
+    config.set('ANIMATION', 'ratio', [1,1,1])
+    config.set('ANIMATION', 'common_offset', [0,0,0])
 
 def test_animation_4():
-    a.update_frames(config, os.path.join(assets_dir, 'animation_4.csv'))
+    a = animation.Animation(os.path.join(assets_dir, 'animation_4.csv'), config)
     assert a.id == 'two_drones_test'
+    assert a.state == "OK"
     assert approx(a.original_frames[11].get_pos()) == [0.21774,1.4,1.0]
     assert a.original_frames[11].get_color() == [0,0,0]
     assert a.original_frames[11].pose_is_valid()
-    assert animation.get_numbers(a.static_begin_frames) == range(1,12)
-    assert animation.get_numbers(a.takeoff_frames) == []
-    assert animation.get_numbers(a.route_frames) == range(12,141)
-    assert animation.get_numbers(a.land_frames) == []
-    assert animation.get_numbers(a.static_end_frames) == range(141,161)
-    assert animation.get_numbers(a.output_frames) == range(12,141)
-    assert approx(a.static_begin_time) == 1.1
-    assert approx(a.takeoff_time) == 0
+    assert a.takeoff_index == 11
+    assert a.route_index == 11
+    assert a.land_index == 139
+    assert a.static_end_index == 139
+    assert a.output_frames[0].action == 'arm'
+    assert a.output_frames_takeoff[0].action == 'takeoff'
     assert approx(a.output_frames_min_z) == 1
-    assert approx(a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6])[0].get_pos()) == [4.21774,7.8,9]
-    assert approx(a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6])) == 9
-    assert approx(a.get_start_point(ratio=[1,2,3], offset=[4,5,6])) == [4.21774,7.8,9]
+    assert a.get_start_action() == 'takeoff'
+    config.set('ANIMATION', 'ratio', [1,2,3])
+    config.set('ANIMATION', 'common_offset', [4,5,6])
+    a.on_config_update(config)
+    assert approx(a.output_frames[0].get_pos()) == [4.2,7.8,9]
+    assert approx(a.output_frames_min_z) == 9
+    assert approx(a.get_start_frame().get_pos()) == [4.2,7.8,9]
+    assert a.get_start_action() == 'takeoff'
+    config.set('ANIMATION', 'ratio', [1,1,1])
+    config.set('ANIMATION', 'common_offset', [0,0,0])
 
 def test_animation_no_file():
-    a.update_frames(config, "zzz.csv")
+    a = animation.Animation('zzz.csv', config)
     assert a.id == None
+    assert a.state != "OK"
     assert a.original_frames == []
     assert a.output_frames == []
-    assert animation.get_numbers(a.static_begin_frames) == []
-    assert animation.get_numbers(a.takeoff_frames) == []
-    assert animation.get_numbers(a.route_frames) == []
-    assert animation.get_numbers(a.land_frames) == []
-    assert animation.get_numbers(a.static_end_frames) == []
-    assert a.static_begin_time == 0
-    assert a.takeoff_time == 0
     assert a.output_frames_min_z is None
-    assert a.get_scaled_output(ratio=[1,2,3], offset=[4,5,6]) == []
-    assert a.get_scaled_output_min_z(ratio=[1,2,3], offset=[4,5,6]) is None
-    assert a.get_start_point(ratio=[1,2,3], offset=[4,5,6]) == []
-
-
-# print animation.get_numbers(a.static_begin_frames)
-# print animation.get_numbers(a.takeoff_frames)
-# print animation.get_numbers(a.route_frames)
-# print animation.get_numbers(a.land_frames)
-# print animation.get_numbers(a.static_end_frames)
-# print animation.get_numbers(a.output_frames)
-# print a.static_begin_time
-# print a.takeoff_time
-# print a.output_frames_min_z
 
 shutil.rmtree('animation_config')
