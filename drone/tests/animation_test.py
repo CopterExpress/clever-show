@@ -58,8 +58,10 @@ def test_animation_1_2():
     assert a.route_index == 20
     assert a.land_index == 29
     assert a.static_end_index == 39
-    assert a.output_frames[a.takeoff_index].action == 'arm'
-    assert a.output_frames_takeoff[a.takeoff_index].action == 'takeoff'
+    assert a.start_frame_index == a.takeoff_index
+    assert approx(a.start_time) == 1
+    assert a.output_frames[a.start_frame_index].action == 'arm'
+    assert a.output_frames_takeoff[a.start_frame_index].action == 'takeoff'
     assert approx(a.output_frames_min_z) == 0
     assert a.get_start_action() == 'fly'
     config.set('ANIMATION', 'ratio', [1,2,3])
@@ -67,7 +69,7 @@ def test_animation_1_2():
     a.on_config_update(config)
     assert approx(a.output_frames[0].get_pos()) == [4.,5.,6.]
     assert approx(a.output_frames_min_z) == 6.
-    assert approx(a.get_start_frame().get_pos()) == [4.,5.,6.]
+    assert approx(a.get_start_frame('fly').get_pos()) == [4.,5.,6.]
     assert a.get_start_action() == 'takeoff'
     config.set('ANIMATION', 'ratio', [1,1,1])
     config.set('ANIMATION', 'common_offset', [0,0,0])
@@ -82,8 +84,10 @@ def test_animation_1_2():
     assert a.route_index == 285
     assert a.land_index == 1064
     assert a.static_end_index == 1064
-    assert a.output_frames[a.takeoff_index].action == 'arm'
-    assert a.output_frames_takeoff[a.takeoff_index].action == 'takeoff'
+    assert a.start_frame_index == a.takeoff_index
+    assert approx(a.start_time) == 27.1
+    assert a.output_frames[a.start_frame_index].action == 'arm'
+    assert a.output_frames_takeoff[a.start_frame_index].action == 'takeoff'
     assert approx(a.output_frames_min_z) == 0.21
     assert a.get_start_action() == 'fly'
     config.set('ANIMATION', 'ratio', [1,2,3])
@@ -91,7 +95,7 @@ def test_animation_1_2():
     a.on_config_update(config)
     assert approx(a.output_frames[0].get_pos()) == [2.99481, 10.31398, 6.63]
     assert approx(a.output_frames_min_z) == 6.63
-    assert approx(a.get_start_frame().get_pos()) == [2.99481, 10.31398, 6.63]
+    assert approx(a.get_start_frame('fly').get_pos()) == [2.99481, 10.31398, 6.63]
     assert a.get_start_action() == 'takeoff'
     config.set('ANIMATION', 'ratio', [1,1,1])
     config.set('ANIMATION', 'common_offset', [0,0,0])
@@ -107,8 +111,10 @@ def test_animation_3():
     assert a.route_index == 0
     assert a.land_index == 10
     assert a.static_end_index == 10
-    assert a.output_frames[a.takeoff_index].action == 'arm'
-    assert a.output_frames_takeoff[a.takeoff_index].action == 'takeoff'
+    assert a.start_frame_index == a.takeoff_index
+    assert approx(a.start_time) == 0
+    assert a.output_frames[a.start_frame_index].action == 'arm'
+    assert a.output_frames_takeoff[a.start_frame_index].action == 'takeoff'
     assert approx(a.output_frames_min_z) == 1
     assert a.get_start_action() == 'takeoff'
     config.set('ANIMATION', 'ratio', [1,2,3])
@@ -116,7 +122,7 @@ def test_animation_3():
     a.on_config_update(config)
     assert approx(a.output_frames[0].get_pos()) == [4,5,9]
     assert approx(a.output_frames_min_z) == 9
-    assert approx(a.get_start_frame().get_pos()) == [4,5,9]
+    assert approx(a.get_start_frame('fly').get_pos()) == [4,5,9]
     assert a.get_start_action() == 'takeoff'
     config.set('ANIMATION', 'ratio', [1,1,1])
     config.set('ANIMATION', 'common_offset', [0,0,0])
@@ -132,8 +138,10 @@ def test_animation_4():
     assert a.route_index == 11
     assert a.land_index == 139
     assert a.static_end_index == 139
-    assert a.output_frames[0].action == 'arm'
-    assert a.output_frames_takeoff[0].action == 'takeoff'
+    assert a.start_frame_index == 0
+    assert approx(a.start_time) == 0
+    assert a.output_frames[a.start_frame_index].action == 'arm'
+    assert a.output_frames_takeoff[a.start_frame_index].action == 'takeoff'
     assert approx(a.output_frames_min_z) == 1
     assert a.get_start_action() == 'takeoff'
     config.set('ANIMATION', 'ratio', [1,2,3])
@@ -141,7 +149,7 @@ def test_animation_4():
     a.on_config_update(config)
     assert approx(a.output_frames[0].get_pos()) == [4.2,7.8,9]
     assert approx(a.output_frames_min_z) == 9
-    assert approx(a.get_start_frame().get_pos()) == [4.2,7.8,9]
+    assert approx(a.get_start_frame('fly').get_pos()) == [4.2,7.8,9]
     assert a.get_start_action() == 'takeoff'
     config.set('ANIMATION', 'ratio', [1,1,1])
     config.set('ANIMATION', 'common_offset', [0,0,0])
