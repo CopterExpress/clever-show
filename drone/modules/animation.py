@@ -445,11 +445,13 @@ class Animation(object):
         self.mark_flight()
 
     def get_start_frame(self, action):
-        if action == 'fly':
-            return self.output_frames[self.start_frame_index]
-        if action == 'takeoff':
-            return self.output_frames_takeoff[self.start_frame_index]
-        return None
+        try:
+            if action == 'fly':
+                return self.output_frames[self.start_frame_index]
+            if action == 'takeoff':
+                return self.output_frames_takeoff[self.start_frame_index]
+        except IndexError:
+            return None
 
     def get_output_frames(self, action):
         if action == 'fly':
@@ -470,8 +472,9 @@ class Animation(object):
         if not self.output_frames:
             return 'error: empty output frames'
         # Check current_height
-        if math.isnan(current_height):
-            return 'error: bad copter height'
+        if self.config.animation_check_ground:
+            if math.isnan(current_height):
+                return 'error: bad copter height'
         # Select start action
         try:
             start_action = self.config.animation_start_action
@@ -491,17 +494,18 @@ class Animation(object):
         else:
             return 'error in [ANIMATION] start_action parameter'
         # Check that bottom point of animation is higher than ground level
-        try:
-            ground_level = self.config.animation_ground_level
-            if ground_level == 'current':
-                ground_level = current_height
-            ground_level = float(ground_level)
-        except (ValueError, KeyError):
-            return 'error in [ANIMATION] ground_level parameter'
-        if state != "ACTIVE" and ground_level - tolerance > self.get_min_z(start_action):
-            return 'error: animation is lower than ground level for {:.2f}m'.format(
-                ground_level - self.output_frames_min_z
-            )
+        if self.config.animation_check_ground:
+            try:
+                ground_level = self.config.animation_ground_level
+                if ground_level == 'current':
+                    ground_level = current_height
+                ground_level = float(ground_level)
+            except (ValueError, KeyError):
+                return 'error in [ANIMATION] ground_level parameter'
+            if state != "ACTIVE" and ground_level - tolerance > self.get_min_z(start_action):
+                return 'error: animation is lower than ground level for {:.2f}m'.format(
+                    ground_level - self.output_frames_min_z
+                )
         return start_action
 
 try:
