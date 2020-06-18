@@ -84,7 +84,7 @@ if __name__ == "__main__":
     print("\nOutput frames on fly start action:")
     data = animation.get_table(a.output_frames, header)
     print (tabulate(data, headers=header))
-    print("\nOutput frames in takeoff start action:")
+    print("\nOutput frames on takeoff start action:")
     data = animation.get_table(a.output_frames_takeoff, header)
     print (tabulate(data, headers=header))
 
