@@ -52,6 +52,18 @@ def get_stats(frames):
         stats.append([frame.number, frame.action, frame.delay])
     return stats
 
+def get_table(frames, header):
+    table = []
+    for frame in frames:
+        array = []
+        for name in header:
+            array.append(getattr(frame, name))
+        table.append(array)
+    return table
+
+def get_default_header():
+    return["number", "action", "delay", "x", "y", "z", "yaw", "red", "green", "blue"]
+
 def get_start_frame_index(frames):
     index = 0
     for frame in frames:
