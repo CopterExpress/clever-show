@@ -694,10 +694,10 @@ def _play_animation(*args, **kwargs):
         return
 
     # Get current telemetry
-    telem = copter.telemetry.ros_telemetry
-    if not valid([telem.x, telem.y, telem.z]):
-        logger.error("start: Position is not valid!")
-        return
+    # telem = copter.telemetry.ros_telemetry
+    # if not valid([telem.x, telem.y, telem.z]):
+    #     logger.error("start: Position is not valid!")
+    #     return
 
     # Play animation!
     frame_time = start_time
