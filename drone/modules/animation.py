@@ -297,6 +297,7 @@ class Animation(object):
         except (ValueError, KeyError):
             self.set_state("Can't transform animation: bad or empty config (ratio in 'ANIMATION')", log_error=True)
             return
+        self.transformed_frames = []
         self.transformed_frames = copy.deepcopy(self.original_frames)
         for frame in self.transformed_frames:
             frame.x = x_ratio*frame.x + x0
