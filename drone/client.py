@@ -765,8 +765,8 @@ class Telemetry:
     def get_start_position(self):
         try:
             x, y, z = copter.animation.get_start_frame('fly').get_pos()
-        except ValueError:
-            return [float('nan'),float('nan'),float('nan'),float('nan'),'error: no start pos in animation',float('nan')]
+        except (ValueError, AttributeError):
+            return [float('nan'),float('nan'),float('nan'),float('nan'),"error: can't get start pos in animation",float('nan')]
         else:
             start_delay = copter.animation.start_time
             yaw = copter.animation.get_start_frame('fly').yaw
