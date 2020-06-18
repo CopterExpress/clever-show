@@ -88,7 +88,13 @@ class TaskManager(object):
             raise KeyError('Pop from an empty priority queue')
 
     def get_last_task_name(self):
-        return self._last_task
+        try:
+            name = self._last_task.func.__name__
+            if name == 'execute_frame':
+                return name.kwargs["frame"].action
+            return name
+        except AttributeError:
+            return None
 
     def get_current_task(self):
         try:
@@ -207,7 +213,7 @@ class TaskManager(object):
                     self.pop_task()
                 except KeyError as e:
                     logger.error(str(e))
-                self._last_task = task.func.__name__
+                self._last_task = task
                 #try:
                     #print("Pop {} function!".format(task.func.__name__))
                 #except Exception as e:

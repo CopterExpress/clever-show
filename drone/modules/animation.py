@@ -507,7 +507,7 @@ try:
     def execute_frame(frame, config, interrupter=interrupt_event):
         auto_arm = False
         use_leds = config.led_use
-        frame_id = config.frame_id
+        frame_id = config.flight_frame_id
         if frame.action == 'takeoff':
             use_leds = use_leds & config.led_takeoff_indication
             takeoff(z=config.flight_takeoff_height, frame_id=frame_id, timeout=config.flight_takeoff_time, use_leds=use_leds, interrupter=interrupter)
@@ -530,6 +530,9 @@ try:
                 logger.error("Can't get frame color!")
             else:
                 led.set_effect(r=red, g=green, b=blue)
+
+    def turn_off_led(interrupter=interrupt_event):
+        led.set_effect(r=0, g=0, b=0)
 
     def takeoff(z=1.5, safe_takeoff=False, frame_id='map', timeout=5.0, use_leds=True,
                 interrupter=interrupt_event):

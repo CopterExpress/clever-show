@@ -496,7 +496,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
     private_offset = copter.config.animation_private_offset
     offset = numpy.array(private_offset) + numpy.array(copter.config.animation_common_offset)
     try:
-        xs, ys, zs = copter.animation.get_start_frame(copter.telemetry.start_action).pos()
+        xs, ys, zs = copter.animation.get_start_frame(copter.telemetry.start_action).get_pos()
     except ValueError:
         logger.error("Can't get start point. Check animation file!")
     else:
@@ -705,9 +705,10 @@ def _play_animation(*args, **kwargs):
         task_manager.add_task(frame_time, 0, animation.execute_frame,
                               task_kwargs={
                                   "frame": frame,
-                                  "config": config,
+                                  "config": copter.config,
                               })
         frame_time += frame.delay
+    task_manager.add_task(frame_time, 0, animation.turn_off_led)
 
 # noinspection PyAttributeOutsideInit
 class Telemetry:
@@ -880,7 +881,7 @@ class Telemetry:
         state = [self.mode, self.armed, task_manager.get_last_task_name()]
         mode, armed, last_task = state
         # check external interruption
-        external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land'])
+        external_interruption = (mode != "OFFBOARD" and armed == True and last_task not in [None, 'land', 'stand'])
         log_msg = ''
         if emergency:
             log_msg += 'emergency and '
