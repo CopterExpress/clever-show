@@ -20,11 +20,14 @@ Create animation in [Blender](https://www.blender.org/), convert it to drone pat
 * [Server side](server/) for making the drone show with ability of tuning drones, animation and music
 * [Blender 2.8 addon](blender-addon/) for exporting animation to drone paths
 * [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
+* [Documentation](docs/ru/SUMMARY.md) (only in Russian for now)
 
-## Documentation
+## Positioning systems supported
 
-> Documentation is available only in Russian for now.
+* [Optical flow](https://clover.coex.tech/en/optical_flow.html) (indoor)
+* [ArUco map-based](https://clover.coex.tech/en/aruco_map.html) (indoor)
+* [GPS](https://clover.coex.tech/en/gps.html) (outdoor)
 
-Start tutorial is located [here](docs/ru/start-tutorial.md).
+## Quick start
 
-Detailed documentation is located in the [docs](docs/) folder.
+Start making your own show using [this tutorial](docs/ru/start-tutorial.md)!

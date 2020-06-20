@@ -20,9 +20,14 @@
 * [Серверное приложение](server/) для создания шоу и настройки дронов, анимации и музыки
 * [Аддон для Blender 2.8](blender-addon/) для преобразования анимации полёта коптеров, созданной в Blender, в индивидуальные пути для каждого коптера
 * [Образ для Raspberry Pi](https://github.com/CopterExpress/clever-show/releases/latest) для быстрого запуска ПО на коптере
+* [Документацию](docs/ru/SUMMARY.md)
 
-## Документация
+## Доступные системы позиционирования
 
-Инструкция по запуску ПО находится [здесь](docs/ru/start-tutorial.md).
+* [Optical flow](https://clover.coex.tech/ru/optical_flow.html) - для полётов внутри помещений
+* [Карта ArUco маркеров](https://clover.coex.tech/ru/aruco_map.html) - для полётов внутри помещений
+* [GPS](https://clover.coex.tech/ru/gps.html) - для уличных полётов
 
-Подробная документация расположена в папке [docs](docs/).
+## Быстрый старт
+
+Начните создавать своё шоу коптеров, используя [эту инструкцию](docs/ru/start-tutorial.md)!
