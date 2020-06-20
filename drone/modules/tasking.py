@@ -186,12 +186,15 @@ class TaskManager(object):
                 task.func(*task.args, interrupter=self._task_interrupt_event, **task.kwargs)
 
             except Exception as e:
-                logger.error("Error '{}' occurred in task {}".format(e, task))
+                try:
+                    logger.error("Error '{}' occurred in task {}".format(e, task))
                 #print("Error '{}' occurred in task {}".format(e, task))
-                if str(e) == 'STOP':
-                    self.reset()
-                    logger.error("Return after STOP exception, can't arm!")
-                    return
+                    if str(e) == 'STOP':
+                        self.reset()
+                        logger.error("Return after STOP exception, can't arm!")
+                        return
+                except (KeyError, TypeError):
+                    logger.error(e)
         else:
             logger.error("Task interrupted before execution")
             #print("Task interrupted before execution")
