@@ -120,6 +120,9 @@ img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/failsafe.service' '/lib/sys
 # Copy client-setup script to /usr/local/bin to provide wide access
 img-chroot ${IMAGE_PATH} copy ${SCRIPTS_DIR}'/assets/client-setup' '/usr/local/bin/'
 
+# Copy basic animation
+img-chroot ${IMAGE_PATH} copy ${REPO_DIR}'/examples/animations/basic/basic.csv' '/home/pi/clever-show/drone/animation.csv'
+
 # Copy chrony configuration
 img-chroot ${IMAGE_PATH} copy ${REPO_DIR}'/examples/chrony/client.conf' '/etc/chrony/chrony.conf'
 
