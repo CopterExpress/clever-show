@@ -3,3 +3,4 @@ psutil
 configobj
 watchdog
 geographiclib
+tabulate

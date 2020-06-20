@@ -88,7 +88,13 @@ class TaskManager(object):
             raise KeyError('Pop from an empty priority queue')
 
     def get_last_task_name(self):
-        return self._last_task
+        try:
+            name = self._last_task.func.__name__
+            if name == 'execute_frame':
+                return name.kwargs["frame"].action
+            return name
+        except AttributeError:
+            return None
 
     def get_current_task(self):
         try:
@@ -180,12 +186,15 @@ class TaskManager(object):
                 task.func(*task.args, interrupter=self._task_interrupt_event, **task.kwargs)
 
             except Exception as e:
-                logger.error("Error '{}' occurred in task {}".format(e, task))
+                try:
+                    logger.error("Error '{}' occurred in task {}".format(e, task))
                 #print("Error '{}' occurred in task {}".format(e, task))
-                if str(e) == 'STOP':
-                    self.reset()
-                    logger.error("Return after STOP exception, can't arm!")
-                    return
+                    if str(e) == 'STOP':
+                        self.reset()
+                        logger.error("Return after STOP exception, can't arm!")
+                        return
+                except (KeyError, TypeError):
+                    logger.error(e)
         else:
             logger.error("Task interrupted before execution")
             #print("Task interrupted before execution")
@@ -207,7 +216,7 @@ class TaskManager(object):
                     self.pop_task()
                 except KeyError as e:
                     logger.error(str(e))
-                self._last_task = task.func.__name__
+                self._last_task = task
                 #try:
                     #print("Pop {} function!".format(task.func.__name__))
                 #except Exception as e:

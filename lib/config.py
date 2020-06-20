@@ -157,7 +157,11 @@ class ConfigManager:
             keys = self.__dict__['_name_dict'][item]
             return self.get_chain(*keys)
         except (ValueError, KeyError):
-            return self.__dict__[item]
+            try:
+                return self.__dict__[item]
+            except KeyError:
+                print("config: KeyError with item {}".format(item))
+                return None
 
     def __setattr__(self, key, value):
         try:
