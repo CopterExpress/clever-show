@@ -1,7 +1,9 @@
-# Содержание
+# Документация clever-show
 
 * [Быстрый старт](start-tutorial.md)
-* [Настройка клиента](client.md)
-* [Описание и работа сервера](server.md)
-* [Создание и работа с анимацией](blender-addon.md)
+* [Клиент clever-show](client.md)
+* [Сервер clever-show](server.md)
+* [Настройка систем позиционирования](positioning.md)
+* [Модуль анимации](animation.md)
+* [Экспорт анимации из Blender](blender-addon.md)
 * [Сборка модифицированного образа](image-building.md)
