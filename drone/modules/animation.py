@@ -553,6 +553,7 @@ try:
 
     def land(z=1.5, descend=False, timeout=5.0, frame_id='map', use_leds=True,
             interrupter=interrupt_event):
+        led.set_effect(r=0, g=0, b=0)
         if use_leds:
             led.set_effect(effect='blink_fast', r=255, g=0, b=0)
         flight.land(z=z, descend=descend, timeout_land=timeout, frame_id_land=frame_id, interrupter=interrupter)
