@@ -3,7 +3,8 @@ import time
 import logging
 from mavros_msgs.srv import CommandLong
 from mavros_msgs.srv import ParamGet, ParamSet
-from mavros_msgs.msg import State, ParamValue
+from mavros_msgs.msg import State, ParamValue, Altitude
+from std_msgs.msg import Float64
 from pymavlink.dialects.v20 import common as mavlink
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,25 @@ def stop_subscriber():
         heartbeat_sub.unregister()
         heartbeat_sub_status = False
 
+def get_amsl_altitude():
+    try:
+        alt_msg = rospy.wait_for_message('/mavros/altitude', Altitude, timeout=1.)
+    except rospy.ROSException:
+        logger.error("Can't get altitude: timeout")
+        return float('nan')
+    else:
+        return alt_msg.amsl
+
+#Clockwise compass heading in degrees. 0 is North.
+def get_compass_hdg():
+    try:
+        hdg_msg = rospy.wait_for_message('/mavros/global_position/compass_hdg', Float64, timeout=1.)
+    except rospy.ROSException:
+        logger.error("Can't get altitude: timeout")
+        return float('nan')
+    else:
+        return hdg_msg.data
+
 def load_param_file(px4_file):
     result = True
     err_lines = ""
@@ -171,3 +191,7 @@ def load_param_file(px4_file):
         logger.info("Params are successfully loaded from lines: {}".format(params_loaded[:-1]))
     return result
 
+if __name__ == '__main__':
+    rospy.init_node('test_mavros_wrapper')
+    print("AMSL altitude: {}".format(get_amsl_altitude()))
+    print("Compass heading: {}".format(get_compass_hdg()))
