@@ -77,6 +77,12 @@ def valid(pos):
             return False
     return True
 
+def contains_nan(array):
+    for num in array:
+        if math.isnan(num):
+            return True
+    return False
+
 static_broadcaster = tf2_ros.StaticTransformBroadcaster()
 
 emergency = False
@@ -213,9 +219,10 @@ class CopterClient(client_core.Client):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown() and self.gps_thread_run:
             telem = flight.get_telemetry_locked(frame_id = "map")
+            compass_hdg = mavros.get_compass_hdg()
             if telem is not None:
-                if math.isnan(telem.lat) or math.isnan(telem.lon) or math.isnan(telem.x) or math.isnan(telem.y):
-                    logger.info("Can't get position from telemetry")
+                if contains_nan([telem.lat, telem.lon, telem.x, telem.y, telem.yaw, amsl_height, compass_hdg]):
+                    logger.info("Can't get position data from GPS")
                 else:
                     lat = float(self.config.gps_frame_lat)
                     lon = float(self.config.gps_frame_lon)
@@ -229,8 +236,8 @@ class CopterClient(client_core.Client):
                     trans.transform.translation.x = gps_dx
                     trans.transform.translation.y = gps_dy
                     trans.transform.translation.z = 0
-                    trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,
-                                                            math.radians(self.config.gps_frame_yaw)))
+                    yaw = math.radians(compass_hdg) + telem.yaw - math.radians(self.config.gps_frame_yaw)
+                    trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,yaw))
                     trans.header.frame_id = "map"
                     trans.child_frame_id = "gps"
                     static_broadcaster.sendTransform(trans)
