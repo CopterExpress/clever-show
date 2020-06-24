@@ -198,14 +198,6 @@ class CopterClient(client_core.Client):
         static_broadcaster.sendTransform(trans)
 
     def start_gps_frame_broadcast(self):
-        trans = TransformStamped()
-        trans.transform.translation.x = 0
-        trans.transform.translation.y = 0
-        trans.transform.translation.z = 0
-        trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
-        trans.header.frame_id = "map"
-        trans.child_frame_id = "gps"
-        static_broadcaster.sendTransform(trans)
         gps_frame_thread = threading.Thread(target=self.gps_frame_broadcast_loop, name="GPS frame broadcast thread")
         gps_frame_thread.daemon = True
         gps_frame_thread.start()
@@ -219,6 +211,7 @@ class CopterClient(client_core.Client):
         rate = rospy.Rate(1)
         while not rospy.is_shutdown() and self.gps_thread_run:
             telem = flight.get_telemetry_locked(frame_id = "map")
+            amsl_height = mavros.get_amsl_altitude()
             compass_hdg = mavros.get_compass_hdg()
             if telem is not None:
                 if contains_nan([telem.lat, telem.lon, telem.x, telem.y, telem.yaw, amsl_height, compass_hdg]):
@@ -231,17 +224,23 @@ class CopterClient(client_core.Client):
                     dx, dy = get_xy(geo_delta['s12'], geo_delta['azi1'])
                     gps_dx = telem.x + dx
                     gps_dy = telem.y + dy
+                    gps_dz = 0
+                    if self.config.gps_frame_amsl != "current":
+                        try:
+                            gps_dz = telem.z - amsl_height + float(self.config.gps_frame_amsl)
+                        except ValueError:
+                            logger.error("Wrong amsl height in GPS FRAME config!")
+                            continue
                     #logger.info("GPS frame dx: {} | dy: {}".format(gps_dx, gps_dy))
                     trans = TransformStamped()
                     trans.transform.translation.x = gps_dx
                     trans.transform.translation.y = gps_dy
-                    trans.transform.translation.z = 0
+                    trans.transform.translation.z = gps_dz
                     yaw = math.radians(compass_hdg) + telem.yaw - math.radians(self.config.gps_frame_yaw)
                     trans.transform.rotation = Quaternion(*quaternion_from_euler(0,0,yaw))
                     trans.header.frame_id = "map"
                     trans.child_frame_id = "gps"
                     static_broadcaster.sendTransform(trans)
-
             rate.sleep()
         self.gps_thread_is_running = False
 
