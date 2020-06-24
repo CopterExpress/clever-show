@@ -129,18 +129,23 @@ def stop_subscriber():
         heartbeat_sub_status = False
 
 def get_amsl_altitude():
+    '''
+    Height above mean sea level in meters.
+    '''
     try:
-        alt_msg = rospy.wait_for_message('/mavros/altitude', Altitude, timeout=1.)
+        alt_msg = rospy.wait_for_message('/mavros/altitude', Altitude, timeout=0.5)
     except rospy.ROSException:
         logger.error("Can't get altitude: timeout")
         return float('nan')
     else:
         return alt_msg.amsl
 
-#Clockwise compass heading in degrees. 0 is North.
 def get_compass_hdg():
+    '''
+    Clockwise compass heading in degrees. 0 is North.
+    '''
     try:
-        hdg_msg = rospy.wait_for_message('/mavros/global_position/compass_hdg', Float64, timeout=1.)
+        hdg_msg = rospy.wait_for_message('/mavros/global_position/compass_hdg', Float64, timeout=0.5)
     except rospy.ROSException:
         logger.error("Can't get altitude: timeout")
         return float('nan')
