@@ -10,13 +10,12 @@ from bpy.props import StringProperty, BoolProperty, FloatProperty, IntProperty
 bl_info = {
     "name": "clever-show animation (.csv)",
     "author": "Artem Vasiunik & Arthur Golubtsov",
-    "version": (0, 5, 0),
-    "blender": (2, 80, 0),
-    #"api": 36079,
+    "version": (0, 6, 0),
+    "blender": (2, 83, 0),
     "location": "File > Export > clever-show animation (.csv)",
     "description": "Export > clever-show animation (.csv)",
     "warning": "",
-    "wiki_url": "https://github.com/CopterExpress/clever-show/blob/master/blender-addon/README.md",
+    "doc_url": "https://github.com/CopterExpress/clever-show/blob/master/blender-addon/README.md",
     "tracker_url": "https://github.com/CopterExpress/clever-show/issues",
     "category": "Import-Export"
 }
