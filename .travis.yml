@@ -7,7 +7,8 @@ env:
     - DOCKER="goldarte/img-tool:v0.5"
     - TARGET_REPO="https://github.com/${TRAVIS_REPO_SLUG}.git"
     - if [[ -z ${TRAVIS_TAG} ]]; then IMAGE_VERSION="${TRAVIS_COMMIT}}"; else IMAGE_VERSION="${TRAVIS_TAG}"; fi
-    - IMAGE_NAME="$(basename -s '.git' ${TARGET_REPO})_${IMAGE_VERSION}.img"
+    - IMAGE_NAME="$(basename -s '.git' ${TARGET_REPO})_image_${IMAGE_VERSION}.img"
+    - ADDON_NAME="$(basename -s '.git' ${TARGET_REPO})_addon_${IMAGE_VERSION}.img"
 git:
   depth: false
 jobs:
@@ -31,11 +32,14 @@ jobs:
         - git config --local user.name "goldarte"
         - git config --local user.email "goldartt@gmail.com"
         - sudo chmod -R 777 *
+        - zip ${ADDON_NAME}.zip -r blender-addon
         - cd images && zip ${IMAGE_NAME}.zip ${IMAGE_NAME}
       deploy:
         provider: releases
         api_key: ${GITHUB_OAUTH_TOKEN}
-        file: ${IMAGE_NAME}.zip
+        file:
+          - ${IMAGE_NAME}.zip
+          - ${ADDON_NAME}.zip
         skip_cleanup: true
         on:
           tags: true
