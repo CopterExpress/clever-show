@@ -32,6 +32,7 @@ jobs:
         - git config --local user.name "goldarte"
         - git config --local user.email "goldartt@gmail.com"
         - sudo chmod -R 777 *
+        - find . -print
         - zip ${ADDON_NAME}.zip -r blender-addon
         - cd images && zip ${IMAGE_NAME}.zip ${IMAGE_NAME}
       deploy:
