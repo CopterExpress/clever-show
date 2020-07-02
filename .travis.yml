@@ -33,13 +33,13 @@ jobs:
         - git config --local user.email "goldartt@gmail.com"
         - sudo chmod -R 777 *
         - zip ${ADDON_NAME}.zip -r blender-addon
-        - cd images && zip ${IMAGE_NAME}.zip ${IMAGE_NAME}
         - find . -print
+        - cd images && zip ${IMAGE_NAME}.zip ${IMAGE_NAME} && cd ..
       deploy:
         provider: releases
         api_key: ${GITHUB_OAUTH_TOKEN}
         file:
-          - ${IMAGE_NAME}.zip
+          - images/${IMAGE_NAME}.zip
           - ${ADDON_NAME}.zip
         skip_cleanup: true
         on:
