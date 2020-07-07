@@ -5,12 +5,12 @@ from . operators.export import ExportSwarmAnimation
 from . operators.check import CheckSwarmAnimation
 
 bl_info = {
-    "name": "clever-show animation (.csv)",
+    "name": "clever-show animation (.anim)",
     "author": "Artem Vasiunik & Arthur Golubtsov",
     "version": (0, 6, 1),
     "blender": (2, 83, 0),
-    "location": "File > Export > clever-show animation (.csv)",
-    "description": "Export > clever-show animation (.csv)",
+    "location": "File > Export > clever-show animation (.anim)",
+    "description": "Export > clever-show animation (.anim)",
     "doc_url": "https://github.com/CopterExpress/clever-show/blob/master/blender-addon/README.md",
     "tracker_url": "https://github.com/CopterExpress/clever-show/issues",
     "category": "Import-Export"
@@ -21,7 +21,6 @@ bl_info = {
 class CleverShowProperties(PropertyGroup):
     filter_obj: EnumProperty(
         name="Filter objects:",
-        description="",
         items=[('all', "No filter (all objects)", ""),
                ('selected', "Only selected", ""),
                ('name', "By object name", ""),
@@ -52,13 +51,35 @@ class CleverShowProperties(PropertyGroup):
     )
 
 
-classes = (CleverShowProperties,
+class CleverDroneProperties(PropertyGroup):
+    is_drone: BoolProperty(name="Is drone")
+
+
+class CleverLedProperties(PropertyGroup):
+    is_led: BoolProperty(
+        name="Is LED color",)
+    effect: EnumProperty(
+        name="LED effect",
+        items=[('fill', 'Fill', ""),
+               ('blink', 'Blink', ""),
+               ('blink_fast', 'Blink fast', ""),
+               ('fade', 'Fade', ""),
+               ('wipe', 'Wipe', ""),
+               ('flash', 'Flash', ""),
+               ('rainbow', 'Rainbow', ""),
+               ('rainbow_fill', 'Rainbow fill', ""),
+               ],
+        defaul="fill"
+    )
+
+
+classes = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
            ExportSwarmAnimation, CheckSwarmAnimation)
 
 def menu_func(self, context):
     self.layout.operator(
         ExportSwarmAnimation.bl_idname,
-        text="clever-show animation (.csv)"
+        text="clever-show animation (.anim)"
     )
 
 
@@ -69,6 +90,8 @@ def register():
         register_class(cls)
 
     bpy.types.Scene.clever_show = PointerProperty(type=CleverShowProperties)
+    bpy.types.Object.drone = PointerProperty(type=CleverDroneProperties)
+    bpy.types.Material.led = PointerProperty(type=CleverLedProperties)
 
     bpy.types.TOPBAR_MT_file_export.append(menu_func)
 
@@ -78,7 +101,10 @@ def unregister():
 
     for cls in reversed(classes):
         unregister_class(cls)
+
     del bpy.types.Scene.clever_show
+    del bpy.types.Object.drone
+    del bpy.types.Material.led
 
     bpy.types.TOPBAR_MT_file_export.remove(menu_func)
 
