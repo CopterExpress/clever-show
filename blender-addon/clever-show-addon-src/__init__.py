@@ -3,11 +3,12 @@ from bpy.types import PropertyGroup
 from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumProperty, FloatProperty
 from . operators.export import ExportSwarmAnimation
 from . operators.check import CheckSwarmAnimation
+from . ui.drone_panel import DronePanel
 
 bl_info = {
     "name": "clever-show animation (.anim)",
     "author": "Artem Vasiunik & Arthur Golubtsov",
-    "version": (0, 6, 1),
+    "version": (0, 6, 2),
     "blender": (2, 83, 0),
     "location": "File > Export > clever-show animation (.anim)",
     "description": "Export > clever-show animation (.anim)",
@@ -54,11 +55,15 @@ class CleverShowProperties(PropertyGroup):
 class CleverDroneProperties(PropertyGroup):
     is_drone: BoolProperty(name="Is drone")
 
+    armed: BoolProperty(
+        name="Armed"
+    )
+
 
 class CleverLedProperties(PropertyGroup):
     is_led: BoolProperty(
         name="Is LED color",)
-    effect: EnumProperty(
+    led_effect: EnumProperty(
         name="LED effect",
         items=[('fill', 'Fill', ""),
                ('blink', 'Blink', ""),
@@ -69,12 +74,13 @@ class CleverLedProperties(PropertyGroup):
                ('rainbow', 'Rainbow', ""),
                ('rainbow_fill', 'Rainbow fill', ""),
                ],
-        defaul="fill"
+        default="fill"
     )
 
 
 classes = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
-           ExportSwarmAnimation, CheckSwarmAnimation)
+           ExportSwarmAnimation, CheckSwarmAnimation,
+           DronePanel,)
 
 def menu_func(self, context):
     self.layout.operator(
