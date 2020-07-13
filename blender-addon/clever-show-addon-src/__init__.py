@@ -1,9 +1,11 @@
 import bpy
 from bpy.types import PropertyGroup
-from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumProperty, FloatProperty
+
+from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
 from . operators.export import ExportSwarmAnimation
 from . operators.check import CheckSwarmAnimation
 from . ui.drone_panel import DronePanel
+from . ui.swarm_panel import SwarmPanel
 
 bl_info = {
     "name": "clever-show animation (.anim)",
@@ -20,6 +22,48 @@ bl_info = {
 
 # noinspection PyArgumentList
 class CleverShowProperties(PropertyGroup):
+
+    add_takeoff: BoolProperty(
+        name="Auto takeoff",
+        description="Add takeoff command before animation start",
+        default=True,
+        options=set(),  # not animateable
+    )
+
+    add_land: BoolProperty(
+        name="Auto land",
+        description="Add land command after animation end",
+        default=True,
+        options=set(),  # not animateable
+    )
+
+    use_armed: BoolProperty(
+        name="Use 'Armed' property",
+        description="Add takeoff and land according to 'Armed' property",
+        default=True,
+    )
+
+    detect_animation: BoolProperty(
+        name="Detect in motion",
+        description="Detect takeoff and land in drone object motion",
+        default=False,
+        options=set(),  # not animateable
+    )
+
+    # takeoff_frames: IntProperty(
+    #     name="Takeoff duration",
+    #     description="Duration of takeoff in frames",
+    #     default=70,
+    #     min=1,
+    # )
+    #
+    # land_frames: IntProperty(
+    #     name="Land duration",
+    #     description="Duration of landing in frames",
+    #     default=100,
+    #     min=1,
+    # )
+
     filter_obj: EnumProperty(
         name="Filter objects:",
         items=[('all', "No filter (all objects)", ""),
@@ -27,13 +71,15 @@ class CleverShowProperties(PropertyGroup):
                ('name', "By object name", ""),
                ('prop', "By object property", ""),
                ],
-        default="selected"
+        default="prop",
+        options=set(),  # not animateable
     )
 
     drones_name: StringProperty(
         name="Name identifier",
         description="Name identifier for all drone objects",
-        default="clever"
+        default="clever",
+        options=set(),  # not animateable
     )
 
     speed_limit: FloatProperty(
@@ -56,7 +102,8 @@ class CleverDroneProperties(PropertyGroup):
     is_drone: BoolProperty(name="Is drone")
 
     armed: BoolProperty(
-        name="Armed"
+        name="Armed",
+        default=True,
     )
 
 
@@ -74,13 +121,15 @@ class CleverLedProperties(PropertyGroup):
                ('rainbow', 'Rainbow', ""),
                ('rainbow_fill', 'Rainbow fill', ""),
                ],
-        default="fill"
+
+        default="fill",
     )
 
 
 classes = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
            ExportSwarmAnimation, CheckSwarmAnimation,
-           DronePanel,)
+           DronePanel, SwarmPanel,
+           )
 
 def menu_func(self, context):
     self.layout.operator(
