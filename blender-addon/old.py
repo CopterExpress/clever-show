@@ -27,10 +27,7 @@ class ExportCsv(Operator, ExportHelper):
     filename_ext = ''
     use_filter_folder = True
 
-    use_namefilter: bpy.props.BoolProperty(
-        name="Use name filter for objects",
-        default=False,
-    )
+    use_namefilter: bpy.props.BoolProperty(name="Use name filter for objects", default=False)
 
     drones_name: bpy.props.StringProperty(
         name="Name identifier",
@@ -38,10 +35,7 @@ class ExportCsv(Operator, ExportHelper):
         default="clever"
     )
 
-    show_warnings: bpy.props.BoolProperty(
-        name="Show detailed animation warnings",
-        default=False,
-    )
+    show_warnings: bpy.props.BoolProperty(name="Show detailed animation warnings", default=False)
 
     speed_warning_limit: bpy.props.FloatProperty(
         name="Speed limit",

@@ -50,19 +50,19 @@ class CleverShowProperties(PropertyGroup):
         options=set(),  # not animateable
     )
 
-    # takeoff_frames: IntProperty(
-    #     name="Takeoff duration",
-    #     description="Duration of takeoff in frames",
-    #     default=70,
-    #     min=1,
-    # )
-    #
-    # land_frames: IntProperty(
-    #     name="Land duration",
-    #     description="Duration of landing in frames",
-    #     default=100,
-    #     min=1,
-    # )
+    takeoff_frames: IntProperty(
+        name="Takeoff duration",
+        description="Duration of takeoff in frames",
+        default=70,
+        min=1,
+    )
+
+    land_frames: IntProperty(
+        name="Land duration",
+        description="Duration of landing in frames",
+        default=100,
+        min=1,
+    )
 
     filter_obj: EnumProperty(
         name="Filter objects:",
