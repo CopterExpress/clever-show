@@ -11,9 +11,8 @@ from bpy.props import StringProperty, BoolProperty, FloatProperty, IntProperty
 
 
 def create_dir(folder_path):
-    if os.path.isdir(folder_path):
-        return
-    os.mkdir(folder_path)
+    if not os.path.isdir(folder_path):
+        os.mkdir(folder_path)
 
 
 # def iter_pairs(obj):
@@ -28,8 +27,6 @@ def neighbour_pairs(sequence):
     for item in iterable:
         yield prev, item
         prev = item
-
-
 
 def get_rgb(drone_obj):
     try:
@@ -79,15 +76,17 @@ class ExportSwarmAnimation(Operator, ExportHelper):
         return context.visible_objects
 
     def execute(self, context):
-        create_dir()
+        create_dir(self.filepath)
 
         drone_objects = self._get_drone_objects(context)
 
         for drone_obj in drone_objects:
             animation = self._generate_animation(drone_obj, context)
-            animation = self._process_animation(animation, context)
-            with open("12", "w") as f:
-                pass
+            animation = self._remove_idle_frames(animation)
+            with open(os.path.join(self.filepath, '{}.anim'.format(drone_obj.name)), 'w') as f:
+                f.writelines(json.dumps(frame)+"\n" for frame in animation)
+
+        return {'FINISHED'}
 
     def _generate_animation(self, drone_obj, context):
         # todo yield?
@@ -106,21 +105,17 @@ class ExportSwarmAnimation(Operator, ExportHelper):
                           })
 
         # Add flight
-        previous_frame = dict()
         for frame_num in range(frame_start, frame_end + 1):
-            scene.frame_set(frame_start)
+            scene.frame_set(frame_num)
             position = [round(x, 3) for x in drone_obj.matrix_world.to_translation()]
             yaw = round(drone_obj.matrix_world.to_euler('XYZ')[2], 3)
             frame = dict()
 
             # check to not update position or yaw if they are same as previous frame
-            if previous_frame.get("fly", None) != position:
-                frame.update({"fly": position})
-            if previous_frame.get("yaw", None) != yaw:
-                frame.update({"yaw": yaw})
-
-            if clever_show.use_armed and previous_frame.get("armed") != drone_obj.armed:
-                frame.update({"armed": drone_obj.armed})
+            frame.update({"fly": position})
+            frame.update({"yaw": yaw})
+            if clever_show.use_armed:
+                frame.update({"armed": drone_obj.drone.armed})
 
             try:
                 led_color = get_rgb(drone_obj) # TODO!!!!!!
@@ -129,24 +124,25 @@ class ExportSwarmAnimation(Operator, ExportHelper):
                 pass
 
             animation.append(frame)
-            previous_frame = frame
 
         if clever_show.add_takeoff:
-            animation.insert(0, {"takeoff": {}})
+            animation.insert(1, {"takeoff": {}})
 
         if clever_show.add_land:
             animation.append({"land": {}})
 
         if clever_show.use_armed:
-            self._detect_armed_states(drone_obj, animation, context)
+            pass
+            #self._detect_armed_states(drone_obj, animation, context)
 
         return animation
 
     @staticmethod
-    def find_intervals(values):
+    def find_intervals(values, ensure_first=True):
         j = None
-        vals = itertools.chain((-1, ), values)  # to ensure detection from first element
-        for i, items in enumerate(neighbour_pairs(vals)):
+        if ensure_first:
+            values = itertools.chain((-1, ), values)  # to ensure detection from first element
+        for i, items in enumerate(neighbour_pairs(values)):
             item1, item2 = items
             if item2 > item1:
                 j = i
@@ -165,20 +161,25 @@ class ExportSwarmAnimation(Operator, ExportHelper):
             state = current if current is not None else state
             yield state
 
+    @staticmethod
+    def populate_with_defaults(animation, func):
+        pass
+
     @classmethod
     def _detect_states(cls, drone_obj, animation, context):
         # clever_show = context.scene.clever_show
-        intervals = cls.find_intervals(cls.pop_func(animation, "armed"))
+        intervals = cls.find_intervals(cls.pop_func(animation, "armed"), ensure_first=False)
 
         for start, end in intervals:
+            pass
             # duration = max(end-start, 1)
 
-            if frame1 < frame2:  # not armed -> armed: takeoff
-                func = "takeoff"
-            else:  # armed -> not armed: takeoff
-                func = "land"
+            # if start < end:  # not armed -> armed: takeoff
+            #     func = "takeoff"
+            # else:  # armed -> not armed: takeoff
+            #     func = "land"
 
-            animation[start_frame].update({func: {"duration": duration}})
+            # animation[start_frame].update({func: {"duration": duration}})
 
     @classmethod
     def _detect_armed_states(cls, animation):
@@ -222,8 +223,33 @@ class ExportSwarmAnimation(Operator, ExportHelper):
                 i += 1
                 previous_z = current_z
 
-    def _process_animation(self, animation, context):  #delete unnececary flight functions while copter landed
-        # clever_show = context.scene.clever_show
+    @staticmethod
+    def _remove_repeats(animation):
+        to_remove = ("fly", "fly_gps", "yaw", "led_color", "led_mode" "armed")
+        previous_frame = dict()
+        for frame in animation:
+            for func in to_remove:
+                val = frame.get(func)
+                if val is not None and val == previous_frame.get(func, None):
+                    frame.pop(func, None)
+                else:
+                    previous_frame.update({func: val})
+        return animation
+
+    @staticmethod
+    def _compress_empty(animation):
+        i = 0
+        while i < len(animation) - 1:
+            if not animation[i + 1]:
+                frame = animation[i]
+                frame.update({"skip": frame.get("skip", 0) + 1})
+                animation.pop(i + 1)
+            else:
+                i += 1
+        return animation
+
+    @staticmethod
+    def _remove_idle_frames(animation):  #delete unnececary flight functions while copter landed
         flight_functions = ("fly", "fly_gps", "yaw", "flip, ")
 
         def get_frames(func):
