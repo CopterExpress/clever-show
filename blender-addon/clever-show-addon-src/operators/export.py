@@ -71,9 +71,33 @@ class ExportSwarmAnimation(Operator, ExportHelper):
         default=""
     )
 
+    def draw(self, context):
+        clever_show = context.scene.clever_show
+
+        layout = self.layout
+        col = layout.column()
+        col.label(text="Filtering properties")
+        col.prop(clever_show, "filter_obj")
+        if clever_show.filter_obj == "name":
+            col.prop(clever_show, "drones_name")
+        col.separator()
+
     def _get_drone_objects(self, context):
         clever_show = context.scene.clever_show
-        return context.visible_objects
+        filter_obj = clever_show.filter_obj
+        if filter_obj == "all":
+            return context.visible_objects
+
+        if filter_obj == "selected":
+            return context.selected_objects
+
+        if filter_obj == "name":
+            objects = context.visible_objects
+            return (d_obj for d_obj in objects if clever_show.drones_name in d_obj.name)
+
+        objects = context.visible_objects
+        if filter_obj == "prop":
+            return (d_obj for d_obj in objects if d_obj.drone.is_drone)
 
     def execute(self, context):
         create_dir(self.filepath)
@@ -162,7 +186,7 @@ class ExportSwarmAnimation(Operator, ExportHelper):
             yield state
 
     @staticmethod
-    def populate_with_defaults(animation, func):
+    def _populate_with_defaults(animation, func):
         pass
 
     @classmethod
