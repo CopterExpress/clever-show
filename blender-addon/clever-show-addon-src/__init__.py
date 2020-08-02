@@ -2,11 +2,11 @@ import bpy
 from bpy.types import PropertyGroup
 
 from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
-from . operators.export import ExportSwarmAnimation
-from . operators.check import CheckSwarmAnimation
-from . ui.drone_panel import DronePanel
-from . ui.led_panel import LedPanel
-from . ui.swarm_panel import SwarmPanel
+from .operators.export import ExportSwarmAnimation
+from .operators.check import CheckSwarmAnimation
+from .ui.drone_panel import DronePanel
+from .ui.led_panel import LedPanel
+from .ui.swarm_panel import SwarmPanel, SwarmFilteringPanel
 
 bl_info = {
     "name": "clever-show animation (.anim)",
@@ -23,7 +23,6 @@ bl_info = {
 
 # noinspection PyArgumentList
 class CleverShowProperties(PropertyGroup):
-
     add_takeoff: BoolProperty(
         name="Auto takeoff",
         description="Add takeoff command before animation start",
@@ -42,10 +41,11 @@ class CleverShowProperties(PropertyGroup):
         name="Use 'Armed' property",
         description="Add takeoff and land according to 'Armed' property",
         default=True,
+        options=set(),  # not animateable
     )
 
     detect_animation: BoolProperty(
-        name="Detect in motion",
+        name="Detect motion",
         description="Detect takeoff and land in drone object motion",
         default=False,
         options=set(),  # not animateable
@@ -66,7 +66,7 @@ class CleverShowProperties(PropertyGroup):
     )
 
     filter_obj: EnumProperty(
-        name="Filter objects:",
+        name="Filter drone objects",
         items=[('all', "No filter (all objects)", ""),
                ('selected', "Only selected", ""),
                ('name', "By object name", ""),
@@ -79,6 +79,22 @@ class CleverShowProperties(PropertyGroup):
         name="Name identifier",
         description="Name identifier for all drone objects",
         default="clever",
+    )
+
+    filter_mats: EnumProperty(
+        name="Filter LED material",
+        items=[('all', "No filter (all matrials)", ""),
+               ('name', "By material name", ""),
+               ('prop', "By material property", ""),
+               ('none', "None", ""),
+               ],
+        default="prop",
+    )
+
+    leds_name: StringProperty(
+        name="Name identifier",
+        description="Name identifier for all LED materials",
+        default="led",
     )
 
     speed_limit: FloatProperty(
@@ -104,6 +120,7 @@ class CleverDroneProperties(PropertyGroup):
         name="Armed",
         default=True,
     )
+
 
 class CleverLedProperties(PropertyGroup):
     is_led: BoolProperty(
@@ -131,11 +148,12 @@ class CleverLedProperties(PropertyGroup):
     )
 
 
-classes = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
-           ExportSwarmAnimation, CheckSwarmAnimation,
-           DronePanel, SwarmPanel, LedPanel,
+classes1 = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
+            ExportSwarmAnimation, CheckSwarmAnimation,
+            SwarmPanel, DronePanel, LedPanel,
+            )
+classes2 = (SwarmFilteringPanel, )
 
-           )
 
 def menu_func(self, context):
     self.layout.operator(
@@ -147,12 +165,15 @@ def menu_func(self, context):
 def register():
     from bpy.utils import register_class
 
-    for cls in classes:
+    for cls in classes1:
         register_class(cls)
 
     bpy.types.Scene.clever_show = PointerProperty(type=CleverShowProperties)
     bpy.types.Object.drone = PointerProperty(type=CleverDroneProperties)
     bpy.types.Material.led = PointerProperty(type=CleverLedProperties)
+
+    for cls in classes2:
+        register_class(cls)
 
     bpy.types.TOPBAR_MT_file_export.append(menu_func)
 
@@ -160,7 +181,7 @@ def register():
 def unregister():
     from bpy.utils import unregister_class
 
-    for cls in reversed(classes):
+    for cls in reversed(classes1 + classes2):
         unregister_class(cls)
 
     del bpy.types.Scene.clever_show

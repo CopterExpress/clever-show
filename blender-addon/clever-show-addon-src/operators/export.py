@@ -76,7 +76,7 @@ class ExportSwarmAnimation(Operator, ExportHelper):
 
         layout = self.layout
         col = layout.column()
-        col.label(text="Filtering properties")
+        col.label(text="Filtering")
         col.prop(clever_show, "filter_obj")
         if clever_show.filter_obj == "name":
             col.prop(clever_show, "drones_name")
