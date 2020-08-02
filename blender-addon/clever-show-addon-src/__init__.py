@@ -5,6 +5,7 @@ from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumPropert
 from . operators.export import ExportSwarmAnimation
 from . operators.check import CheckSwarmAnimation
 from . ui.drone_panel import DronePanel
+from . ui.led_panel import LedPanel
 from . ui.swarm_panel import SwarmPanel
 
 bl_info = {
@@ -72,14 +73,12 @@ class CleverShowProperties(PropertyGroup):
                ('prop', "By object property", ""),
                ],
         default="prop",
-        options=set(),  # not animateable
     )
 
     drones_name: StringProperty(
         name="Name identifier",
         description="Name identifier for all drone objects",
         default="clever",
-        options=set(),  # not animateable
     )
 
     speed_limit: FloatProperty(
@@ -106,11 +105,17 @@ class CleverDroneProperties(PropertyGroup):
         default=True,
     )
 
-
 class CleverLedProperties(PropertyGroup):
     is_led: BoolProperty(
-        name="Is LED color",)
-    led_effect: EnumProperty(
+        name="Is LED color",
+    )
+
+    group: StringProperty(
+        name="LED group name",
+        default="ALL",
+    )
+
+    effect: EnumProperty(
         name="LED effect",
         items=[('fill', 'Fill', ""),
                ('blink', 'Blink', ""),
@@ -128,7 +133,8 @@ class CleverLedProperties(PropertyGroup):
 
 classes = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
            ExportSwarmAnimation, CheckSwarmAnimation,
-           DronePanel, SwarmPanel,
+           DronePanel, SwarmPanel, LedPanel,
+
            )
 
 def menu_func(self, context):
