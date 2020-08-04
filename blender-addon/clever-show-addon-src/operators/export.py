@@ -107,6 +107,8 @@ class ExportSwarmAnimation(Operator, ExportHelper):
         for drone_obj in drone_objects:
             animation = self._generate_animation(drone_obj, context)
             animation = self._remove_idle_frames(animation)
+            animation = self._remove_repeats(animation)
+            animation = self._compress_empty(animation)
             with open(os.path.join(self.filepath, '{}.anim'.format(drone_obj.name)), 'w') as f:
                 f.writelines(json.dumps(frame)+"\n" for frame in animation)
 
@@ -207,7 +209,7 @@ class ExportSwarmAnimation(Operator, ExportHelper):
 
     @classmethod
     def _detect_armed_states(cls, animation):
-        for i, items in enumerate(neighbour_pairs(vals)):
+        for i, items in enumerate(neighbour_pairs(animation)):
             item1, item2 = items
             if item2 > item1:
                 j = i
@@ -249,7 +251,7 @@ class ExportSwarmAnimation(Operator, ExportHelper):
 
     @staticmethod
     def _remove_repeats(animation):
-        to_remove = ("fly", "fly_gps", "yaw", "led_color", "led_mode" "armed")
+        to_remove = ("fly", "fly_gps", "yaw", "led_color", "led_effect", "armed")
         previous_frame = dict()
         for frame in animation:
             for func in to_remove:
