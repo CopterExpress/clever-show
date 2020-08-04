@@ -3,6 +3,7 @@ import sys
 
 import json
 import itertools
+from collections.abc import Mapping
 
 import bpy
 from bpy_extras.io_utils import ExportHelper
@@ -28,33 +29,14 @@ def neighbour_pairs(sequence):
         yield prev, item
         prev = item
 
-def get_rgb(drone_obj):
-    try:
-        slot = next(filter(lambda x: "led_color" in x.name.lower(), drone_obj.material_slots))
-    except StopIteration:
-        raise RuntimeError("No matching slots")
 
-    try:
-        material = slot.material
-        if material.use_nodes:
-            value = get_node_color(material)
+def update_nested(d, u):
+    for key, val in u.items():
+        if isinstance(val, Mapping):
+            d[key] = update_nested(d.get(key, {}), val)
         else:
-            value = material.diffuse_color
-
-        alpha = value[3]
-        return [int(value[component] * alpha * 255) for component in range(3)]
-    except AttributeError:
-        raise RuntimeError("Missing attributes")
-
-
-def get_node_color(material):
-    try:
-        node = next(filter(lambda x: x.type in ('EMISSION', 'BSDF_DIFFUSE', "Principled BSDF"),
-                           material.node_tree.nodes))
-    except StopIteration:
-        raise RuntimeError("Missing attributes")
-    else:
-        return node.inputs[0].default_value
+            d[key] = val
+    return d
 
 
 class ExportSwarmAnimation(Operator, ExportHelper):
@@ -82,22 +64,63 @@ class ExportSwarmAnimation(Operator, ExportHelper):
             col.prop(clever_show, "drones_name")
         col.separator()
 
-    def _get_drone_objects(self, context):
+    @staticmethod
+    def _get_drone_objects(context):
         clever_show = context.scene.clever_show
-        filter_obj = clever_show.filter_obj
-        if filter_obj == "all":
-            return context.visible_objects
+        filtering = clever_show.filter_obj
 
-        if filter_obj == "selected":
+        if filtering == "selected":
             return context.selected_objects
 
-        if filter_obj == "name":
-            objects = context.visible_objects
-            return (d_obj for d_obj in objects if clever_show.drones_name in d_obj.name)
-
         objects = context.visible_objects
-        if filter_obj == "prop":
+        if filtering == "all":
+            return objects
+        if filtering == "name":
+            return (d_obj for d_obj in objects if clever_show.drones_name in d_obj.name)
+        if filtering == "prop":
             return (d_obj for d_obj in objects if d_obj.drone.is_drone)
+
+        raise ValueError
+
+    @staticmethod
+    def _get_led_materials(context, drone_obj):
+        clever_show = context.scene.clever_show
+        filtering = clever_show.filter_mats
+        if filtering == "none":
+            return []
+
+        materials = [slot.material for slot in drone_obj.material_slots if slot.material]
+        if filtering == "all":
+            return materials
+        if filtering == "name":
+            return (mat for mat in materials if mat.name == clever_show.leds_name)
+        if filtering == "prop":
+            return (mat for mat in materials if mat.led.is_led)
+
+        raise ValueError
+
+    @staticmethod
+    def _get_led_color(material):
+        if material.use_nodes:
+            value = ExportSwarmAnimation._get_node_color(material)
+        else:
+            value = material.diffuse_color
+
+        alpha = value[3]
+        return [int(value[component] * alpha * 255) for component in range(3)]
+
+    @staticmethod
+    def _get_node_color(material):
+        supported_nodes = ('EMISSION', 'BSDF_DIFFUSE', "BSDF_PRINCIPLED")
+        nodes = material.node_tree.nodes
+        links = material.node_tree.links
+        out = nodes.get("Material Output")
+        try:
+            link = [l for l in links if l.from_node.type in supported_nodes and l.to_node == out][0]
+        except IndexError:
+            raise RuntimeError("Missing proper nodes")
+        else:
+            return link.from_node.inputs['Base Color'].default_value  # [0]
 
     def execute(self, context):
         create_dir(self.filepath)
@@ -143,11 +166,22 @@ class ExportSwarmAnimation(Operator, ExportHelper):
             if clever_show.use_armed:
                 frame.update({"armed": drone_obj.drone.armed})
 
-            try:
-                led_color = get_rgb(drone_obj) # TODO!!!!!!
-                frame.update({"led_color": led_color})
-            except RuntimeError:
-                pass
+            led_materials = self._get_led_materials(context, drone_obj)
+            for material in led_materials:
+
+                try:
+                    color = self._get_led_color(material)
+                except (RuntimeError, AttributeError) as e:
+                    continue
+
+                if material.led.is_led:  # and clever_show.filter_mats == "prop"
+                    group_name = material.led.group
+                    effect = material.led.effect
+                    update_nested(frame, {"led_effect": {group_name: effect}})
+                else:
+                    group_name = "ALL"
+
+                update_nested(frame, {"led_color": {group_name: color}})
 
             animation.append(frame)
 
