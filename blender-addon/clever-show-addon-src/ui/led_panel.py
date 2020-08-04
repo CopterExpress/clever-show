@@ -7,6 +7,11 @@ class LedPanel(Panel):
     bl_region_type = 'WINDOW'
     bl_context = "material"
 
+    @classmethod
+    def poll(cls, context):
+        mat = context.material
+        return mat and not mat.grease_pencil
+
     def draw_header(self, context):
         self.layout.prop(context.material.led, "is_led", text="")
 
