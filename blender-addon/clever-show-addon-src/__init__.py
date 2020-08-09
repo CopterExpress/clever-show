@@ -1,10 +1,12 @@
 import bpy
 from bpy.types import PropertyGroup
 
-from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
+from bpy.props import PointerProperty, CollectionProperty, \
+    StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
 from .operators.export import ExportSwarmAnimation
 from .operators.check import CheckSwarmAnimation
-from .ui.drone_panel import DronePanel
+from .operators.drone_props import DroneCustomPropsActions
+from .ui.drone_panel import DronePanel, CustomDroneItems
 from .ui.led_panel import LedPanel
 from .ui.swarm_panel import SwarmPanel, SwarmFilteringPanel
 
@@ -112,6 +114,15 @@ class CleverShowProperties(PropertyGroup):
         min=0,
     )
 
+class CustomDroneProperties(PropertyGroup):
+    name: StringProperty()
+    active: BoolProperty(
+        name="Active",
+        default=False,
+    )
+    args: StringProperty(
+        default="{}",
+    )
 
 class CleverDroneProperties(PropertyGroup):
     is_drone: BoolProperty(name="Is drone")
@@ -120,6 +131,12 @@ class CleverDroneProperties(PropertyGroup):
         name="Armed",
         default=True,
     )
+
+    active_index: IntProperty(
+        name="Active custom drone commands index",
+        options=set(),  # not animateable
+    )
+    custom_props: CollectionProperty(type=CustomDroneProperties)
 
 
 class CleverLedProperties(PropertyGroup):
@@ -148,9 +165,9 @@ class CleverLedProperties(PropertyGroup):
     )
 
 
-classes1 = (CleverShowProperties, CleverDroneProperties, CleverLedProperties,
-            ExportSwarmAnimation, CheckSwarmAnimation,
-            SwarmPanel, DronePanel, LedPanel,
+classes1 = (CleverShowProperties, CustomDroneProperties, CleverDroneProperties, CleverLedProperties,
+            ExportSwarmAnimation, CheckSwarmAnimation, DroneCustomPropsActions,
+            SwarmPanel, CustomDroneItems, DronePanel, LedPanel,
             )
 classes2 = (SwarmFilteringPanel, )
 
