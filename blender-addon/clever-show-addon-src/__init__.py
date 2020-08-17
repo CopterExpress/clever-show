@@ -121,6 +121,7 @@ class CustomDroneProperties(PropertyGroup):
         default=False,
     )
     args: StringProperty(
+        name="Command arguments",
         default="{}",
     )
 

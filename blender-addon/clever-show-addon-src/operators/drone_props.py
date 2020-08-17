@@ -21,7 +21,7 @@ class DroneCustomPropsActions(Operator):
         drone = context.object.drone
 
         item = drone.custom_props.add()
-        item.name = f"empty_action {len(drone.custom_props)}"
+        item.name = f"action_{len(drone.custom_props)}"
 
         drone.active_index = len(drone.custom_props) - 1
         self.report({'INFO'}, f"Item '{item.name}' added to {context.object.name}")

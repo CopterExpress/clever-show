@@ -6,7 +6,7 @@ class CustomDroneItems(UIList):
         split = layout.split(factor=0.66, align=True)
         split.prop(item, "name", text="", emboss=False)
         row = split.row(align=True)
-        row.label(text="Active: ")
+        row.label(text="Active ")
         checkbox = "CHECKBOX_HLT" if item.active else "CHECKBOX_DEHLT"
         row.prop(item, "active", text="", emboss=False, icon=checkbox)
 
@@ -27,9 +27,9 @@ class DronePanel(Panel):
         layout.use_property_split = True
         layout.use_property_decorate = True
 
-        layout.enabled = context.object.drone.is_drone
+        layout.enabled = drone.is_drone
 
-        layout.prop(context.object.drone, "armed")
+        layout.prop(drone, "armed")
         items = len(drone.custom_props)
 
         rows = 3
@@ -52,3 +52,11 @@ class DronePanel(Panel):
             sub.operator("clever_show.list_action", icon='TRIA_DOWN', text="").action = 'DOWN'
 
             sub.enabled = items > 1
+
+            try:
+                item = drone.custom_props[drone.active_index]
+            except IndexError:
+                return
+
+            layout.prop(item, "args")
+
