@@ -5,10 +5,12 @@ from bpy.props import PointerProperty, CollectionProperty, \
     StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
 from .operators.export import ExportSwarmAnimation
 from .operators.check import CheckSwarmAnimation
+from .operators.select import SelectSwarmDrones
 from .operators.drone_props import DroneCustomPropsActions
 from .ui.drone_panel import DronePanel, CustomDroneItems
 from .ui.led_panel import LedPanel
 from .ui.swarm_panel import SwarmPanel, SwarmFilteringPanel
+from .ui.operators_panel import OperatorsPanel
 
 bl_info = {
     "name": "clever-show animation (.anim)",
@@ -167,8 +169,8 @@ class CleverLedProperties(PropertyGroup):
 
 
 classes1 = (CleverShowProperties, CustomDroneProperties, CleverDroneProperties, CleverLedProperties,
-            ExportSwarmAnimation, CheckSwarmAnimation, DroneCustomPropsActions,
-            SwarmPanel, CustomDroneItems, DronePanel, LedPanel,
+            ExportSwarmAnimation, CheckSwarmAnimation, SelectSwarmDrones, DroneCustomPropsActions,
+            SwarmPanel, CustomDroneItems, DronePanel, LedPanel, OperatorsPanel,
             )
 classes2 = (SwarmFilteringPanel, )
 
