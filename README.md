@@ -30,4 +30,4 @@ Create animation in [Blender](https://www.blender.org/), convert it to drone pat
 
 ## Quick start
 
-Start making your own show using [this tutorial](docs/ru/start-tutorial.md)!
+Start making your own show using [this tutorial](docs/en/start-tutorial.md)!
