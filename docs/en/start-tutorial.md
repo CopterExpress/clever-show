@@ -33,104 +33,103 @@ To operate one or more copters, you need to connect copters and the server to th
 ssh pi@192.168.11.1
 ```
 
-* After connection, run the client configuration script `client-setup` with the specified parameters - wirele access point name (`SSID`), access point password (`password`), copter name (`copter name`). The copter will switch to the wifi client mode of the specified access point and configure the `clever-show` client to autorun Raspberry Pi.
+* After connection, run the client configuration script `client-setup` with the specified parameters - wireless access point name (`SSID`), access point password (`password`), copter name (`copter name`). The copter will switch to the wifi client mode of the specified access point and configure the `clever-show` client to autorun on Raspberry Pi.
 
 ```bash
 sudo client-setup <SSID> <password> <copter name>
 ```
 
-* Теперь при запуске серверного приложения настроенные коптеры будут отображаться в виде строк в таблице. Также можно подключаться к Raspberry Pi на коптере по его имени с добавкой .local через `ssh` в указанной при настройке wifi сети, например `ssh pi@clover-1.local`, пароль `raspberry`.
+* Now when you run the server application, the configured copters will appear as rows in the table. You can also connect to Raspberry Pi on the copter by its name with the addition of .local via `ssh` in the network specified when setting up wifi, for example `ssh pi@clover-1.local`, password `raspberry`.
 
-**Подробная документация по настройке клиентской части находится [здесь](client.md).**
+**Detailed documentation on client configuration located [here](client.md).**
 
-## Установка и запуск сервера
+## Server installation and startup
 
-* Установите [chrony](https://chrony.tuxfamily.org/index.html) на ваш компьютер для синхронизации времени с коптерами:
+* Install [chrony](https://chrony.tuxfamily.org/index.html) on your computer to synchronize time with the copters:
 
 ```bash
 sudo apt install chrony
 ```
 
-* Установите необходимые python-пакеты с помощью команды (запущенной из директории с исходным кодом)
+* Set the required python packages using the command (ran from the source directory)
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-* Подключитесь к wifi сети роутера, к которому подключены коптеры.
-* Скопируйте [файл настроек chrony](../../examples/chrony/server.conf) в `/etc/chrony/chrony.conf`. Если ip адрес сети начинается не с `192.168.`, то исправьте адрес после слова allow в скопированном файле настроек.
-* Перезапустите сервис chrony
+* Connect to the wifi network of the router where your copters are connected.
+* Copy [chrony settings file](../../examples/chrony/server.conf) into `/etc/chrony/chrony.conf`. If your network ip address does not start with `192.168.`, correct the address after the word "allow" (on line 7) in the copied settings file. Restart `chrony` service.
 
 ```bash
 sudo systemctl restart chrony
 ```
 
-* Перейдите в директорию сервера из директории с исходным кодом и запустите сервер
+* Go to the server directory from the directory with the source code and start the server
 
 ```bash
 cd clever-show/server
 python3 server.py
 ```
 
-* Через некоторое время коптеры с настроенным образом подключатся к серверу и отобразятся в виде строк в таблице.
+* After a while, the copters with the configured image will connect to the server and will be displayed as rows in the table.
 
-**Подробная документация по настройке серверной части находится [здесь](server.md).**
+**Detailed documentation on configuring the server side can be found [here](server.md).**
 
-## Подготовка коптера
+## Copter preparation
 
-Дальнейшие инструкции написаны для коптеров, элементы которых расположены согласно [инструкции по сборке](https://clover.coex.tech/ru/assemble_4.html). Полётный контроллер коптера должен быть предварительно настроен и откалиброван согласно [статьям по настройке](https://clover.coex.tech/ru/setup.html):
+Further instructions are written for copters assembled according to [assembly instructions](https://clover.coex.tech/en/assemble_4.html). The flight controller of the copter should be pre-configured and calibrated according to [configuration instructions](https://clover.coex.tech/en/setup.html):
 
-* Первоначальная настройка
-* Калибровка датчиков
-* Настройка пульта
-* Полётные режимы
+* Initial setup
+* Sensor calibration
+* RC setup
+* Flight modes
 
-Перед тем как приступать к настройке программного обеспечения, проверьте, что коптер управляется с пульта в режиме `Stabilized`.
+Before proceeding with the software setup, make sure that the copter is controlled from the remote control with the `Stabilized` mode. 
 
-Включите коптер и запустите серверное приложение на компьютере. Дождитесь подключения коптера к серверу и отображения данных его телеметрии в таблице.
+Turn on your copter and run the server application on your computer. Wait until the copter is connected to the server and its telemetry is displayed in a table.
 
-### Проверка позиционирования
+### Positioning check
 
-Для автономного воспроизведения анимации все коптеры должны иметь настроенную систему позиционирования. Образ `clever-show` для коптера настроен по умолчанию на полёт с использованием `optical flow`: на коптере должен быть установлен лазерный дальномер, а камера должна быть наклонена вниз шлейфом назад. Данная система позиционирования подходит для демонстрации полёта одного коптера или же для синхронного полёта нескольких коптеров по одной и той же анимации внутри помещения.
+For autonomous animation playback, all copters must have a configured positioning system. The `clever-show` image for the copter is set by default to fly with the `optical flow`: a laser rangefinder should be installed on the copter and the camera should be tilted backwards by the plume. This positioning system is suitable for demonstration flight of one copter or for synchronous flight of several copters using the same indoor animation.
 
-Перед проверкой автономного взлёта проведите автоматическую проверку корректности настроек коптера согласно [статье](https://clover.coex.tech/ru/selfcheck.html).
+Before checking the autonomous takeoff, perform an automatic check of the copter configuration according to [article](https://clover.coex.tech/en/selfcheck.html).
 
-Проверьте, что коптер удерживает позицию автономно: отметьте чекбокс около названия коптера и нажмите кнопку Takeoff в правой панели интерфейса сервера. Коптер должен взлететь на высоту, указанную в параметре `takeoff_height` раздела FLIGHT [конфигурации клиента](../../drone/config/spec/configspec_client.ini). По умолчанию эта высота равна 1 метр. Если коптер взлетел и удерживает позицию на высоте 1 метр, проверка пройдена. Посадите коптер на землю, нажав на кнопку `Land` или `Land All`. **Внимание!** Для вашей безопасности рекомендуется проводить проверку автономного взлёта с включенным пультом и возможностью перехвата коптера в режим ручного управления.
+Make sure that the copter holds the position autonomously: mark the checkbox near the name of the copter and press the "Takeoff" button in the right panel of the server interface. The copter should take off at the height specified in the `takeoff_height` parameter of the "FLIGHT" section in the [client configuration](.../drone/config/spec/configspec_client.ini). By default, this height is 1 meter. If the copter takes off and holds a position at 1 meter height, the check is passed. Put the copter on the ground by pressing the `Land` or `Land All` button. **Attention!** For your safety it is recommended to perform a test of autonomous takeoff with the remote control turned on and ability to intercept the copter into the manual mode.
 
-Вы можете настроить коптер на другую систему позиционирования. Официально поддерживаются следующие [системы позиционирования](https://clover.coex.tech/ru/programming.html#positioning):
+You can configure the copter to utilize a different positioning system. The following [positioning systems](https://clover.coex.tech/en/programming.html#positioning) are officially supported:
 
 * optical flow
 * aruco
-* gps
+* GPS
 
-**Подробная информация про работу с системами позиционирования и их настройку находится [здесь](positioning.md).**
+**Detailed information about working with and setting up positioning systems can be found [here](positioning.md)**
 
-### Проверка работы светодиодной ленты
+### LED Strip Operation Check
 
-Светодиодная лента должна быть подключена к порту GPIO 21 Raspberry Pi и иметь не более 60 светодиодов для работы с настроенным по умолчанию образом `clever-show`. Проверьте работу ленты, выделив нужный коптер в таблице и нажав кнопку `Test leds` - лента на коптере должна 2 раза мигнуть белым цветом.
+The LED strip should be connected to the GPIO 21 Raspberry Pi pin and have no more than 60 LEDs in order to work with the default `clever-show' image. Check the functioning of the LED strip by selecting the desired copter in the table and pressing the button `Test leads` - the strip on the copter should blink white twice.
 
-Описание настройки и работы со светодиодной ленты находится в [документации](https://clover.coex.tech/ru/leds.html) `clover`.
+You can find a description of setup and operation of the LED strip in `clover` [documentation](https://clover.coex.tech/en/leds.html) .
 
-### Синхронизация времени
+### Time synchronization
 
-Для корректного воспроизведения анимации очень важна синхронизация времени между всеми коптерами, участвующими в анимации, и сервером. Чем точнее будет синхронизировано время, тем более согласованным будет полёт группы коптеров. В качестве инструмента синхронизации времени рекомендуется успользовать сервис [chrony](https://chrony.tuxfamily.org). Процесс установки и настройки данного сервиса для сервера описан [выше](#установка-и-запуск-сервера), в образе `clever-show` данный сервис уже установлен.
+Time synchronization between all copters involved in the animation and the server is very important for correct playback of the animation. The more precisely the time is synchronized, the more coordinated the flight of the copter group will be. It is recommended to use [chrony](https://chrony.tuxfamily.org) service as a time synchronization tool. The process of installation and setup of this service for the server PC is described [above](#server-installation-and-startup), this service is already installed in the `clever-show` image.
 
-После первого подключения коптера к серверу, сервис `chrony` в коптере автоматически настраивается на подключение по ip адресу сервера и перезагружается. Однако на сервере сервис `chrony` может перестать посылать пакеты синхронизации времени при смене wifi сети и время между коптерами и сервером перестанет синхронизироваться. Разница между временем, пришедшим с коптера, и временем сервера отображается в столбце `dt` в таблице сервера. Нормальный уровень разницы по времени должен быть **не больше 0.1 секунды** (порядка 0.01 секунды), однако может быть и больше вследствие сетевых задержек при передаче телеметрии с коптера. Если разница по времени больше 0.1 секунды, рекомендуется перезапустить сервис `chrony` с помощью команды из верхнего меню сервера `Selected drones -> Restart service -> chrony`. Данная команда перезагружает сервис синхронизации времени на сервере (потребуется ввести пароль пользователя) и на коптерах.
+After the first copter connection to the server, the `chrony` service on the copter is automatically configured to connect to the ip address of the server and rebooted. However, the `chrony` service in the server may stop sending packets of time synchronization when the wifi network changes and the time between the copters and the server will stop being synchronized. The difference between the time from the copter and the server time is displayed in the `dt` column of the server table. Normal time difference should be **not more than 0.1 second** (about 0.01 second), but it may be more due to network latency when transmitting telemetry from the copter. If the time difference is greater than 0.1 second it is recommended to restart the `chrony` service with the command from the top menu of the server `Selected drones -> Restart service -> chrony`. This command restarts the service `chrony` on the server (you will need to enter the user password) and on the copters.
 
-## Подготовка и запуск анимации
+## Animation preparation and execution
 
-По умолчанию в клиент уже загружена анимация [basic](../../examples/animations/basic/basic.csv):
+By default [basic](.../examples/animations/basic/basic.csv) animation is already uploaded to the client:
 
 <img src="C:/Users/artem/Documents/GitHub/COEX-clever-swarm/clever-show/examples/animations/basic/basic.gif" width="400px" alt="basic animation">
 
-Красная линия - ось x, зелёная - ось y. Куб в анимации двигается в положительном направлении по оси x. Модуль воспроизведения анимации проведёт коптер по точкам, указанным в файле анимации, относительно системы координат, заданной в настройке `frame_id` раздела FLIGHT [конфигурации клиента](../../drone/config/spec/configspec_client.ini) (по умолчанию `map`). При этом коптер запустит двигатели перед взлётом и выключит их после посадки. Момент взлёта и посадки коптера определяется автоматически.
+The red line is x axis, the green line is y axis. The cube in the animation moves in a positive direction along the x axis. The animation playback module will draw the copter along the points specified in the animation file relative to the coordinate system specified in the `frame_id` option in the FLIGHT [client configuration](.../../drone/config/spec/configspec_client.ini) (`map` by default). The copter will start the motors before takeoff and turn them off after landing. The moments of takeoff and landing of the copter are determined automatically.
 
-Информация о текущем положении коптера указана в столбце `current x y z yaw frame_id` таблицы сервера. Информация о стартовой точке анимации и времени, через которое коптер включит моторы, указана в столбце `start x y z yaw action delay`. Для первой проверки анимации важно, чтобы координаты в этих столбцах совпадали. Если это не так, самый простой способ решить эту проблему - перезагрузить коптер и дождаться его загрузки.
+Information about the current position of the copter is displayed in the `current x y zaw frame_id` column of the server table. Information about the starting point of the animation and the takeoff time is displayed in the `start x y z yaw action delay` column. For the first check of the animation it is important that the coordinates in these columns match. If not, the easiest way to solve this problem is to reboot the copter and wait for it to load.
 
-Проверьте воспроизведение анимации, нажав кнопку `Start animation`: первые две секунды коптер будет изменять цвет ленты, затем запустит моторы, взлетит на 1 метр вверх, затем пролетит 1 метр вправо и начнёт опускаться вниз. После касания земли в анимации коптер перейдёт в режим посадки, заглушит двигатели, и продолжит менять цвет светодиодной ленты до окончания анимации.
+Check the playback of the animation by pressing the `Start animation` button: the first two seconds the copter will change the color of the tape, then it will start the motors, take off 1 meter upwards, then it will fly 1 meter to the right and will start going downwards. After touching the ground in the animation, the copter will switch to the landing mode, shut down the motors, and continue to change the color of the LED strip until the animation is finished.
 
-Результат выполнения анимации должен выглядеть так (с точностью до настройки PID коэффициентов):
+The result of the animation should look like this (up to the accuracy of PID tuning):
 
 <img src="C:/Users/artem/Documents/GitHub/COEX-clever-swarm/clever-show/examples/animations/basic/basic_real.gif" width="400px" alt="basic animation">
 
-**Подробная информация по работе модуля анимации находится [здесь](animation.md).**
+**The detailed information on the animation module is located [here](animation.md).**
