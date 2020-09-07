@@ -22,7 +22,7 @@ Download [image for Raspberry Pi](https://github.com/CopterExpress/clever-show/r
 
 To operate one or more copters, you need to connect copters and the server to the same wireless network. It requires a separate wifi router with a known SSID and password.
 
-## Client Installation and startup
+## Client installation and startup
 
 * Flash the image to a microSD card using [Etcher](https://www.balena.io/etcher/).
 * Insert the microSD card into Raspberry Pi on the copter and turn it on. Wait until the network `clever-show-XXXX` appears.
