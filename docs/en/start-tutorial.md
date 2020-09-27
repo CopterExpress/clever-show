@@ -94,7 +94,7 @@ For autonomous animation playback, all copters must have a configured positionin
 
 Before checking the autonomous takeoff, perform an automatic check of the copter configuration according to [article](https://clover.coex.tech/en/selfcheck.html).
 
-Make sure that the copter holds the position autonomously: mark the checkbox near the name of the copter and press the "Takeoff" button in the right panel of the server interface. The copter should take off at the height specified in the `takeoff_height` parameter of the "FLIGHT" section in the [client configuration](.../drone/config/spec/configspec_client.ini). By default, this height is 1 meter. If the copter takes off and holds a position at 1 meter height, the check is passed. Put the copter on the ground by pressing the `Land` or `Land All` button. **Attention!** For your safety it is recommended to perform a test of autonomous takeoff with the remote control turned on and ability to intercept the copter into the manual mode.
+Make sure that the copter holds the position autonomously: mark the checkbox near the name of the copter and press the "Takeoff" button in the right panel of the server interface. The copter should take off at the height specified in the `takeoff_height` parameter of the "FLIGHT" section in the [client configuration](.../drone/config/spec/configspec_client.ini). By default, this height is 1 meter. If the copter takes off and holds a position at 1 meter height, the check is passed. Put the copter on the ground by pressing the `Land` or `Land All` button. **Warning!** For your safety it is recommended to perform a test of autonomous takeoff with the remote control turned on and ability to intercept the copter into the manual mode.
 
 You can configure the copter to utilize a different positioning system. The following [positioning systems](https://clover.coex.tech/en/programming.html#positioning) are officially supported:
 
@@ -114,13 +114,13 @@ You can find a description of setup and operation of the LED strip in `clover` [
 
 Time synchronization between all copters involved in the animation and the server is very important for correct playback of the animation. The more precisely the time is synchronized, the more coordinated the flight of the copter group will be. It is recommended to use [chrony](https://chrony.tuxfamily.org) service as a time synchronization tool. The process of installation and setup of this service for the server PC is described [above](#server-installation-and-startup), this service is already installed in the `clever-show` image.
 
-After the first copter connection to the server, the `chrony` service on the copter is automatically configured to connect to the ip address of the server and rebooted. However, the `chrony` service in the server may stop sending packets of time synchronization when the wifi network changes and the time between the copters and the server will stop being synchronized. The difference between the time from the copter and the server time is displayed in the `dt` column of the server table. Normal time difference should be **not more than 0.1 second** (about 0.01 second), but it may be more due to network latency when transmitting telemetry from the copter. If the time difference is greater than 0.1 second it is recommended to restart the `chrony` service with the command from the top menu of the server `Selected drones -> Restart service -> chrony`. This command restarts the service `chrony` on the server (you will need to enter the user password) and on the copters.
+After the first copter connection to the server, the `chrony` service on the copter is automatically configured to connect to the ip address of the server and rebooted. However, the `chrony` service in the server may stop sending packets of time synchronization when the wifi network changes and the time between the copters and the server will stop being synchronized. The difference between the time from the copter and the server time is displayed in the `dt` column of the server table. Normal time difference should be **no more than 0.1 second** (about 0.01 second), but it may be more due to network latency when transmitting telemetry from the copter. If the time difference is greater than 0.1 second it is recommended to restart the `chrony` service with the command from the top menu of the server `Selected drones -> Restart service -> chrony`. This command restarts the service `chrony` on the server (you will need to enter the user password) and on the copters.
 
 ## Animation preparation and execution
 
 By default [basic](.../examples/animations/basic/basic.csv) animation is already uploaded to the client:
 
-<img src="C:/Users/artem/Documents/GitHub/COEX-clever-swarm/clever-show/examples/animations/basic/basic.gif" width="400px" alt="basic animation">
+<img src="../../examples/animations/basic/basic.gif" width="400px" alt="basic animation">
 
 The red line is x axis, the green line is y axis. The cube in the animation moves in a positive direction along the x axis. The animation playback module will draw the copter along the points specified in the animation file relative to the coordinate system specified in the `frame_id` option in the FLIGHT [client configuration](.../../drone/config/spec/configspec_client.ini) (`map` by default). The copter will start the motors before takeoff and turn them off after landing. The moments of takeoff and landing of the copter are determined automatically.
 
@@ -130,6 +130,6 @@ Check the playback of the animation by pressing the `Start animation` button: th
 
 The result of the animation should look like this (up to the accuracy of PID tuning):
 
-<img src="C:/Users/artem/Documents/GitHub/COEX-clever-swarm/clever-show/examples/animations/basic/basic_real.gif" width="400px" alt="basic animation">
+<img src="../../examples/animations/basic/basic_real.gif" width="400px" alt="basic animation">
 
 **The detailed information on the animation module is located [here](animation.md).**

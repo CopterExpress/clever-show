@@ -1,4 +1,4 @@
-# Addon to export animations from Blender
+# Animation export Blender addon
 
 The Addon for Blender is designed to convert Blender's copters flight animations into flight paths for each copter of the animation, including the color of objects at any given time.
 

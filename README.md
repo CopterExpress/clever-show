@@ -20,7 +20,7 @@ Create animation in [Blender](https://www.blender.org/), convert it to drone pat
 * [Server side](server/) for making the drone show with ability of tuning drones, animation and music
 * [Blender 2.8 addon](blender-addon/) for exporting animation to drone paths
 * [Raspberry Pi image](https://github.com/CopterExpress/clever-show/releases/latest) for quick launch software on the drones
-* [Documentation](docs/ru/SUMMARY.md) (only in Russian for now)
+* [Documentation](docs/en/SUMMARY.md)
 
 ## Positioning systems supported
 

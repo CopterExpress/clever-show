@@ -71,7 +71,7 @@ This section configures the telemetry stream to the server.
 
 This section contains settings affecting copter flight.
 
-* `frame_id` - the name of the coordinate system, in relation to which the coordinates of the points for animation playback will be published. If value is `floor` - then the client publishes the static coordinate system with the name `floor` and the settings from [FLOOR_FRAME](#floor-frame-section). **Attention!** Make sure that the copter holds a position in this coordinate system. For this you can use the [Takeoff] (server.md# test commands) command from the server application. The copter will take off at an altitude of `takeoff_height` relative to the current one.
+* `frame_id` - the name of the coordinate system, in relation to which the coordinates of the points for animation playback will be published. If value is `floor` - then the client publishes the static coordinate system with the name `floor` and the settings from [FLOOR_FRAME](#floor-frame-section). **Warning!** Make sure that the copter holds a position in this coordinate system. For this you can use the [Takeoff] (server.md# test commands) command from the server application. The copter will take off at an altitude of `takeoff_height` relative to the current one.
 * `takeoff_height` - take-off height of the copter, in meters. Used at the beginning of animation playback or when testing the copter from the server.
 * `takeoff_time` - maximum copter take-off time, in seconds.
 * `reach_first_point_time` - maximum flight time to reach the first point of the animation, in seconds.
@@ -87,7 +87,7 @@ This section describes the offset of the coordinate system with the name `floor`
 * `translation` - offset of the `floor` coordinate system along the axes (x, y, z) from the `parent` coordinate system, in meters.
 * `rotation` - rotation of `floor` coordinate system by angles (roll, pitch, yaw) around axes (x, y, z) relative to `parent` coordinate system, in degrees.
 
-**Attention!** Rotations `roll`, `pitch`, `yaw` are made sequentially in the stated order.
+**Warning!** Rotations `roll`, `pitch`, `yaw` are made sequentially in the stated order.
 
 #### GPS FRAME section
 
@@ -120,12 +120,12 @@ After splitting the animation into key stages, the module generates an output se
   
   * `auto` - automatic choice of action between `takeoff` (take-off) or `fly` (instantaneous flight along points) based on the current level of altitude of the copter. If (`z` at the initial point of animation) > (take-off_level), the value is set to `takeoff`, otherwise the value is set to `fly`.
   * `fly` -  executing *the logic of immediate flight*
-* `takeoff` - execution of *the logic of flight to the first point*
-  
+  * `takeoff` - execution of *the logic of flight to the first point*
+
 If the copter takes off from the ground in the animation file, at the start of the animation, the instantaneous playback logic (fly)** will be applied: the copter with the motors turned off plays the color from the animation as long as it is stationary, turns the motors on before the moment of takeoff, then after `arming_time` starts to follow the points specified in the animation.
-  
+
  If in the animation file the copter starts to fly in the air, at the start of the animation will be applied **flight logic to the first point (takeoff)**: The copter with the motors turned off plays the color from the animation as long as it is stationary, turns the motors on before takeoff, then takes off in `takeoff_height` time, then moves to the first point in `reach_first_point_time` and then starts to follow the points specified in the animation.
-  
+
 * `takeoff_level` - takeoff level to automatically detect the first action of the copter when the animation starts
 
 * `ground_level` - ground level, used to check if the copter will try to fly underground when playing the animation. Available settings:
@@ -171,7 +171,7 @@ This section configures the program of emergency protection of the copter from a
 
 Settings of emergency landing parameters in case of `emergency_land` emergency protection action or when calling the `/emergency_land` ROS service.
 
-* `thrust` - the initial power supplied to the motors in the event of a `emergency_land` action when the emergency protection is triggered. Measurementless value, from 0 (no thrust) to 1 (full thrust). For a guaranteed fit it is recommended to set it to a value 5-10 percent lower than the hanging gas (parameter `MPC_THR_HOVER` in px4). **Attention!** Incorrect configuration of this option may cause the copter to rise up instead of landing!
+* `thrust` - the initial power supplied to the motors in the event of a `emergency_land` action when the emergency protection is triggered. Measurementless value, from 0 (no thrust) to 1 (full thrust). For a guaranteed fit it is recommended to set it to a value 5-10 percent lower than the hanging gas (parameter `MPC_THR_HOVER` in px4). **Warning!** Incorrect configuration of this option may cause the copter to rise up instead of landing!
 * `decrease_thrust_after` - the time after which the power on the motors slowly begins to decrease (in seconds) if the action `emergency_land` is selected when the emergency protection is triggered.
 
 #### SYSTEM section
