@@ -110,7 +110,7 @@ This section configures the animation processing. A separate module [animation](
 
 An animation frame is a set of data necessary to position the copter and determine its led strip color. In the current version of the software the animation frame is represented by a sequence of numbers `x y zaw r g b` in the line `.csv` of the animation file, where:
 
-* `x', `y', `z' - copter coordinates in the current frame, in meters
+* `x',`y', `z' - copter coordinates in the current frame, in meters
 * `yaw` - the copter's yaw in radians
 * `r`, `g`, `b` - components of the color of the copter led strip, integers from 0 to 255
 
@@ -137,7 +137,7 @@ If the copter takes off from the ground in the animation file, at the start of t
 
 * `frame_delay` - playback time of one frame in seconds
 
-* `yaw` - copter rotation during flight to points, in degrees. If `nan', the copter preserves its original orientation in flight. If `animation` - the copter rotates by yaw from the animation file.
+* `yaw` - copter rotation during flight to points, in degrees. If `nan`, the copter preserves its original orientation in flight. If `animation` - the copter rotates by yaw from the animation file.
 
 * `ratio` - scale of animation (ratio_x, ratio_y, ratio_z) along the axis (x, y, z)
 
@@ -161,7 +161,7 @@ This section configures the program of emergency protection of the copter from a
 
 * `enabled` - boolean value, determines whether to use emergency protection in case of loss of visual position or collision with an object.
 * `log_state` -  boolean value, determines whether the copter state will be logged in the service log:  `armed: {} | mode: {} | vis_dt: {:.2f} | pos_delta: {:.2f} | pos_dt: {:.2f} | range: {:.2f} | watchdog_action: {}`.
-* `action` - action upon emergency protection triggering. Available options: `land` - landing of the copter in the flight controllers mode AUTO.LAND, `emergency_land` - landing of the copter with the gradual reduction of the motor power, `disarm` - switching off the motors. ** Attention!** It is not recommended to use the AUTO.LAND mode with the barometer turned off - when the altitude source in flight is lost, e.g. laser reading or visual position, the AUTO.LAND mode does not guarantee the landing of the copter, because it is oriented to the altitude reading. It is recommended to use the `emergency_land` mode to land the copter when positioning it using a visual position or laser and the possibility of losing data from these systems.
+* `action` - action upon emergency protection triggering. Available options: `land` - landing of the copter in the flight controllers mode AUTO.LAND, `emergency_land` - landing of the copter with the gradual reduction of the motor power, `disarm` - switching off the motors. **Warning!** It is not recommended to use the AUTO.LAND mode with the barometer turned off - when the altitude source in flight is lost, e.g. laser reading or visual position, the AUTO.LAND mode does not guarantee the landing of the copter, because it is oriented to the altitude reading. It is recommended to use the `emergency_land` mode to land the copter when positioning it using a visual position or laser and the possibility of losing data from these systems.
 * `vision_pose_delay_after_arm` - time after takeoff of the copter in seconds, required to get the visual position. During this time after takeoff, the visual position loss protection will not work. This parameter is useful when using the emergency protection module in conjunction with the positioning system with aruco markers located on the floor: at takeoff copter has no visual position for some time.
 * `vision_pose_timeout` - time in seconds after losing the visual position, after which the emergency protection is triggered.
 * `position_delta_max` - the maximum distance between the current position and the point where the copter should now be in meters. Required to check for collision of the copter with objects. If the distance between the current position of the copter and the point where the copter should be now is greater than this number (in meters), an emergency protection is triggered.
@@ -183,8 +183,8 @@ System settings for client's service commands
 
 #### NTP section
 
-In addition to time synchronization (with millisecond precision) using the chrony package, there is an alternative - the ability to use external (in case the local network has a connection to the Internet) or intranet NTP-servers. ** Attention!** For correct system operation, both the server and the clients** must use a single method of time synchronization (a set of parameters in this section). This section is fully unified for both server and clients.
+In addition to time synchronization (with millisecond precision) using the chrony package, there is an alternative - the ability to use external (in the presence of a local network connection to the Internet) or intranet NTP-servers. **Warning!** For proper system operation, both **the server and the clients** must use a single method of time synchronization (set of parameters in this section). This section is fully unified for both server and clients.
 
-* `use_ntp` - determines whether time synchronization using NTP will be used. (if `False', the local OS time will be used (synchronized automatically when using chrony). * It is recommended to use chrony instead of NTP*.
+* `use` - determines whether time synchronization using NTP will be used. (if `False', the local OS time will be used (synchronized automatically when using chrony). *It is recommended to use chrony instead of NTP*.
 * `host` - host name or IP address of the NTP server (local or remote)
-* `port` -  port used by the NTP server
+* `port` - port used by the NTP server

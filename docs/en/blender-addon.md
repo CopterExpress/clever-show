@@ -2,7 +2,7 @@
 
 The Addon for Blender is designed to convert Blender's copters flight animations into flight paths for each copter of the animation, including the color of objects at any given time.
 
-##  Installation and configuration
+## Installation and configuration
 
 * Download and install the latest version of Blender 2.83 from [the official website](https://www.blender.org/download/).
 * Open Blender, select `Edit > Preferences` from the top menu. In the opened settings window, select `Add-ons` in the side panel. Click the button `Install...` in the upper right corner of the window. In the dialog box, open the path to the addon folder [clever-show/blender-addon](.../../blender-addon/) and select the file `addon.py`. Click `Install Add-on from file...`. Addon is now installed.
