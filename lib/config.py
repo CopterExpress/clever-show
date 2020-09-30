@@ -3,7 +3,7 @@ import copy
 import collections
 
 from configobj import ConfigObj, Section, flatten_errors
-from validate import Validator, is_tuple, is_boolean, is_integer
+from validate import Validator, is_tuple, is_boolean, is_integer, is_ip_addr
 
 
 def modify_filename(path, pattern):  # TODO move to core
@@ -26,6 +26,11 @@ def parent_dir(path):
 def is_preset_param(value):
     parsed = is_tuple(value, min=2, max=2)
     return is_boolean(parsed[0]), is_integer(parsed[1], min=0)
+
+def is_ip_or_local(value):
+    if value == 'localhost':
+        return True
+    return is_ip_addr(value)
 
 
 class ValidationError(ValueError):
@@ -92,7 +97,9 @@ class ConfigManager:
 
     def validate_config(self, config=None, copy_defaults=False):
         config = self.config if config is None else config
-        vdt = Validator({"preset_param": is_preset_param})
+        vdt = Validator({"preset_param": is_preset_param,
+                         "ip": is_ip_or_local,
+                         })
 
         test = config.validate(vdt, copy=copy_defaults, preserve_errors=True)
         if test != True:  # Important syntax, do no change
@@ -186,7 +193,7 @@ class ConfigManager:
 
     def load_from_file(self, path):
         if not self.config_exists(path):
-            raise ValueError('Config file do not exist!')
+            raise ValueError('Config file does not exist!')
 
         f_path, filename = os.path.split(path)
         if filename.startswith('configspec_'):
