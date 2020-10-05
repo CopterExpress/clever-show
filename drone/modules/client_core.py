@@ -24,7 +24,7 @@ active_client = None  # needs to be refactored: Singleton \ factory callbacks
 
 
 class Client(object):
-    def __init__(self, config_path="config/client.ini"):
+    def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "client.ini")):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
 
