@@ -28,9 +28,7 @@ def is_preset_param(value):
     return is_boolean(parsed[0]), is_integer(parsed[1], min=0)
 
 def is_ip_or_local(value):
-    if value == 'localhost':
-        return True
-    return is_ip_addr(value)
+    return value if value == 'localhost' else is_ip_addr(value)
 
 
 class ValidationError(ValueError):
