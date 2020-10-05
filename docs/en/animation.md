@@ -3,7 +3,7 @@
 A separate module [animation](../../drone/modules/animation.py) is responsible for animation processing. When animation is loaded on the copter, the module divides the sequence of animation frames into 5 key stages:
 
 1. The copter is stationary at the beginning of the animation - `static_begin`.
-2. Copter takes off - `takeoff'.
+2. Copter takes off - `takeoff`.
 3. The copter follows the route of animation - `route`.
 4. Copter performs landing - `land`.
 5. The copter is stationary until the animation file - `static_end` is finished.
@@ -14,9 +14,9 @@ An animation frame is a set of data needed to position the copter and determine 
 * `yaw` - copter yaw, in radians
 * `r`, `g`, `b` - сopter LED strip color components, integers from 0 to 255
 
-After splitting the animation into key stages, the module generates an output sequence of frames defining the position of the copter and its lED strip color as well as the sequence of actions during the flight to the first point of the animation.
+After splitting the animation into key stages, the module generates an output sequence of frames defining the position of the copter and its LED strip color as well as the sequence of actions during the flight to the first point of the animation.
 
-You can configure the module in the [ANIMATION](client.md#раздел-animation) section.
+You can configure the module in the [ANIMATION](client.md#animation-section) section.
 
 Preliminary selection of frames is carried out using a set of [[OUTPUT]] flags, which set which frame sequences out of 5 key stages will be used in flight and which will not.
 

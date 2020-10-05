@@ -51,10 +51,11 @@ sudo client-setup <SSID> <password> <copter name>
 sudo apt install chrony
 ```
 
-* Set the required python packages using the command (ran from the source directory)
+* Set the required Python packages using the command (ran from the source directory)
 
 ```bash
-pip3 install -r requirements.txt
+cd
+pip3 install -r server/requirements.txt
 ```
 
 * Connect to the wifi network of the router where your copters are connected.
@@ -98,11 +99,11 @@ Make sure that the copter holds the position autonomously: mark the checkbox nea
 
 You can configure the copter to utilize a different positioning system. The following [positioning systems](https://clover.coex.tech/en/programming.html#positioning) are officially supported:
 
-* optical flow
-* aruco
-* GPS
+* [optical flow](../optical_flow.md).
+* [ArUco](../aruco.md).
+* [GPS](../gps.md).
 
-**Detailed information about working with and setting up positioning systems can be found [here](positioning.md)**
+>**Detailed information about working with and setting up positioning systems can be found [here](positioning.md)**
 
 ### LED Strip Operation Check
 

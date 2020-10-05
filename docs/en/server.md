@@ -35,18 +35,18 @@ The copter is considered **ready to fly** if all cells in the row except `animat
 
 * `copter ID` - the client name. Can be configured on the client side. Displayed immediately when the client is connected. Next to each Copter ID there is a checkbox - Copters whose ID is marked with a positive checkbox (tick) are considered *selected*. Cells in this column are always pass the check.
   * By double-clicking on this field you can enter a new `copter ID` of the client and rename it. As a name, combinations of Latin letters, digits and dashes (A-Z, a-z, 0-9, '-') not longer than 63 characters are permitted. The dash cannot be the first character.
-* `version` - a hash code of the current git version of the client. Cells in this column are checked when [check_git_version](#checks section) is enabled (value `true`) in the server settings. A cell in this column passes the check if the hash code of the git version of the given client and the server match (if the server is not located in the git repository, the check is passed out automatically).
+* `version` - a hash code of the current git version of the client. Cells in this column are checked when [check_git_version](#checks-section) is enabled (value `true`) in the server settings. A cell in this column passes the check if the hash code of the git version of the given client and the server match (if the server is not located in the git repository, the check is passed out automatically).
 * `configuration` -  a user-defined version of the client configuration. Cells in this column are always pass the check.
   * Cells of this column supports *drag-and-drop*. When you drag and drop a cell to any third-party application that supports files (e.g. "Explorer"), the client configuration file will be copied to the specified location. When a cell is dragged to another cell, the configuration file will be copied from one cell to another. When a file is dragged to a cell, it will be written to the client as a configuration (subject to validation). When the configuration is transferred to the client, the `PRIVATE` section will not be sent.
 * `animation ID` - an internal name of the animation file loaded by the client. A cell in this column does not pass the check if there is no animation (value `No animation`). In other cases, if a cell is not empty, it will be checked. **Warning!** Check if the names of the animation files correspond to the copters before starting.
-* `battery` - a value of voltage on the copter battery in volts and charge in percent according to the flight controller. A cell in this column passes the check if the battery charge value is higher than [battery_percentage_min](#section-checks) specified in the server settings. In other cases, if a cell is not empty, it does not pass the check.
+* `battery` - a value of voltage on the copter battery in volts and charge in percent according to the flight controller. A cell in this column passes the check if the battery charge value is higher than [battery_percentage_min](#checks-section) specified in the server settings. In other cases, if a cell is not empty, it does not pass the check.
 * `system` - a flight controller status. A cell in this column passes the check if its value is `STANDBY`. In other cases, if a cell is not empty, it does not pass the check.
 * `sensors` - calibration status of the flight controller compass, accelerometer and gyroscope. A cell in this column passes the check if its value is `OK`.  In other cases, if a cell is not empty, it does not pass the check.
 * `mode` - flight controller mode. A cell in this column does not pass the check if its value `NO_FCU` or contains `CMODE`. In other cases, if a cell is not empty, it passes the chseck.
 * `checks`  - copter self-test state. A cell in this column passes the check if its value is `OK`. In other cases, if a cell is not empty, it does not pass the check.
   * Double-clicking on a cell if there are errors will show a dialog box with full detailed information about all errors.
-* `current x y z yaw frame_id` - current copter position with the coordinate system name. The cell is automatically passes the check if [check_current_position](#section-checks) is set to `false`. Otherwise, a cell in this column does not pass the check if its value is `NO_POS` or contains `nan`. Otherwise, if a cell is not empty, it passes the check.
-* `start x y z action delay` - start position of the copter for playback of the animation, the first action during playback of the animation and the time after which the first action will be performed after the start of the animation. A cell in this column does not pass the check if its value `NO_POS`, the distance between the current and the starting position of the copter is greater than [start_pos_delta_max](#section-checks) or the client's animation module generates an error when processing the animation and checking that all points of the animation are above ground level.  Otherwise, if a cell is not empty, it passes the check.
+* `current x y z yaw frame_id` - current copter position with the coordinate system name. The cell is automatically passes the check if [check_current_position](#checks-section) is set to `false`. Otherwise, a cell in this column does not pass the check if its value is `NO_POS` or contains `nan`. Otherwise, if a cell is not empty, it passes the check.
+* `start x y z action delay` - start position of the copter for playback of the animation, the first action during playback of the animation and the time after which the first action will be performed after the start of the animation. A cell in this column does not pass the check if its value `NO_POS`, the distance between the current and the starting position of the copter is greater than [start_pos_delta_max](#checks-section) or the client's animation module generates an error when processing the animation and checking that all points of the animation are above ground level.  Otherwise, if a cell is not empty, it passes the check.
 * `dt` - the delay between the time on the server and the client in seconds, including network latency. A cell in this column passes the check if its value is less than [time_delta_max](#checks-section) specified in the server configuration. In other cases, if a cell is not empty, it does not pass the check. If the values are too high, it signals that there is no time synchronization between the copter and the client.
 
 ### Menu
@@ -55,7 +55,8 @@ The copter is considered **ready to fly** if all cells in the row except `animat
 
 ![Screenshot of the section - Selected drones - Send](../assets/server-drone-send.png)
 
-This section contains several utilities to send various data and commands to *selected* clients. **Warning!** Do not use these commands during the flight of copters!
+This section contains several utilities to send various data and commands to *selected* clients.
+>**Warning!** Do not use these commands during the flight of copters!
 
 * `Send` subsection
 
@@ -69,7 +70,7 @@ This section contains several utilities to send various data and commands to *se
 
   ---
 
-  * `Aruco map` - sends *single* aruco marker map file to all selected clients. In the dialog box, select *one* card file in the specified format. File on client will be overwritten and saved as `<clover_dir>/.../aruco_pose/map/animation_map.txt`. Once the file is received and written, the client will automatically restart the `clover` service. In order to resume flight functions and to receive some telemetry values *it is necessary to wait* some time until the service is fully started.
+  * `Aruco map` - sends *single* ArUco marker map file to all selected clients. In the dialog box, select *one* card file in the specified format. File on client will be overwritten and saved as `<clover_dir>/.../aruco_pose/map/animation_map.txt`. Once the file is received and written, the client will automatically restart the `clover` service. In order to resume flight functions and to receive some telemetry values *it is necessary to wait* some time until the service is fully started.
 
   * `Animation` - sends *a single* animation file to all selected clients. In the dialog box you need to select *one* animation file. On the client, the file will be saved as `<clever-show>/drone/animation.csv`. This is a useful feature to quickly test multiple drones when used in combination with `Set start X Y to current position`.
 
@@ -242,7 +243,7 @@ The server can use UDP broadcast to send clients actual information about the se
 
 In addition to time synchronization (with millisecond precision) using the chrony package, there is an alternative - the ability to use external (in the presence of a local network connection to the Internet) or intranet NTP-servers. **Warning!** For proper system operation, both **the server and the clients** must use a single method of time synchronization (set of parameters in this section). This section is fully unified for both server and clients.
 
-* `use` - determines whether time synchronization using NTP will be used. (if `False', the local OS time will be used (synchronized automatically when using chrony). *It is recommended to use chrony instead of NTP*.
+* `use` - determines whether time synchronization using NTP will be used. (if `False`, the local OS time will be used (synchronized automatically when using chrony). *It is recommended to use chrony instead of NTP*.
 * `host` - host name or IP address of the NTP server (local or remote)
 * `port` - port used by the NTP server
 

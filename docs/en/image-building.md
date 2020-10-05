@@ -4,22 +4,23 @@ Sometimes it is necessary to build an image with copter settings different from 
 
 ## Building preparation
 
-Install [docker](https://www.docker.com):
+Install [Docker](https://www.docker.com):
 
 ```bash
-sudo apt install docker.io
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
 ```
 
 ## Local build with modified Clover settings
 
-* Place the Clover configuration folders (`launch`, `map` and `camera_info`) in the`builder/clever-config`  [folder](../../builder/clever-config)  in the clever-show source directory.
-  * All files from the `launch` folder will be copied to the `/home/pi/catkin_ws/src/clever/clever/launch' directory in the built image.
+* Place the Clover configuration folders (`launch`, `map` and `camera_info`) in the `builder/clever-config` [folder](../../builder/clever-config) in the clever-show source directory.
+  * All files from the `launch` folder will be copied to the `/home/pi/catkin_ws/src/clever/clever/launch` directory in the built image.
   * All files from the `map` folder will be copied to the `/home/pi/catkin_ws/src/clever/aruco_pose/map` directory in the built image.
   * All files from the `camera_info` folder will be copied to the `/home/pi/catkin_ws/src/clever/clever/camera_info` directory in the built image.
-* Build your image with docker:
+* Build your image with Docker:
 
 ```bash
-cd source-dir
+cd <source-dir>
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5
 ```
 
@@ -28,7 +29,7 @@ sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-t
 * Extract the file with the downloaded image, navigate to the directory with this image, and enter the image collector console using the command:
 
 ```bash
-cd image-dir
+cd <image-dir
 sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-tool:v0.5 img-chroot /mnt/<IMAGE>
 ```
 
