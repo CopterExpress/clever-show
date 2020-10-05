@@ -11,9 +11,8 @@ import collections
 import traceback
 
 # Add parent dir to PATH to import messaging_lib and config_lib
-current_dir = (os.path.dirname(os.path.realpath(__file__)))
-lib_dir = os.path.realpath(os.path.join(current_dir, '../../lib'))
-sys.path.insert(0, lib_dir)
+current_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir, 'lib')))
 
 # Import modules from lib dir
 import messaging
@@ -23,7 +22,7 @@ random.seed()
 
 now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-log_path = 'server_logs'
+log_path = os.path.join(current_dir, os.pardir, "server_logs")
 if not os.path.exists(log_path):
     try:
         os.mkdir(log_path)
@@ -38,7 +37,7 @@ ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "val
 
 
 class Server(messaging.Singleton):
-    def __init__(self, config_path="../config/server.ini", server_id=None):
+    def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "server.ini"), server_id=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
 
@@ -373,7 +372,7 @@ if __name__ == '__main__':
         level=logging.DEBUG,
         format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
         handlers=[
-            logging.FileHandler("server_logs/{}.log".format(now)),
+            logging.FileHandler(os.path.join(log_path, "{}.log".format(now))),
             logging.StreamHandler()
         ])
 

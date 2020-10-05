@@ -648,6 +648,7 @@ def set_taskbar_icon():
 
 
 if __name__ == "__main__":
+    current_dir = os.path.dirname(os.path.realpath(__file__))
     msgbox_handler = ExitMsgbox()
     msgbox_handler.setLevel(logging.CRITICAL)
 
@@ -655,7 +656,7 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
         handlers=[
-            logging.FileHandler("server_logs/{}.log".format(now)),
+            logging.FileHandler(os.path.join(current_dir, "server_logs", "{}.log".format(now))),
             logging.StreamHandler(),
             msgbox_handler
         ])
@@ -663,7 +664,7 @@ if __name__ == "__main__":
     sys.excepthook = except_hook  # for debugging (exceptions traceback)
 
     app = QApplication(sys.argv)
-    splash_pix = QPixmap('icons/coex_splash.jpg')
+    splash_pix = QPixmap(os.path.join(current_dir, "icons", "coex_splash.jpg"))
 
     splash = QSplashScreen(splash_pix)
     splash.setEnabled(False)
@@ -677,7 +678,7 @@ if __name__ == "__main__":
     # time.sleep(3)
 
     app_icon = QIcon()
-    app_icon.addFile('icons/image.ico', QtCore.QSize(256, 256))
+    app_icon.addFile(os.path.join(current_dir, "icons", "image.ico"), QtCore.QSize(256, 256))
     app.setWindowIcon(app_icon)
 
     if sys.platform == 'win32':
@@ -688,7 +689,7 @@ if __name__ == "__main__":
 
     # app.exec_()
     with loop:
-        server = ServerQt(config_path="config/server.ini")
+        server = ServerQt(config_path=os.path.join(current_dir, "config", "server.ini"))
         window = MainWindow(server)
 
         Client.on_first_connect = window.new_client_connected
