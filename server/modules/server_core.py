@@ -33,9 +33,6 @@ if not os.path.exists(log_path):
 
 logger = logging.getLogger(__name__)
 
-ConfigOption = collections.namedtuple("ConfigOption", ["section", "option", "value"])
-
-
 class Server(messaging.Singleton):
     def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "server.ini"), server_id=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
@@ -274,7 +271,7 @@ def requires_any_connected(f):
 
     return wrapper
 
-
+# TODO do a factory class for clients\connection managers with common properties
 class Client(messaging.ConnectionManager):
     clients = {}
 
@@ -311,7 +308,7 @@ class Client(messaging.ConnectionManager):
         if self.on_connect:
             self.on_connect(self)
 
-    def _got_id(self, _client, value):
+    def _got_id(self, _client, value):  # TODO make as regular comand
         logging.info("Got copter id: {} for client {}".format(value, self.addr))
         old_id = self.copter_id
         self.copter_id = value
@@ -319,7 +316,7 @@ class Client(messaging.ConnectionManager):
         if old_id is None:
             self.get_response("clover_dir", self._got_clover_dir)
 
-        if old_id is None and self.on_first_connect:
+        if old_id is None and self.on_first_connect:  # TODO merge
             self.on_first_connect(self)
 
     def _got_clover_dir(self, _client, value):

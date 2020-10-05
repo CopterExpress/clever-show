@@ -254,7 +254,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return list(self.iterate_selected(lambda copter: copter.client.send_message(
             command, command_args, command_kwargs)))
 
-    def new_client_connected(self, client: Client):
+    def new_client_connected(self, client: Client):  # TODO merge with client_connection_changed
         if self.model.get_row_by_attr('client', client) is not None:
             logging.warning("Client is already in table! {}".format(client))
             return
