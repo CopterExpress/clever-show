@@ -12,7 +12,7 @@ An animation frame is a set of data needed to position the copter and determine 
 
 * `x`, `y`, `z` - copter coordinates in the current frame, in meters
 * `yaw` - copter yaw, in radians
-* `r`, `g`, `b` - сopter LED strip color components, integers from 0 to 255
+* `r`, `g`, `b` - copters LED strip color components, integers from 0 to 255
 
 After splitting the animation into key stages, the module generates an output sequence of frames defining the position of the copter and its LED strip color as well as the sequence of actions during the flight to the first point of the animation.
 

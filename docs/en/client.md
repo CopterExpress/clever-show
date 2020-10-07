@@ -162,7 +162,7 @@ This section configures the program of emergency protection of the copter from a
 
 Settings of emergency landing parameters in case of `emergency_land` emergency protection action or when calling the `/emergency_land` ROS service.
 
-* `thrust` - The initial power supplied to the motors in the event of a `emergency_land` action when the emergency protection is triggered. Measurementless value, from 0 (no thrust) to 1 (full thrust). For a guaranteed fit it is recommended to set it to a value 5-10 percent lower than the hanging gas (parameter `MPC_THR_HOVER` in PX4). **Warning!** Incorrect configuration of this option may cause the copter to rise up instead of landing!
+* `thrust` - The initial power supplied to the motors in the event of a `emergency_land` action when the emergency protection is triggered. Dimensionless value, from 0 (no thrust) to 1 (full thrust). For a guaranteed fit it is recommended to set it to a value 5-10 percent lower than the hanging gas (parameter `MPC_THR_HOVER` in PX4). **Warning!** Incorrect configuration of this option may cause the copter to rise up instead of landing!
 * `decrease_thrust_after` - The time after which the power on the motors slowly begins to decrease (in seconds) if the action `emergency_land` is selected when the emergency protection is triggered.
 
 #### SYSTEM section

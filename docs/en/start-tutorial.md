@@ -2,11 +2,11 @@
 
 ## Equipment list
 
-`clever-show` is a software suite to operate multiple quadrocopters over a network. The following equipment is required for full operation:
+`clever-show` is a software suite to operate multiple quadcopters over a network. The following equipment is required for full operation:
 
 * One or more of Clover 4 quadcopters based on [clover](https://github.com/CopterExpress/clover) software.
-* A computer with Ubuntu 18.04 operating system to control quadrocopters using the server application.
-* Wifi router operating at 2.4 GHz, or at 5.8 GHz if this frequency is supported by wifi modules of copters and a PC.
+* A computer with Ubuntu 18.04 operating system to control quadcopters using the server application.
+* WIFI router operating at 2.4 GHz, or at 5.8 GHz if this frequency is supported by WIFI modules of copters and a PC.
 
 ## Software preparation
 
@@ -20,7 +20,7 @@ Download [image for Raspberry Pi](https://github.com/CopterExpress/clever-show/r
 
 ## Router setup
 
-To operate one or more copters, you need to connect copters and the server to the same wireless network. It requires a separate wifi router with a known SSID and password.
+To operate one or more copters, you need to connect copters and the server to the same wireless network. It requires a separate WIFI router with a known SSID and password.
 
 ## Client installation and startup
 
@@ -33,13 +33,13 @@ To operate one or more copters, you need to connect copters and the server to th
 ssh pi@192.168.11.1
 ```
 
-* After connection, run the client configuration script `client-setup` with the specified parameters - wireless access point name (`SSID`), access point password (`password`), copter name (`copter name`). The copter will switch to the wifi client mode of the specified access point and configure the `clever-show` client to autorun on Raspberry Pi.
+* After connection, run the client configuration script `client-setup` with the specified parameters - wireless access point name (`SSID`), access point password (`password`), copter name (`copter name`). The copter will switch to the WIFI client mode of the specified access point and configure the `clever-show` client to autorun on Raspberry Pi.
 
 ```bash
 sudo client-setup <SSID> <password> <copter name>
 ```
 
-* Now when you run the server application, the configured copters will appear as rows in the table. You can also connect to Raspberry Pi on the copter by its name with the addition of .local via `ssh` in the network specified when setting up wifi, for example `ssh pi@clover-1.local`, password `raspberry`.
+* Now when you run the server application, the configured copters will appear as rows in the table. You can also connect to Raspberry Pi on the copter by its name with the addition of .local via `ssh` in the network specified when setting up WIFI, for example `ssh pi@clover-1.local`, password `raspberry`.
 
 **Detailed documentation on client configuration located [here](client.md).**
 
@@ -58,7 +58,7 @@ cd
 pip3 install -r server/requirements.txt
 ```
 
-* Connect to the wifi network of the router where your copters are connected.
+* Connect to the WIFI network of the router where your copters are connected.
 * Copy [chrony settings file](../../examples/chrony/server.conf) into `/etc/chrony/chrony.conf`. If your network ip address does not start with `192.168.`, correct the address after the word "allow" (on line 7) in the copied settings file. Restart `chrony` service.
 
 ```bash
@@ -115,7 +115,7 @@ You can find a description of setup and operation of the LED strip in `clover` [
 
 Time synchronization between all copters involved in the animation and the server is very important for correct playback of the animation. The more precisely the time is synchronized, the more coordinated the flight of the copter group will be. It is recommended to use [chrony](https://chrony.tuxfamily.org) service as a time synchronization tool. The process of installation and setup of this service for the server PC is described [above](#server-installation-and-startup), this service is already installed in the `clever-show` image.
 
-After the first copter connection to the server, the `chrony` service on the copter is automatically configured to connect to the ip address of the server and rebooted. However, the `chrony` service in the server may stop sending packets of time synchronization when the wifi network changes and the time between the copters and the server will stop being synchronized. The difference between the time from the copter and the server time is displayed in the `dt` column of the server table. Normal time difference should be **no more than 0.1 second** (about 0.01 second), but it may be more due to network latency when transmitting telemetry from the copter. If the time difference is greater than 0.1 second it is recommended to restart the `chrony` service with the command from the top menu of the server `Selected drones -> Restart service -> chrony`. This command restarts the service `chrony` on the server (you will need to enter the user password) and on the copters.
+After the first copter connection to the server, the `chrony` service on the copter is automatically configured to connect to the IP address of the server and rebooted. However, the `chrony` service in the server may stop sending packets of time synchronization when the WIFI network changes and the time between the copters and the server will stop being synchronized. The difference between the time from the copter and the server time is displayed in the `dt` column of the server table. Normal time difference should be **no more than 0.1 second** (about 0.01 second), but it may be more due to network latency when transmitting telemetry from the copter. If the time difference is greater than 0.1 second it is recommended to restart the `chrony` service with the command from the top menu of the server `Selected drones -> Restart service -> chrony`. This command restarts the service `chrony` on the server (you will need to enter the user password) and on the copters.
 
 ## Animation preparation and execution
 

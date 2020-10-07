@@ -59,4 +59,4 @@ sudo docker run --privileged -it --rm -v /dev:/dev -v $(pwd):/mnt goldarte/img-t
 
 ## Builder scripts modification
 
-The article on changing the image building and custom building scripts is avialiable [here](https://clever.copterexpress.com/ru/image_building.html).
+The article on changing the image building and custom building scripts is available [here](https://clever.copterexpress.com/ru/image_building.html).
