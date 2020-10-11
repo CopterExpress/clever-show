@@ -9,5 +9,6 @@ Export result is a folder with .csv files where each line  in file represents a 
 * `red, green, blue` values of the color of an object, each is integer from 0 to 255
 
 Documentation is located here:
-* English
+
+* [English](../docs/en/blender-addon.md)
 * [Russian](../docs/ru/blender-addon.md)
