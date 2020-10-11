@@ -1,6 +1,7 @@
 # API
 
-Clever-show can be
+`clever-show` can be modified or used as set of modules to repurpose the software or implement different behaviors, expand functionality.
+
 
 ## messaging
 

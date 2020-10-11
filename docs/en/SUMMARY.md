@@ -7,3 +7,4 @@
 * [Animation module](animation.md)
 * [Exporting animations from Blender](blender-addon.md)
 * [Building modified image](image-building.md)
+* [API documentation](api.md)
