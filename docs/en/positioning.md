@@ -118,6 +118,10 @@ If the marker map is located on the floor, there are some nuances: right after s
 * It does not make sense to check the maximum distance of the animation start point to the current copter position, because it would never match at the start.
 * The start action `fly` of the animation in the coordinate system `aruco_map` will have unpredictable consequences, because at the start the real position of the copter will be very different from the position calculated by the flight controller. Therefore, the only option for the parameter `start_action` in the [ANIMATION] section is `takeoff`: the ascent to the altitude defined by  `takeoff_height` the parameter from the [FLIGHT] section relative to the current position of the copter.
 
+> **Warning!** When ArUco markers are located on the floor there is possibility of takeoff failures (copter turns on motors but does not perform takeoff or lands immediately after) as copters don't see the ArUco map until reaching certain height.
+
+In order to prevent or fix such occurrences you can change `hover_thrust` parameter on the flight controller. Default value is *50%*. Gradually (preferably by 5%) increase it by uploading `.params` file with the value by clever-show server or change it manually on the flight controller using QGroundControl software.
+
 ### clover ROS package configuration
 
 Setting up the positioning system by ArUco markers is described in the `clover` [documentation](https://clover.coex.tech/en/aruco_map.html) .
