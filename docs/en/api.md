@@ -2,7 +2,6 @@
 
 `clever-show` can be modified or used as set of modules to repurpose the software or implement different behaviors, expand functionality.
 
-
 ## messaging
 
 Location: `clever-show/lib/lib.py`
@@ -14,6 +13,7 @@ Location: `clever-show/lib/lib.py`
 * `set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5)` - sets `keepalive` parameters of given socket. Please note, this function is cross-platform but execution and exact effects can vary based on the platform.
 
 ### Decorators
+
 In order to register your function as callback for message or command, you can use those decorators:
 
 * `message_callback(action_string)`- callback decorator. Functions registered by this decorator will be called upon receiving action message with `action_string` as action.
@@ -59,7 +59,7 @@ message = MessageManager()
 ### Public attributes
 
 * `income_raw` - bytes string, append incoming data to this attribute.
-* `content` - string (by default `None`). Would be populated when receiving and processing of the message will be completed.
+* `content` - object (by default `None`). Would be populated when receiving and processing of the message will be completed.
 
 #### Public API methods
 
@@ -166,9 +166,9 @@ config_path - string optional argument. Path to the file with configuration.  Th
 
 ### Public attributes
 
-* `server_connection` - ConnectionManager object representing connation to the server.
-* `connected` - read-only boolean, whether client is connected to the server.
-* `client_id` - read-only string, ID of the client
+* `server_connection` - ConnectionManager object representing connection to the server.
+* `connected` - read-only boolean, whether the client is connected to the server.
+* `client_id` - read-only string, ID of the client.
 * `config` - ConfigManager object, containing loaded client configuration.
 * `config_path` - path to configuration file. There also should be config specification file at `config_path\config\configspec_client.ini`.
 
@@ -177,7 +177,7 @@ config_path - string optional argument. Path to the file with configuration.  Th
 * `on_broadcast_bind()` - method called on binding to the server by broadcast. Override that method in order to add functionality.
 * `load_config()` - loads or reloads config from file specified in `config_path`.
 
-* `time_now()` - gets and returns system time or NTP time depending on config.
+* `time_now()` - gets and returns system time or NTP time depending on the config.
 * `start()` - reloads config and starts infinite loop of connecting to the server and processing said connection. Calling of this method *will* indefinitely halt execution of any subsequent code.
 
 ### Static methods

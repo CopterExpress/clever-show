@@ -24,6 +24,17 @@ active_client = None  # needs to be refactored: Singleton \ factory callbacks
 
 
 class Client(object):
+    """
+    Client base class provides config loading, communication with server (including automatic reconnection, broadcast listening and binding).
+    
+    Attributes:
+        server_connection (ConnectionManager) - connection to the server.
+        connected (bool) - whether the client is connected to the server.
+        client_id (string) - ID of the client.
+        config (ConfigManager) - contains loaded client configuration.
+        config_path (string) -  path to configuration file. There also should be config specification file at 'config_path\config\configspec_client.ini'.
+    """
+
     def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "client.ini")):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
@@ -41,6 +52,9 @@ class Client(object):
         active_client = self
 
     def load_config(self):
+        """
+        Loads or reloads config from file specified in 'config_path'.
+        """
         self.config.load_config_and_spec(self.config_path)
 
         config_id = self.config.id.lower()
@@ -58,6 +72,15 @@ class Client(object):
 
     @staticmethod
     def get_ntp_time(ntp_host, ntp_port):
+        """Gets and returns time from specified host and port of NTP server.
+
+        Args:
+            ntp_host (string): hostname or address of the NTP server.
+            ntp_port (int): port of the NTP server.
+
+        Returns:
+            int: Current time recieved from the NTP server
+        """
         NTP_PACKET_FORMAT = "!12I"
         NTP_DELTA = 2208988800L  # 1970-01-01 00:00:00
         NTP_QUERY = '\x1b' + 47 * '\0'
@@ -69,6 +92,11 @@ class Client(object):
         return unpacked[10] + float(unpacked[11]) / 2 ** 32 - NTP_DELTA
 
     def time_now(self):
+        """gets and returns system time or NTP time depending on the config.
+
+        Returns:
+            int: Current time.
+        """
         if self.config.ntp_use:
             timenow = self.get_ntp_time(self.config.ntp_host, self.config.ntp_port)
         else:
@@ -76,6 +104,8 @@ class Client(object):
         return timenow
 
     def start(self):
+        """Reloads config and starts infinite loop of connecting to the server and processing said connection. Calling of this method will indefinitely halt execution of any subsequent code.
+        """
         self.load_config()
 
         logger.info("Starting client")
@@ -166,6 +196,8 @@ class Client(object):
             broadcast_client.close()
 
     def on_broadcast_bind(self):  # TODO move ALL binding code here
+        """Method called on binding to the server by broadcast. Override that method in order to add functionality.
+        """
         pass
 
     def _process_connections(self):
