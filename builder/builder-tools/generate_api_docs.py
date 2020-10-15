@@ -36,38 +36,35 @@ class DocsGenerator:
 
     def get_classes(self, item):
         output = list()
-        for cls in pydoc.inspect.getmembers(item, pydoc.inspect.isclass):
-            if cls[0].startswith("_") or cls[0] == "__class__":
+        for cls_name, cls in pydoc.inspect.getmembers(item, pydoc.inspect.isclass):
+            if cls_name.startswith("_") or cls_name == "__class__":
                 continue
-            if cls[1].__module__ != item.__name__:
+            if cls.__module__ != item.__name__:
                 continue
 
-            output.append(self.class_header.format(cls[0]))
-            output.append(pydoc.inspect.getdoc(cls[1]) or '...')  # Get the docstring
-            output.extend(self.get_functions(cls[1]))  # Get the functions
-            output.extend(self.get_classes(cls[1]))  # Recurse into any subclasses
+            output.append(self.class_header.format(cls_name))
+            output.append(pydoc.inspect.getdoc(cls) or '...')  # Get the docstring
+            output.extend(self.get_functions(cls))  # Get the functions
+            output.extend(self.get_classes(cls))  # Recurse into any subclasses
             output.append('\n')
         return output
 
     def get_functions(self, item):
         output = []
-        for func in pydoc.inspect.getmembers(item, pydoc.inspect.isfunction):
-            if func[0].startswith('_') and func[0] != '__init__':
-                continue
-            if func[1].__module__ != item.__name__:
+        for func_name, func in pydoc.inspect.getmembers(item, pydoc.inspect.isfunction):
+            if func_name.startswith('_') and func_name != '__init__':
                 continue
             # if func.__module__ != item.__name__:
             #     continue
 
-            output.append(self.function_header.format(func[0].replace('_', '\\_')))
+            output.append(self.function_header.format(func_name.replace('_', '\\_')))
 
-            sign = pydoc.inspect.signature(func[1])
             output.append('```py')
-            output.append(f'def {func[0]}{sign}')
+            output.append(f'def {func_name}{pydoc.inspect.signature(func)}')
             output.append('```')
             # print(pydoc.inspect.getsourcelines(func[1]))
 
-            output.append(pydoc.inspect.getdoc(func[1]) or "")  # get the docstring
+            output.append(pydoc.inspect.getdoc(func) or "")  # get the docstring
 
         return output
 
