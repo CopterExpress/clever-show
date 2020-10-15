@@ -96,7 +96,7 @@ class DocsGenerator:
             relpath = os.path.sep.join(
                 os.path.relpath(module.__file__, output_path).split(os.path.sep)[1:]
             )
-            docs = self.get_full_markdown(module, relpath)
+            docs = self.get_full_markdown(module, relpath.replace(os.path.sep, "/"))
             with open(output_path, 'w') as f:
                 for line in docs:
                     f.write(line.replace("\n", os.linesep) + '\n')
