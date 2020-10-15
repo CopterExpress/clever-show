@@ -56,6 +56,8 @@ class DocsGenerator:
                 continue
             if func[1].__module__ != item.__name__:
                 continue
+            # if func.__module__ != item.__name__:
+            #     continue
 
             output.append(self.function_header.format(func[0].replace('_', '\\_')))
 
