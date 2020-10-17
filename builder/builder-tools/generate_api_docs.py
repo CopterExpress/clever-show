@@ -3,10 +3,6 @@ import sys
 import pydoc
 import logging
 
-current_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir)))
-
-
 class DocsGenerator:
     def __init__(self,
                  module_header="# Module {}",
@@ -130,10 +126,14 @@ class DocsGenerator:
 
 
 if __name__ == '__main__':
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir)))
+
     modules_list = [
         "lib.messaging",
         "drone.modules.client_core",
     ]
+
     gen = DocsGenerator()
     doc_path = os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir, "docs", "en", "api"))
     gen.generate_docs(modules_list, doc_path)
