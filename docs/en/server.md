@@ -200,7 +200,7 @@ This section contains commands that are executed directly on the copter flight c
 
 ### Configuration file
 
-The server configuration is created according to the [specification](../../Server/config/spec/configspec_server.ini), you can see the default values for any parameter after the `default` keyword. All changes are saved in the `server.ini` configuration file in the `clever-show/server/config` folder.
+The server configuration is created according to the [specification](../../server/config/spec/configspec_server.ini), you can see the default values for any parameter after the `default` keyword. All changes are saved in the `server.ini` configuration file in the `clever-show/server/config` folder.
 
 Server configuration editing is available via `Config editor` GUI module through menu `Server -> Edit server configuration`.
 
