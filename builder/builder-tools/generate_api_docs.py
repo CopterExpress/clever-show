@@ -3,6 +3,7 @@ import sys
 import pydoc
 import logging
 
+
 class DocsGenerator:
     def __init__(self,
                  module_header="# Module {}",
@@ -134,6 +135,9 @@ if __name__ == '__main__':
         "drone.modules.client_core",
     ]
 
-    gen = DocsGenerator()
+    gen = DocsGenerator(contents_table_header="# API documentation\n"
+                                              "`clever-show` can be modified or used as set of modules to repurpose the software or implement different behaviors, expand functionality.\n"
+                                              "> Please note, following documentation files were automatically generated from the source code\n"
+                                              "## Table of contents")
     doc_path = os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir, "docs", "en", "api"))
     gen.generate_docs(modules_list, doc_path)
