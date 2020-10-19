@@ -706,7 +706,7 @@ class ConnectionManager(object):
 
         ```python
         def callback(client, value, *args, **kwargs):
-        print(value, args, kwargs)
+            print(value, args, kwargs)
         ```
 
         First argument passed to callback function is an instance of `ConnectionManager`, representing connection by which the message was received.
