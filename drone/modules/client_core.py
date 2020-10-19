@@ -1,3 +1,7 @@
+"""
+Is a client-side module (meant to be run on Python 2.7) containing base Client class, utility functions and basic callbacks declarations. Main focus of the module is client-specific communication without reliance on `clover` Raspberry Pi environment.
+"""
+
 import os
 import sys
 import time
@@ -25,7 +29,7 @@ active_client = None  # needs to be refactored: Singleton \ factory callbacks
 
 class Client(object):
     """
-    Client base class provides config loading, communication with server (including automatic reconnection, broadcast listening and binding).
+    Client base class provides config loading, communication with server (including automatic reconnection, broadcast listening and binding). You can inherit this class in order to extend functionality for practical applications.
     
     Attributes:
         server_connection (ConnectionManager) - connection to the server.
@@ -36,6 +40,15 @@ class Client(object):
     """
 
     def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "client.ini")):
+        """
+        Initializtion
+        ```python
+        client = Client(config_path)
+        ```
+        
+        Args:
+            config_path (string, optional): Path to the file with configuration.  There also should be config specification file at `<config_path>\config\configspec_client.ini`. Defaults to `<current_dir>\os.pardir\config\client.ini`.
+        """
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
 
@@ -53,7 +66,7 @@ class Client(object):
 
     def load_config(self):
         """
-        Loads or reloads config from file specified in 'config_path'.
+        Loads or reloads config from file specified in 'config_path' attribute.
         """
         self.config.load_config_and_spec(self.config_path)
 
@@ -82,7 +95,7 @@ class Client(object):
             int: Current time recieved from the NTP server
         """
         NTP_PACKET_FORMAT = "!12I"
-        NTP_DELTA = 2208988800L  # 1970-01-01 00:00:00
+        NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
         NTP_QUERY = '\x1b' + 47 * '\0'
 
         with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
@@ -104,7 +117,8 @@ class Client(object):
         return timenow
 
     def start(self):
-        """Reloads config and starts infinite loop of connecting to the server and processing said connection. Calling of this method will indefinitely halt execution of any subsequent code.
+        """
+        Reloads config and starts infinite loop of connecting to the server and processing said connection. Calling of this method will indefinitely halt execution of any subsequent code.
         """
         self.load_config()
 
@@ -196,7 +210,8 @@ class Client(object):
             broadcast_client.close()
 
     def on_broadcast_bind(self):  # TODO move ALL binding code here
-        """Method called on binding to the server by broadcast. Override that method in order to add functionality.
+        """
+        Method called on binding to the server by broadcast. Override that method in order to add functionality.
         """
         pass
 
@@ -279,6 +294,8 @@ if __name__ == "__main__":
     startup_cwd = os.getcwd()
 
     import threading
+
+    print(Client.get_ntp_time("ntp1.stratum2.ru", 123))
 
 
     def restart():  # move to core

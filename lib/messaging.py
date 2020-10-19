@@ -1,3 +1,6 @@
+"""
+`messaging` is an universal for server and clients module (running both on Python 2.7 and 3.6+). This module contains utility functions and classes implementing high level protocol for TCP socket communication.
+"""
 import io
 import os
 import sys
@@ -37,6 +40,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_ip_address():
+    """
+    Returns the IP address of current computer or `localhost` if no network connection present.
+
+    Returns:
+        string: IP address of current computer or `localhost` if no network connection present
+    """    
     try:
         with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as ip_socket:
             ip_socket.connect(("8.8.8.8", 80))
@@ -47,13 +56,28 @@ def get_ip_address():
 
 
 def set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
+    """
+    Sets `keepalive` parameters of given socket.
+
+    Args:
+        sock (socket): Socket which parameters will be changed.
+        after_idle_sec (int, optional): Start sending keepalive packets after this amount of seconds. Defaults to 1.
+        interval_sec (int, optional): Interval of keepalive packets in seconds. Defaults to 3.
+        max_fails (int, optional): Count of fails leading to socket disconnect. Defaults to 5.
+
+    Raises:
+        NotImplementedError: for unknown platform.
+    """     
     current_platform = platform.system()  # could be empty
+    
     if current_platform == "Linux":
         return _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
     if current_platform == "Windows":
         return _set_keepalive_windows(sock, after_idle_sec, interval_sec)
     if current_platform == "Darwin":
         return _set_keepalive_osx(sock, interval_sec)
+
+    raise NotImplementedError
 
 def _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
@@ -71,7 +95,9 @@ def _set_keepalive_osx(sock, interval_sec):
 
 
 class _Singleton(type):
-    """ A metaclass that creates a Singleton base class when called. """
+    """
+    A metaclass that creates a Singleton base class when called.
+    """
     _instances = {}
 
     def __call__(cls, *args, **kwargs):
@@ -80,11 +106,35 @@ class _Singleton(type):
         return cls._instances[cls]
 
 
-class Singleton(_Singleton('SingletonMeta', (object,), {})): pass
+class Singleton(_Singleton('SingletonMeta', (object,), {})):
+    """
+    Singleton base class.
+    """
+    pass
 
 
 class MessageManager:
+    """
+    MessageManager class represents single incoming by TCP stream message and contains methods to decode and extract data from incoming data. It also contains static class methods for encoding various types of messages.
+
+    Messages in protocol implemented by this class consists of 3 parts:
+
+    * Fixed-length (2 bytes) protoheader - contains length of json header
+    * json header - contains information about message contents: length, encoding, byteorder, type of message and contents, etc.
+    * content - contains actual contents of message (json information, bytes, etc.)
+
+
+    Attributes:
+        income_raw (bytes string): Holds incoming data bytes. Append incoming data to this attribute. It may not be empty after processing.
+        jsonheader (dict): Headers dictionary with information about message encoding and purpose. Would be populated when receiving and processing of the json header will be completed.
+        content (object): Would be populated when receiving and processing of the message will be completed. Defaults to None.
+    """
     def __init__(self):
+        """
+        ```python
+        message = MessageManager()
+        ```
+        """
         self.income_raw = b""
         self._jsonheader_len = None
         self.jsonheader = None
@@ -103,6 +153,18 @@ class MessageManager:
     @classmethod
     def create_message(cls, content_bytes, content_type, message_type, content_encoding="utf-8",
                        additional_headers=None):
+        """Returns encoded message in bytes. It is recommended use other encoding functions for general purposes.
+        Args:
+            content_bytes (byte string): Content of the message.
+            content_type (str): Type of the message content  (json, bytes, etc.).
+            message_type (str): Type of the message (command, request, etc.).
+            content_encoding (str, optional): Encoding of the message content. Defaults to "utf-8".
+            additional_headers (dict, optional): Optional dict argument, additional json headers of the message. Defaults to None.
+
+        Returns:
+            bytes: encoded message
+        """
+
         jsonheader = {
             "byteorder": sys.byteorder,
             "content-type": content_type,
@@ -120,12 +182,32 @@ class MessageManager:
 
     @classmethod
     def create_json_message(cls, contents, additional_headers=None):
+        """Returns encoded message with json-encoded content in bytes.
+
+        Args:
+            contents (object): Any object convertible to json, content of the message.
+            additional_headers (dict, optional): Optional dict argument, additional json headers of the message. Defaults to None.
+
+        Returns:
+            bytes: encoded message
+        """
         message = cls.create_message(cls._json_encode(contents), "json", "message",
                                      additional_headers=additional_headers)
         return message
 
     @classmethod
     def create_action_message(cls, action, args=(), kwargs=None):
+        """
+        Returns encoded command with arguments as json-encoded message in bytes.
+
+        Args:
+            action (str): action(command) to perform upon receiving. Should correspond with `action_string` of function registered in `message_callback()` on the peer.
+            args (tuple, optional): Arguments for the command. Defaults to ().
+            kwargs (dict, optional): Keyword arguments for the command. Defaults to None.
+
+        Returns:
+            bytes: encoded message
+        """
         if kwargs is None:
             kwargs = {}
         message = cls.create_json_message({"args": args, "kwargs": kwargs}, {"action": action, })
@@ -133,6 +215,17 @@ class MessageManager:
 
     @classmethod
     def create_request(cls, requested_value, request_id, args=(), kwargs=None):
+        """Returns encoded request with arguments as json-encoded message in bytes.
+
+        Args:
+            requested_value (str): name of requested value. Should correspond with `string_command` of function registered in `request_callback()` on the peer. 
+            request_id (int): unique ID of the request.
+            args (tuple, optional): Arguments for the request.. Defaults to ().
+            kwargs (dict, optional): Keyword arguments for the request. Defaults to None.
+
+        Returns:
+            bytes: encoded message
+        """
         if kwargs is None:
             kwargs = {}
         contents = {"requested_value": requested_value,
@@ -145,6 +238,17 @@ class MessageManager:
 
     @classmethod
     def create_response(cls, requested_value, request_id, value, filetransfer=False):
+        """ Returns encoded response to request in bytes.
+
+        Args:
+            requested_value (str): name of requested value. Should correspond with received one.
+            request_id (int): unique ID of the request. Should correspond with received one.
+            value: returned value or bytes to send back.
+            filetransfer (bool, optional):  Whether `value` of response contains file bytes or actual value.. Defaults to False.
+
+        Returns:
+            bytes: encoded message
+        """
         headers = {"requested_value": requested_value,
                    "request_id": request_id,  # TODO status
                    }
@@ -190,6 +294,9 @@ class MessageManager:
             self.content = data
 
     def process_message(self):
+        """
+        Attempts processing the message. Chunks of `income_raw` would be consumed as different parts of the message will be processed. The result of processing (body of the message) will be available at `content` and `jsonheader`.
+        """
         if self._jsonheader_len is None:
             self._process_protoheader()
 
@@ -203,6 +310,24 @@ class MessageManager:
 
 
 def message_callback(action_string):
+    """
+    In order to register your function as callback for message or command, you can use those decorators:
+
+    Callback decorator. Functions registered by this decorator will be called upon receiving action message.
+
+    Args:
+        action_string (str): Functions registered by this decorator will be called upon receiving action message with `action_string` as action.
+
+    Example:
+
+    ```python
+    @messaging.message_callback("test_command")
+    def test_command(client, *args, **kwargs):
+        print(client, args, kwargs)
+    ```
+
+    First argument passed to decorated function is instance of `ConnectionManager`, representing connection by which the message was received. Arguments and keyword arguments from message will also be passed.
+    """
     def inner(f):
         ConnectionManager.messages_callbacks[action_string] = f
         logger.debug("Registered message function {} for {}".format(f, action_string))
@@ -216,6 +341,24 @@ def message_callback(action_string):
 
 
 def request_callback(string_command):
+    """
+    In order to register your function as callback for message or command, you can use those decorators:
+
+    Callback decorator. Functions registered by this decorator will be called upon receiving request message.
+
+    Args:
+        string_command (str): Functions registered by this decorator will be called upon receiving request message with `string_command` as requested value.
+    
+    Example:
+
+    ```python
+    @messaging.request_callback("time")
+    def test_respose(client, *args, **kwargs):
+        return time.time()
+    ```
+
+    First argument passed to decorated function is an instance of `ConnectionManager`, representing connection by which the message was received. Arguments and keyword arguments from message will also be passed. Functions registered by this decorator must return requested value or raise an exception. Returned value will be sent back.
+    """
     def inner(f):
         ConnectionManager.requests_callbacks[string_command] = f
         logger.debug("Registered callback function {} for {}".format(f, string_command))
@@ -229,10 +372,32 @@ def request_callback(string_command):
 
 
 class ConnectionManager(object):
+    """
+    This class represents high-level protocol of TCP connection.
+
+    Attributes:
+        selector (selector): Related selector object.
+        socket (socket): Socket object of the connection.
+        addr (str): Address of the peer.
+        buffer_size (int): Size of the sending/receiving buffer.
+        resume_queue (bool): Whether to resume sending queue upon peer reconnection.
+        resend_requests (bool): Whether to resend unanswered requests in queue to reconnected client.
+    """
     messages_callbacks = {}
     requests_callbacks = {}
 
     def __init__(self, whoami="computer"):
+        """
+        Args:
+            whoami (str, optional): What type of system the ConnectionManager is running on (`computer` or `pi`). Defaults to "computer".
+        
+        Example:
+
+        ```python
+        connection = ConnectionManager(whoami)
+        connection.connect(client_selector, client_socket, client_addr)
+        ```
+        """
         self.selector = None
         self.socket = None
         self.addr = None
@@ -272,6 +437,13 @@ class ConnectionManager(object):
         return key
 
     def connect(self, client_selector, client_socket, client_addr):
+        """[summary]
+
+        Args:
+            client_selector (selector): Related selector object.
+            client_socket (socket): Socket object of the connection.
+            client_addr (str): Address of the peer.
+        """
         self.selector = client_selector
         self.socket = client_socket
         self.addr = client_addr
@@ -290,6 +462,9 @@ class ConnectionManager(object):
             self._send_queue.clear()
 
     def close(self):
+        """
+        Closes connection with the peer.
+        """
         with self._close_lock:
             self._should_close = True
 
@@ -326,6 +501,11 @@ class ConnectionManager(object):
         logger.info("CLOSED connection to {}".format(self.addr))
 
     def process_events(self, mask):
+        """Processes read\write events with given mask.
+
+        Args:
+            mask (bytes): mask of the selector events.
+        """
         with self._close_lock:
             close = self._should_close
         if close:
@@ -511,6 +691,27 @@ class ConnectionManager(object):
     def get_response(self, requested_value, callback,  # timeout=30,
                      request_args=(), request_kwargs=None,
                      callback_args=(), callback_kwargs=None, ):
+        """
+        Sends request to the client and adds it to the request queue. The callback will be called upon receiving the response (see example below).
+
+        Args:
+            requested_value (string): Name of requested value.
+            callback (function): Callable object (function, binded method, etc.) that would be called upon receiving response to this request or None.
+            request_args (tuple, optional): Arguments for the request. Defaults to ().
+            request_kwargs (dict, optional): Keyword arguments for the request. Defaults to None.
+            callback_args (tuple, optional): Arguments for the callback. Defaults to ().
+            callback_kwargs (dict, optional): Keyword arguments for the callback. Defaults to None.
+
+        Example of a callback:
+
+        ```python
+        def callback(client, value, *args, **kwargs):
+        print(value, args, kwargs)
+        ```
+
+        First argument passed to callback function is an instance of `ConnectionManager`, representing connection by which the message was received.
+        Second arguments is received value. Arguments and keyword arguments from response  will also be passed.
+        """
         if request_kwargs is None:
             request_kwargs = {}
         if callback_kwargs is None:
@@ -533,6 +734,17 @@ class ConnectionManager(object):
 
     def get_file(self, client_filepath, filepath=None, callback=None,
                  callback_args=(), callback_kwargs=None, ):
+        """
+        Requests file from peer located at `client_filepath`. Received file will be written to the `filepath` if specified.
+
+        Args:
+            client_filepath (str): Path to file to retrieve from peer.
+            filepath (str, optional): Path to write file upon receiving. If `None` - file will not be written. Defaults to None.
+            callback (function): Callable object (function, binded method, etc.) that would be called upon receiving response to this request or None.
+            callback_args (tuple, optional): Arguments for the callback. Defaults to ().
+            callback_kwargs (dict, optional): Keyword arguments for the callback. Defaults to None.
+
+        """
         if callback_kwargs is None:
             callback_kwargs = {}
 
@@ -555,12 +767,27 @@ class ConnectionManager(object):
                     request.resend = False
 
     def send_message(self, action, args=(), kwargs=None):
+        """
+        Sends to peer message with specified action,  arguments and keyword arguments.
+
+        Args:
+            action (str): action(command) to perform upon receiving. Should correspond with `action_string` of function registered in `message_callback()` on the peer.
+            args (tuple, optional): Arguments for the command. Defaults to ().
+            kwargs (dict, optional): Keyword arguments for the command. Defaults to None.
+        """
         self._send(MessageManager.create_action_message(action, args, kwargs))
 
     def _send_response(self, requested_value, request_id, value, filetransfer=False):
         self._send(MessageManager.create_response(requested_value, request_id, value, filetransfer))
 
     def send_file(self, filepath, dest_filepath):  # clever_restart=False
+        """
+        Sends to peer a file from `filepath` to write it on `dest_filepath`.
+
+        Args:
+            filepath (str): Path of the file to send.
+            dest_filepath (str): Path on peer where recieved file will be written to.
+        """
         try:
             with open(filepath, 'rb') as f:
                 data = f.read()
