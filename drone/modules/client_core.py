@@ -15,14 +15,13 @@ import selectors2 as selectors
 from contextlib import closing
 
 # Add parent dir to PATH to import messaging_lib and config_lib
-current_dir = (os.path.dirname(os.path.realpath(__file__)))
-lib_dir = os.path.realpath(os.path.join(current_dir, '../../lib'))
-sys.path.insert(0, lib_dir)
+current_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir)))
 
 logger = logging.getLogger(__name__)
 
-import messaging
-from config import ConfigManager
+import lib.messaging as messaging
+from lib.config import ConfigManager
 
 active_client = None  # needs to be refactored: Singleton \ factory callbacks
 

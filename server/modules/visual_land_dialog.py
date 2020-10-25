@@ -8,7 +8,7 @@ import logging
 import sys
 from functools import partial
 
-from lib import b_partial
+from lib.lib import b_partial
 
 #  TODO: previous step and reset
 class VisualLandDialog(QtWidgets.QDialog):

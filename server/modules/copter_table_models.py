@@ -10,7 +10,7 @@ from functools import partialmethod
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt as Qt, QUrl, QDir
 
-from config import ConfigManager
+from lib.config import ConfigManager
 
 # Additional custom roles to interact with various table data
 ModelDataRole = 998

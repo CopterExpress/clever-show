@@ -16,9 +16,9 @@ from quamash import QEventLoop
 from modules.server_core import Server, Client, now
 
 # Import modules from lib, that was added to PATH on the previous step
-import messaging
-import config as cfg
-from lib import b_partial
+import lib.messaging as messaging
+import lib.config as cfg
+from lib.lib import b_partial
 
 # Import PyQt5 related functions
 from PyQt5 import QtWidgets, QtMultimedia, QtCore

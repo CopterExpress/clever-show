@@ -12,11 +12,11 @@ import traceback
 
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir, 'lib')))
+sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir)))
 
 # Import modules from lib dir
-import messaging
-from config import ConfigManager
+import lib.messaging as messaging
+from lib.config import ConfigManager
 
 random.seed()
 

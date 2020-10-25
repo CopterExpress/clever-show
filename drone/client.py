@@ -45,10 +45,9 @@ except ImportError:
 
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = (os.path.dirname(os.path.realpath(__file__)))
-lib_dir = os.path.realpath(os.path.join(current_dir, '../lib'))
-sys.path.insert(0, lib_dir)
+sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pardir)))
 
-import messaging
+import lib.messaging as messaging
 import modules.client_core as client_core
 import modules.animation as animation
 import modules.mavros_wrapper as mavros
