@@ -308,67 +308,28 @@ class MessageManager:
             if self.content is None:
                 self._process_content()
 
+class CallbackManager:
+    def __init__(self):
+        self.action_callbacks = dict()
+        self.request_callbacks = dict()
 
-def message_callback(action_string):
-    """
-    In order to register your function as callback for message or command, you can use those decorators:
+        self.connected_callback = None
 
-    Callback decorator. Functions registered by this decorator will be called upon receiving action message.
+    @staticmethod
+    def _register_function(d, key):
+        def inner(f):
+            if not callable(f):
+                raise TypeError("f should be callable")
+            d[key] = f
+            logger.debug("Registered callback function {} for {}".format(f, key))
+            return f
+        return inner
 
-    Args:
-        action_string (str): Functions registered by this decorator will be called upon receiving action message with `action_string` as action.
+    def action_callback(self, key):
+        return self._register_function(self.action_callbacks, key)
 
-    Example:
-
-    ```python
-    @messaging.message_callback("test_command")
-    def test_command(client, *args, **kwargs):
-        print(client, args, kwargs)
-    ```
-
-    First argument passed to decorated function is instance of `ConnectionManager`, representing connection by which the message was received. Arguments and keyword arguments from message will also be passed.
-    """
-    def inner(f):
-        ConnectionManager.messages_callbacks[action_string] = f
-        logger.debug("Registered message function {} for {}".format(f, action_string))
-
-        def wrapper(*args, **kwargs):
-            return f(*args, **kwargs)
-
-        return wrapper
-
-    return inner
-
-
-def request_callback(string_command):
-    """
-    In order to register your function as callback for message or command, you can use those decorators:
-
-    Callback decorator. Functions registered by this decorator will be called upon receiving request message.
-
-    Args:
-        string_command (str): Functions registered by this decorator will be called upon receiving request message with `string_command` as requested value.
-    
-    Example:
-
-    ```python
-    @messaging.request_callback("time")
-    def test_respose(client, *args, **kwargs):
-        return time.time()
-    ```
-
-    First argument passed to decorated function is an instance of `ConnectionManager`, representing connection by which the message was received. Arguments and keyword arguments from message will also be passed. Functions registered by this decorator must return requested value or raise an exception. Returned value will be sent back.
-    """
-    def inner(f):
-        ConnectionManager.requests_callbacks[string_command] = f
-        logger.debug("Registered callback function {} for {}".format(f, string_command))
-
-        def wrapper(*args, **kwargs):
-            return f(*args, **kwargs)
-
-        return wrapper
-
-    return inner
+    def request_callback(self, key):
+        return self._register_function(self.request_callbacks, key)
 
 
 class ConnectionManager(object):
