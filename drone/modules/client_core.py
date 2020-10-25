@@ -51,7 +51,8 @@ class Client(object):
         self.selector = selectors.DefaultSelector()
         self.client_socket = None
 
-        self.server_connection = messaging.ConnectionManager()
+        self.callbacks = messaging.CallbackManager()
+        self.server_connection = messaging.ConnectionManager(self.callbacks)
 
         self.connected = False
         self.client_id = None
@@ -59,6 +60,7 @@ class Client(object):
         # Init configs
         self.config = ConfigManager()
         self.config_path = config_path
+
 
         global active_client
         active_client = self
@@ -120,6 +122,7 @@ class Client(object):
         Reloads config and starts infinite loop of connecting to the server and processing said connection. Calling of this method will indefinitely halt execution of any subsequent code.
         """
         self.load_config()
+        self.register_callbacks()
 
         logger.info("Starting client")
         messaging.NotifierSock().init(self.selector)
@@ -245,48 +248,47 @@ class Client(object):
                     logger.warning("No active connections left!")
                     return
 
+    def register_callbacks(self):
+        @self.callbacks.action_callback("config")
+        def _command_config_write(*args, **kwargs):
+            mode = kwargs.get("mode", "modify")
+            # exceptions would be risen in case of incorrect config
+            if mode == "rewrite":
+                active_client.config.load_from_dict(kwargs["config"], configspec=active_client.config_path)  # with validation
+            elif mode == "modify":
+                new_config = ConfigManager()
+                new_config.load_from_dict(kwargs["config"])
+                active_client.config.merge(new_config, validate=True)
 
-@messaging.message_callback("config")
-def _command_config_write(*args, **kwargs):
-    mode = kwargs.get("mode", "modify")
-    # exceptions would be risen in case of incorrect config
-    if mode == "rewrite":
-        active_client.config.load_from_dict(kwargs["config"], configspec=active_client.config_path)  # with validation
-    elif mode == "modify":
-        new_config = ConfigManager()
-        new_config.load_from_dict(kwargs["config"])
-        active_client.config.merge(new_config, validate=True)
+            active_client.config.write()
+            logger.info("Config successfully updated from command")
+            active_client.load_config()
 
-    active_client.config.write()
-    logger.info("Config successfully updated from command")
-    active_client.load_config()
+        @self.callbacks.request_callback("config")
+        def _response_config(*args, **kwargs):
+            send_configspec = kwargs.get("send_configspec", False)
+            response = {"config": active_client.config.full_dict()}
+            if send_configspec:
+                response.update({"configspec": dict(active_client.config.config.configspec)})
+            return response
 
-@messaging.request_callback("config")
-def _response_config(*args, **kwargs):
-    send_configspec = kwargs.get("send_configspec", False)
-    response = {"config": active_client.config.full_dict()}
-    if send_configspec:
-        response.update({"configspec": dict(active_client.config.config.configspec)})
-    return response
+        @self.callbacks.request_callback("clover_dir")
+        def _response_clover_dir(*args, **kwargs):
+            return active_client.config.clover_dir
 
-@messaging.request_callback("clover_dir")
-def _response_clover_dir(*args, **kwargs):
-    return active_client.config.clover_dir
+        @self.callbacks.request_callback("id")
+        def _response_id(*args, **kwargs):
+            new_id = kwargs.get("new_id", None)
+            if new_id is not None:
+                active_client.config.set("PRIVATE", "id", new_id, True)
+                active_client.load_config()
+                # TODO renaming here
 
-@messaging.request_callback("id")
-def _response_id(*args, **kwargs):
-    new_id = kwargs.get("new_id", None)
-    if new_id is not None:
-        active_client.config.set("PRIVATE", "id", new_id, True)
-        active_client.load_config()
-        # TODO renaming here
+            return active_client.client_id
 
-    return active_client.client_id
-
-
-@messaging.request_callback("time")
-def _response_time(*args, **kwargs):
-    return active_client.time_now()
+        @self.callbacks.request_callback("time")
+        def _response_time(*args, **kwargs):
+            return active_client.time_now()
 
 
 if __name__ == "__main__":

@@ -344,10 +344,8 @@ class ConnectionManager(object):
         resume_queue (bool): Whether to resume sending queue upon peer reconnection.
         resend_requests (bool): Whether to resend unanswered requests in queue to reconnected client.
     """
-    messages_callbacks = {}
-    requests_callbacks = {}
 
-    def __init__(self, whoami="computer"):
+    def __init__(self, callbacks, whoami="computer"):
         """
         Args:
             whoami (str, optional): What type of system the ConnectionManager is running on (`computer` or `pi`). Defaults to "computer".
@@ -359,6 +357,8 @@ class ConnectionManager(object):
         connection.connect(client_selector, client_socket, client_addr)
         ```
         """
+        self.callbacks = callbacks
+
         self.selector = None
         self.socket = None
         self.addr = None
@@ -462,7 +462,7 @@ class ConnectionManager(object):
         logger.info("CLOSED connection to {}".format(self.addr))
 
     def process_events(self, mask):
-        """Processes read\write events with given mask.
+        """Processes read/write events with given mask.
 
         Args:
             mask (bytes): mask of the selector events.
@@ -538,7 +538,7 @@ class ConnectionManager(object):
         action = message.jsonheader["action"]
         args = message.content["args"]
         kwargs = message.content["kwargs"]
-        callback = self.messages_callbacks.get(action, None)
+        callback = self.callbacks.action_callbacks.get(action, None)
         if callback is None:
             logger.warning("Action {} does not exist!".format(action))
             return
@@ -559,7 +559,7 @@ class ConnectionManager(object):
             if filetransfer:
                 value = self._read_file(kwargs["filepath"])
             else:
-                callback = self.requests_callbacks.get(requested_value, None)
+                callback = self.callbacks.request_callbacks.get(requested_value, None)
                 if callback is None:
                     logger.warning("Request {} does not exist!".format(requested_value))
                     return

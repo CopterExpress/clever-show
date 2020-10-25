@@ -631,7 +631,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ConfigDialog().call_config_dialog(config, save_callback, restart, name="server config")
 
     def register_callbacks(self):
-        @messaging.message_callback("telemetry")
+        @self.server.callbacks.action_callback("telemetry")
         def get_telem_data(client, value, **kwargs):
             self.update_table_data(client, value)
 

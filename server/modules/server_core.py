@@ -52,6 +52,8 @@ class Server(messaging.Singleton):
         self.config = ConfigManager()
         self.config_path = config_path
 
+        self.callbacks = messaging.CallbackManager()
+
         # Init threads
         self.autoconnect_thread = threading.Thread(target=self._client_processor, daemon=True,
                                                    name='Client processor')
@@ -170,8 +172,8 @@ class Server(messaging.Singleton):
         logging.info("Got connection from: {}".format(str(addr)))
         conn.setblocking(False)
 
-        if not any([client_addr == addr[0] for client_addr in Client.clients.keys()]):
-            client = Client(addr[0])
+        if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
+            client = Client(self.callbacks, addr[0])
             client.buffer_size = self.config.server_buffer_size
             logging.info("New client")
         else:
@@ -271,7 +273,6 @@ def requires_any_connected(f):
 
     return wrapper
 
-# TODO do a factory class for clients\connection managers with common properties
 class Client(messaging.ConnectionManager):
     clients = {}
 
@@ -279,8 +280,8 @@ class Client(messaging.ConnectionManager):
     on_first_connect = None
     on_disconnect = None
 
-    def __init__(self, ip):
-        super().__init__()
+    def __init__(self, callbacks, ip):
+        super().__init__(callbacks)
         self.copter_id = None
         self.clover_dir = None
         self.connected = False
