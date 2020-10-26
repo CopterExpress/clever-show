@@ -194,7 +194,7 @@ class Client(object):
                     attempt_count += 1
                 else:
                     message = messaging.MessageManager()
-                    message.income_raw = data
+                    message._income_raw = data
                     message.process_message()
                     if message.content and message.jsonheader["action"] == "server_ip":
                         logger.info("Received broadcast message {} from {}".format(message.content, addr))

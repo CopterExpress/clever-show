@@ -1,12 +1,12 @@
 import os
 import sys
 import time
+
 import socket
+import asyncio
 import random
 import logging
 import datetime
-import threading
-import selectors
 import collections
 import traceback
 
@@ -33,144 +33,93 @@ if not os.path.exists(log_path):
 
 logger = logging.getLogger(__name__)
 
-class Server(messaging.Singleton):
+
+class Server:
     def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "server.ini"), server_id=None):
         self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
         self.time_started = 0
 
-        # Init socket
-        self.sel = selectors.DefaultSelector()
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        messaging.set_keepalive(self.server_socket)
-        self.server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self._tcp_server = None
+        self.callbacks = messaging.CallbackManager()
+        self._clients = dict()
+
 
         self.host = socket.gethostname()
         self.ip = messaging.get_ip_address()
 
-        # Init configs
         self.config = ConfigManager()
         self.config_path = config_path
 
-        self.callbacks = messaging.CallbackManager()
-
-        # Init threads
-        self.autoconnect_thread = threading.Thread(target=self._client_processor, daemon=True,
-                                                   name='Client processor')
-        self.client_processor_thread_running = threading.Event()  # Can be used for manual thread killing
-
-        self.broadcast_thread = threading.Thread(target=self._ip_broadcast, daemon=True,
-                                                 name='IP broadcast sender')
-        self.broadcast_thread_running = threading.Event()  # TODO replace by interrupt
-        self.broadcast_thread_interrupt = threading.Event()
-
-        self.listener_thread = threading.Thread(target=self._broadcast_listen, daemon=True,
-                                                name='IP broadcast listener')
-        self.listener_thread_running = threading.Event()
+        self._broadcast_send_task = None
+        self._broadcast_listen_task = None
 
     def load_config(self):
         self.config.load_config_and_spec(self.config_path)
 
-    def start(self):
-        # load config on startup
-        self.load_config()
+    async def start(self):
+        loop = asyncio.get_event_loop()
+        loop.set_debug(True)
 
         self.time_started = time.time()
 
-        logging.info("Starting server with id: {} on {}:{} ({})!".format(self.id, self.ip, self.config.server_port,
-                                                                         socket.gethostname()))
-        logging.info("Binding server socket!")
-        self.server_socket.bind((self.ip, self.config.server_port))
-
-        logging.info("Starting client processor thread!")
-        self.client_processor_thread_running.set()
-        self.autoconnect_thread.start()
+        # load config on startup
+        self.load_config()  # TODO async
 
         if self.config.broadcast_send:
-            logging.info("Starting broadcast sender thread!")
-            self.broadcast_thread_running.set()
-            self.broadcast_thread.start()
+            self._broadcast_send_task = loop.create_task(self._broadcast_send())
 
         if self.config.broadcast_listen:
-            logging.info("Starting broadcast listener thread!")
-            self.listener_thread_running.set()
-            self.listener_thread.start()
+            self._broadcast_send_task = loop.create_task(self._broadcast_listen())
 
-    def stop(self):
+        logging.info(f"Starting server with id: {self.id} on {self.host} ({self.ip})")
+
+        self._tcp_server = await loop.create_server(asyncio.Protocol(),
+                                                    port=self.config.server_port,
+                                                    reuse_address=True,
+                                                    start_serving=False)
+        for sock in self._tcp_server.sockets:  # to handle multiple interfaces (IPv4\IPv6)
+            self._configure_sock(sock)
+            sockname = sock.getsockname()
+            logging.info(f"Running server socket on {sockname[0]} : {sockname[1]}")
+
+        logging.info("Starting serving")
+        await self._tcp_server.start_serving()
+
+    async def stop(self):
         logging.info("Stopping server")
+        self._tcp_server.close()
+        to_await = [self._tcp_server.wait_closed()]
 
-        self.client_processor_thread_running.clear()
+        if self._broadcast_send_task is not None:
+            logging.info("Cancelling broadcast sending")
+            self._broadcast_send_task.cancel()
+            to_await.append(self._broadcast_send_task)
 
-        self.broadcast_thread_interrupt.set()
-        self.broadcast_thread_running.clear()
+        if self._broadcast_listen_task is not None:
+            logging.info("Cancelling broadcast listening")
+            self._broadcast_listen_task.cancel()
+            to_await.append(self._broadcast_listen_task)
 
-        self.listener_thread_running.clear()
-
-        messaging.NotifierSock().notify()
-
-        self.server_socket.close()
-        self.sel.close()
-
-        messaging.NotifierSock().close()
-
+        await asyncio.gather(*to_await, return_exceptions=True)
         logging.info("Server stopped")
 
     def terminate(self, reason="Terminated"):
         self.stop()
         logging.critical(reason)
 
-    @staticmethod
-    def get_ntp_time(ntp_host, ntp_port):
-        NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
-        NTP_QUERY = b'\x1b' + bytes(47)
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ntp_socket:
-            ntp_socket.sendto(NTP_QUERY, (ntp_host, ntp_port))
-            msg, _ = ntp_socket.recvfrom(1024)
-        return int.from_bytes(msg[-8:], 'big') / 2 ** 32 - NTP_DELTA
-
     def time_now(self):
         if self.config.ntp_use:
-            return self.get_ntp_time(self.config.ntp_host, self.config.ntp_port)
+            return messaging.get_ntp_time(self.config.ntp_host, self.config.ntp_port)
 
         return time.time()
 
-    # noinspection PyArgumentList
-    def _client_processor(self):
-        logging.info("Client processor (selector) thread started!")
-
-        messaging.NotifierSock().init(self.sel)
-
-        self.server_socket.listen()
-        self.server_socket.setblocking(False)
-        self.sel.register(self.server_socket, selectors.EVENT_READ, data=None)
-
-        while self.client_processor_thread_running.is_set():
-            events = self.sel.select(timeout=1)
-            for key, mask in events:
-                client = key.data
-                if client is None:
-                    self._connect_client(key.fileobj)
-                elif isinstance(client, messaging.ConnectionManager):
-                    try:
-                        client.process_events(mask)
-                    except Exception as error:
-                        logging.error("Exception {} occurred for {}! Resetting connection!".format(error, client.addr))
-                        traceback.print_exc()
-                        client.close(True)
-                else:  # Notifier
-                    client.process_events(mask)
-
-        logging.info("Client autoconnect thread stopped!")
+    @staticmethod
+    def _configure_sock(sock):
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        messaging.set_keepalive(sock)
 
     def _connect_client(self, sock):
-        try:
-            conn, addr = sock.accept()
-        except OSError:
-            logging.error("Error while connecting socket!")
-            return
 
-        logging.info("Got connection from: {}".format(str(addr)))
-        conn.setblocking(False)
 
         if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
             client = Client(self.callbacks, addr[0])
@@ -183,74 +132,48 @@ class Server(messaging.Singleton):
         self.sel.register(conn, selectors.EVENT_READ, data=client)
         client.connect(self.sel, conn, addr)
 
-    def _ip_broadcast(self):
-        logging.info("Broadcast sender thread started!")
+    async def _broadcast_send(self):
+        logging.info("Broadcast sender task started!")
         msg = messaging.MessageManager.create_action_message(
-            "server_ip", kwargs={"host": self.ip, "port": str(self.config.server_port), "id": self.id,
-                                 "start_time": str(self.time_started)})
-        logging.debug("Formed broadcast message to {}:{}: {}".format(self.config.broadcast_send_ip, self.config.broadcast_port, msg))
+            "server_ip", kwargs={"host": self.ip, "port": self.config.server_port,
+                                 "id": self.id, "start_time": self.time_started})
+        await asyncio.sleep(0)
+        logging.debug(
+            f"Formed broadcast message to {self.config.broadcast_send_ip}:{self.config.broadcast_port}: {msg}")
 
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        while True:
+            try:
+                await asyncio.sleep(self.config.broadcast_delay)
+                broadcast_sock.sendto(msg, (self.config.broadcast_send_ip, self.config.broadcast_port))
+            except OSError as e:
+                logging.error(f"Cannot send broadcast due error {e}")
+            except asyncio.CancelledError:
+                print("cans")
+                raise
+            else:
+                logging.debug("Broadcast sent")
 
-        try:
-            while self.broadcast_thread_running.is_set():
-                self.broadcast_thread_interrupt.wait(timeout=self.config.broadcast_delay)
-                try:
-                    broadcast_sock.sendto(msg, (self.config.broadcast_send_ip, self.config.broadcast_port))
-                except OSError as e:
-                    logging.error(f"Cannot send broadcast due error {e}")
-                else:
-                    logging.debug("Broadcast sent")
-        except Exception as e:
-            logging.error(f"Unexpected error {e}!")
-            raise
-
-    def _broadcast_listen(self):
-        logging.info("Broadcast listener thread started!")
+    async def _broadcast_listen(self):
+        logging.info("Broadcast listener task started!")
         broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        loop = asyncio.get_event_loop()
+        transport, protocol = await loop.create_datagram_endpoint(messaging.BroadcastProtocol,
+                                                                  local_addr=('', self.config.broadcast_port))
         # broadcast_client.settimeout(1)
-        try:
-            broadcast_client.bind(("", self.config.broadcast_port))
-        except OSError:
-            self.terminate("Another server is running on this computer, shutting down!")
-            return
-
-        try:
-            while self.listener_thread_running.is_set():
-                try:
-                    data, addr = broadcast_client.recvfrom(1024)  # TODO nonblock
-                except OSError:
-                    logging.error(f"Cannot receive broadcast due error {e}")
-                    continue
-
-                message = messaging.MessageManager()
-                message.income_raw = data
-                message.process_message()
-                content = message.content
-
-                right_command = (content and message.jsonheader["action"] == "server_ip")
-
-                if right_command:
-                    different_id = content["kwargs"]["id"] != str(self.id)
-                    self_younger = float(content["kwargs"]["start_time"]) <= self.time_started
-
-                    if different_id and self_younger:
-                        # younger server should shut down
-                        self.terminate("Another server detected over the network, shutting down!")
-
-                else:
-                    logging.warning("Got wrong broadcast message from {}".format(addr))
-
-        except Exception as e:
-            logging.error(f"Unexpected error {e}!")
-            raise
-
-        finally:
-            broadcast_client.close()
-            logging.info("Broadcast listener thread stopped, socked closed!")
+        # try:
+        #     broadcast_client.bind(("", self.config.broadcast_port))
+        # except OSError:
+        #     self.terminate("Another server is running on this computer, shutting down!")
+        #     return
+        #
+        # finally:
+        #     broadcast_client.close()
+        #     logging.info("Broadcast listener thread stopped, socked closed!")
 
     def send_starttime(self, copter, start_time):
         copter.send_message("start", kwargs={"time": str(start_time)})
@@ -272,6 +195,7 @@ def requires_any_connected(f):
         logging.warning("No clients were connected!")
 
     return wrapper
+
 
 class Client(messaging.ConnectionManager):
     clients = {}
@@ -303,7 +227,7 @@ class Client(messaging.ConnectionManager):
 
         self.connected = True
 
-        #if self.copter_id is None:
+        # if self.copter_id is None:
         self.get_response("id", self._got_id)
 
         if self.on_connect:
@@ -375,7 +299,18 @@ if __name__ == '__main__':
         ])
 
     server = Server()
-    server.start()
+    loop = asyncio.get_event_loop()
+    loop.set_debug(True)
+    print(loop)
 
-    while True:
-        pass
+    try:
+        loop.run_until_complete(server.start())
+        loop.run_until_complete(asyncio.sleep(4))
+        loop.run_until_complete(server.stop())
+        print(3)
+    finally:
+        print(1)
+    print(4)
+    #loop.run_forever()
+
+
