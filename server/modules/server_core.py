@@ -43,22 +43,26 @@ class Server:
         self.callbacks = messaging.CallbackManager()
         self._clients = dict()
 
-
         self.host = socket.gethostname()
         self.ip = messaging.get_ip_address()
 
         self.config = ConfigManager()
         self.config_path = config_path
 
-        self._broadcast_send_task = None
-        self._broadcast_listen_task = None
+        self._broadcast_send_task: asyncio.Task = None
+        self._broadcast_listen_task: asyncio.Task = None
+
+        self._stopping: asyncio.Future = None
+        self._stopped: asyncio.Future = None
 
     def load_config(self):
         self.config.load_config_and_spec(self.config_path)
 
-    async def start(self):
+    async def run(self, wait_closed: bool=False):
         loop = asyncio.get_event_loop()
-        loop.set_debug(True)
+        # loop.set_debug(True)
+        self._stopping = loop.create_future()
+        self._stopped = loop.create_future()
 
         self.time_started = time.time()
 
@@ -69,23 +73,33 @@ class Server:
             self._broadcast_send_task = loop.create_task(self._broadcast_send())
 
         if self.config.broadcast_listen:
-            self._broadcast_send_task = loop.create_task(self._broadcast_listen())
+            self._broadcast_listen_task = loop.create_task(self._broadcast_listen())
 
         logging.info(f"Starting server with id: {self.id} on {self.host} ({self.ip})")
 
-        self._tcp_server = await loop.create_server(asyncio.Protocol(),
+        self._tcp_server = await loop.create_server(messaging.PeerProtocol,
                                                     port=self.config.server_port,
                                                     reuse_address=True,
                                                     start_serving=False)
         for sock in self._tcp_server.sockets:  # to handle multiple interfaces (IPv4\IPv6)
-            self._configure_sock(sock)
+            self._configure_server_sock(sock)
             sockname = sock.getsockname()
             logging.info(f"Running server socket on {sockname[0]} : {sockname[1]}")
 
         logging.info("Starting serving")
         await self._tcp_server.start_serving()
+        if wait_closed:
+            await self._stopped
 
-    async def stop(self):
+    def serve_forever(self):
+        asyncio.run(self.run(wait_closed=True))
+
+    async def stop(self, reason: str=''):
+        if self._stopping.done():
+            logging.error("Server is already stopping")
+            return
+
+        self._stopping.set_result(True)
         logging.info("Stopping server")
         self._tcp_server.close()
         to_await = [self._tcp_server.wait_closed()]
@@ -100,12 +114,16 @@ class Server:
             self._broadcast_listen_task.cancel()
             to_await.append(self._broadcast_listen_task)
 
-        await asyncio.gather(*to_await, return_exceptions=True)
-        logging.info("Server stopped")
+        await asyncio.gather(*to_await, return_exceptions=True)  # wait until everything shuts down
 
-    def terminate(self, reason="Terminated"):
-        self.stop()
+        if not self._stopped.done():
+            self._stopped.set_result(True)
+
+        logging.info(f"Server stopped: {reason}")
+
+    async def terminate(self, reason:str ="Terminated"):
         logging.critical(reason)
+        await self.stop(reason)
 
     def time_now(self):
         if self.config.ntp_use:
@@ -114,7 +132,7 @@ class Server:
         return time.time()
 
     @staticmethod
-    def _configure_sock(sock):
+    def _configure_server_sock(sock):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         messaging.set_keepalive(sock)
 
@@ -133,47 +151,54 @@ class Server:
         client.connect(self.sel, conn, addr)
 
     async def _broadcast_send(self):
-        logging.info("Broadcast sender task started!")
+        logging.info("Broadcast sender task started")
         msg = messaging.MessageManager.create_action_message(
             "server_ip", kwargs={"host": self.ip, "port": self.config.server_port,
                                  "id": self.id, "start_time": self.time_started})
-        await asyncio.sleep(0)
         logging.debug(
             f"Formed broadcast message to {self.config.broadcast_send_ip}:{self.config.broadcast_port}: {msg}")
 
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        while True:
-            try:
-                await asyncio.sleep(self.config.broadcast_delay)
-                broadcast_sock.sendto(msg, (self.config.broadcast_send_ip, self.config.broadcast_port))
-            except OSError as e:
-                logging.error(f"Cannot send broadcast due error {e}")
-            except asyncio.CancelledError:
-                print("cans")
-                raise
-            else:
-                logging.debug("Broadcast sent")
+        try:
+            while True:
+                try:
+                    await asyncio.sleep(self.config.broadcast_delay)
+                    broadcast_sock.sendto(msg, (self.config.broadcast_send_ip, self.config.broadcast_port))
+                except OSError as e:
+                    logging.error(f"Cannot send broadcast due error {e}")
+                else:
+                    logging.debug("Broadcast sent")
+        finally:
+            logging.info("Broadcast sender task stopped")
 
     async def _broadcast_listen(self):
         logging.info("Broadcast listener task started!")
-        broadcast_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        broadcast_client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        def broadcast_callback(message: messaging.MessageManager):
+            content = message.content
+            different_id = content["kwargs"]["id"] != str(self.id)
+            self_younger = float(content["kwargs"]["start_time"]) <= self.time_started
+            if different_id and self_younger:
+                loop.run_until_complete(
+                    self.terminate("Another server is running on this local network, shutting down!"))
 
         loop = asyncio.get_event_loop()
-        transport, protocol = await loop.create_datagram_endpoint(messaging.BroadcastProtocol,
-                                                                  local_addr=('', self.config.broadcast_port))
-        # broadcast_client.settimeout(1)
-        # try:
-        #     broadcast_client.bind(("", self.config.broadcast_port))
-        # except OSError:
-        #     self.terminate("Another server is running on this computer, shutting down!")
-        #     return
-        #
-        # finally:
-        #     broadcast_client.close()
-        #     logging.info("Broadcast listener thread stopped, socked closed!")
+        try:
+            transport, protocol = await loop.create_datagram_endpoint(lambda: messaging.BroadcastProtocol(broadcast_callback),
+                                                                      local_addr=('', self.config.broadcast_port),
+                                                                      family=socket.AF_INET)
+        except OSError:
+            logging.info("Broadcast listener exited: port is busy")
+            loop.run_until_complete(self.terminate("Another server is likely running on this computer, shutting down!"))
+            return
+
+        try:
+            await protocol.closed
+        finally:
+            transport.close()
+            logging.info("Broadcast listener task stopped")
 
     def send_starttime(self, copter, start_time):
         copter.send_message("start", kwargs={"time": str(start_time)})
@@ -195,6 +220,8 @@ def requires_any_connected(f):
         logging.warning("No clients were connected!")
 
     return wrapper
+
+class RemoteClientProtocol(messaging.PeerProtocol):
 
 
 class Client(messaging.ConnectionManager):
@@ -304,13 +331,16 @@ if __name__ == '__main__':
     print(loop)
 
     try:
-        loop.run_until_complete(server.start())
-        loop.run_until_complete(asyncio.sleep(4))
-        loop.run_until_complete(server.stop())
+        loop.run_until_complete(server.run())
+        #loop.run_until_complete(asyncio.sleep(4))
+        #loop.run_until_complete(server.stop())
+        loop.run_forever()
         print(3)
     finally:
+        loop.run_until_complete(server.stop("hey"))
+
         print(1)
     print(4)
-    #loop.run_forever()
+    #
 
 

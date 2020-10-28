@@ -16,11 +16,6 @@ import collections
 
 from contextlib import closing
 
-try:
-    import selectors
-except ImportError:
-    import selectors2 as selectors
-
 
 class Namespace:
     def __init__(self, **kwargs):
@@ -56,6 +51,16 @@ def get_ip_address():
 
 
 def get_ntp_time(ntp_host, ntp_port):
+    """
+    Gets and returns time from specified host and port of NTP server.
+
+    Args:
+        ntp_host (string): hostname or address of the NTP server.
+        ntp_port (int): port of the NTP server.
+
+    Returns:
+        int: Current time recieved from the NTP server
+    """
     NTP_DELTA = 2208988800  # 1970-01-01 00:00:00
     NTP_QUERY = b'\x1b' + bytes(47)
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ntp_socket:
@@ -107,23 +112,35 @@ class BroadcastProtocol:
     def __init__(self, on_broadcast):
         self._on_broadcast = on_broadcast
 
+        loop = asyncio.get_event_loop()
+        self.closed: asyncio.Future = loop.create_future()
+
+    def connection_made(self, transport):
+        self.transport = transport
+        logging.info("Broadcast connection established")
+
+    def connection_lost(self, exc):
+        logging.info(f"Broadcast connection lost: {'closed' if exc is None else exc}")
+        if not self.closed.done():
+            self.closed.set_result(True)
+
     def datagram_received(self, data, addr):
-        message = MessageManager()
-        message.append_data(data)
+        logging.info(data)
+
+        message = MessageManager(data)
         message.process_message()
         content = message.content
 
         is_ip_broadcast = (content is not None and message.jsonheader["action"] == "server_ip")
 
         if is_ip_broadcast:
+            logging.debug(f"Got broadcast message from {addr}: {content}")
             asyncio.get_event_loop().call_soon(self._on_broadcast, message)
-            # different_id = content["kwargs"]["id"] != str(self.id)
-            # self_younger = float(content["kwargs"]["start_time"]) <= self.time_started
         else:
-            logging.warning("Got wrong broadcast message from {}".format(addr))
+            logging.warning(f"Got wrong broadcast message from {addr}")
 
-    # def error_received(self, exc):
-    #     logging.error("Error received")
+    def error_received(self, exc):
+        logging.warning(f"Error on broadcast connection received: {exc}")
 
 class BroadcastSendProtocol:
     pass
@@ -135,7 +152,7 @@ class MessageManager:
     Messages in protocol implemented by this class consists of 3 parts:
 
     * Fixed-length (2 bytes) protoheader - contains length of json header
-    * json header - contains information about message contents: length, encoding, byteorder, type of message and contents, etc.
+    * json header - contains information about message contents: length, encoding, type of message and contents, etc.
     * content - contains actual contents of message (json information, bytes, etc.)
 
 
@@ -144,16 +161,21 @@ class MessageManager:
         jsonheader (dict): Headers dictionary with information about message encoding and purpose. Would be populated when receiving and processing of the json header will be completed.
         content (object): Would be populated when receiving and processing of the message will be completed. Defaults to None.
     """
-    def __init__(self):
+    def __init__(self, data):
         """
         ```python
         message = MessageManager()
         ```
         """
-        self._income_raw = b"" #todo bytearrray
+        self._income_raw = None
+
         self._jsonheader_len = None
         self.jsonheader = None
         self.content = None
+
+        # self._processed = False
+
+        self.set_buffer(data)
 
     @staticmethod
     def _json_encode(obj, encoding="utf-8"):
@@ -181,11 +203,11 @@ class MessageManager:
         """
 
         jsonheader = {
-            "byteorder": sys.byteorder,
+            "content-length": len(content_bytes),
             "content-type": content_type,
             "content-encoding": content_encoding,
-            "content-length": len(content_bytes),
             "message-type": message_type,
+            # "message-uuid":
         }
         if additional_headers:
             jsonheader.update(additional_headers)
@@ -283,18 +305,18 @@ class MessageManager:
 
     def _process_jsonheader(self):
         header_len = self._jsonheader_len
-        if len(self._income_raw) >= header_len:
-            self.jsonheader = self._json_decode(self._income_raw[:header_len], "utf-8")
-            self._income_raw = self._income_raw[header_len:]
-            for reqhdr in (
-                    "byteorder",
-                    "content-length",
-                    "content-type",
-                    "content-encoding",
-                    "message-type",
-            ):
-                if reqhdr not in self.jsonheader:
-                    raise ValueError('Missing required header {}'.format(reqhdr))
+        if not len(self._income_raw) >= header_len:
+            return
+        self.jsonheader = self._json_decode(self._income_raw[:header_len], "utf-8")
+        self._income_raw = self._income_raw[header_len:]
+        for reqhdr in (
+                "content-length",
+                "content-type",
+                "content-encoding",
+                "message-type",
+        ):
+            if reqhdr not in self.jsonheader:
+                raise ValueError('Missing required header {}'.format(reqhdr))
 
     def _process_content(self):
         content_len = self.jsonheader["content-length"]
@@ -308,10 +330,10 @@ class MessageManager:
         else:
             self.content = data
 
-    def append_data(self, data):
-        self._income_raw += data
+    def set_buffer(self, data):
+        self._income_raw = memoryview(data)
 
-    def get_leftovers(self):
+    def get_buffer(self):
         return self._income_raw
 
     def process_message(self):
@@ -326,8 +348,11 @@ class MessageManager:
                 self._process_jsonheader()
 
         if self.jsonheader:
-            if self.content is None:
+            if not self.processed:
                 self._process_content()
+    @property
+    def processed(self):
+        return self.content is not None
 
 class CallbackManager:
     def __init__(self):
@@ -352,32 +377,33 @@ class CallbackManager:
     def request_callback(self, key):
         return self._register_function(self.request_callbacks, key)
 
-class PeerProtocol:
-    def __init__(self, parent, calabacks):
-        self._parent = parent
-        self._callbacks = calabacks
+class PeerProtocol(asyncio.Protocol):
+    def __init__(self, parent, callbacks):
+        # self._parent = parent
+        self._callbacks = callbacks
 
+        self._recv_buffer = bytearray()
+        self._current_msg = None
         self._recv_msg_queue = asyncio.Queue
 
     def connection_made(self, transport):
-        peername = transport.get_extra_info('peername')
-
-        self._resend_requests()
-
         self.transport = transport
+
+        peername = transport.get_extra_info('peername')
+        print(peername)
+        # self._resend_requests()
 
 
     def data_received(self, data):
+        self._recv_buffer += data
 
+    def _proceess_received(self):
         while self._recv_buffer:
             # add new message object if queue is empty or last message already processed
-            if self._recv_msg_queue.empty() or (self._received_queue[0].content is not None):
-                self._recv_msg_queue.put(MessageManager())
+            if self._current_msg is None:
+                self._current_msg = MessageManager()
 
-            last_message = self._received_queue[0]
-
-            last_message.income_raw += self._recv_buffer
-            self._recv_buffer = b''
+            #self._recv_buffer.
             last_message.process_message()
 
             # if something left after processing message - put it back
@@ -393,7 +419,7 @@ class PeerProtocol:
     #        logger.info("Closing connection to {}".format(self.addr))
 
 
-class ConnectionManager(object):
+class ConnectionManager:
     """
     This class represents high-level protocol of TCP connection.
 
