@@ -36,15 +36,15 @@ logger = logging.getLogger(__name__)
 
 class Server:
     def __init__(self, config_path=os.path.join(current_dir, os.pardir, "config", "server.ini"), server_id=None):
-        self.id = server_id if server_id else str(random.randint(0, 9999)).zfill(4)
-        self.time_started = 0
+        self.id = server_id if server_id is not None else str(random.randint(0, 9999)).zfill(4)
+        self.time_started = None
 
         self._tcp_server = None
         self.callbacks = messaging.CallbackManager()
         self._clients = dict()
 
         self.host = socket.gethostname()
-        self.ip = messaging.get_ip_address()
+        self.ip = messaging.get_ip_address()  # TODO get all adresses
 
         self.config = ConfigManager()
         self.config_path = config_path
@@ -59,12 +59,16 @@ class Server:
         self.config.load_config_and_spec(self.config_path)
 
     async def run(self, wait_closed: bool=False):
+        if self.time_started is not None:
+            logger.warning("Server is already running, restarting")
+            await self.stop("Restart")
+
+        self.time_started = time.time()
+
         loop = asyncio.get_event_loop()
         # loop.set_debug(True)
         self._stopping = loop.create_future()
         self._stopped = loop.create_future()
-
-        self.time_started = time.time()
 
         # load config on startup
         self.load_config()  # TODO async
@@ -75,19 +79,19 @@ class Server:
         if self.config.broadcast_listen:
             self._broadcast_listen_task = loop.create_task(self._broadcast_listen())
 
-        logging.info(f"Starting server with id: {self.id} on {self.host} ({self.ip})")
+        logging.info(f"Starting server with id: '{self.id}' on '{self.host}' ({self.ip})")
 
-        self._tcp_server = await loop.create_server(messaging.PeerProtocol,
+        self._tcp_server = await loop.create_server(lambda: messaging.PeerProtocol(self, self.callbacks),
                                                     port=self.config.server_port,
                                                     reuse_address=True,
                                                     start_serving=False)
         for sock in self._tcp_server.sockets:  # to handle multiple interfaces (IPv4\IPv6)
             self._configure_server_sock(sock)
-            sockname = sock.getsockname()
-            logging.info(f"Running server socket on {sockname[0]} : {sockname[1]}")
+            logging.info(f"Running server socket on {messaging.str_peername(sock.getsockname())}")
 
         logging.info("Starting serving")
         await self._tcp_server.start_serving()
+
         if wait_closed:
             await self._stopped
 
@@ -99,6 +103,7 @@ class Server:
             logging.error("Server is already stopping")
             return
 
+        self.time_started = None
         self._stopping.set_result(True)
         logging.info("Stopping server")
         self._tcp_server.close()
@@ -136,21 +141,7 @@ class Server:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         messaging.set_keepalive(sock)
 
-    def _connect_client(self, sock):
-
-
-        if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
-            client = Client(self.callbacks, addr[0])
-            client.buffer_size = self.config.server_buffer_size
-            logging.info("New client")
-        else:
-            client = Client.clients[addr[0]]
-            client.close(True)  # to ensure in unregistering
-            logging.info("Reconnected client")
-        self.sel.register(conn, selectors.EVENT_READ, data=client)
-        client.connect(self.sel, conn, addr)
-
-    async def _broadcast_send(self):
+    async def _broadcast_send(self):  # TODO REDO
         logging.info("Broadcast sender task started")
         msg = messaging.MessageManager.create_action_message(
             "server_ip", kwargs={"host": self.ip, "port": self.config.server_port,
@@ -159,7 +150,6 @@ class Server:
             f"Formed broadcast message to {self.config.broadcast_send_ip}:{self.config.broadcast_port}: {msg}")
 
         broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         try:
             while True:
@@ -177,9 +167,9 @@ class Server:
         logging.info("Broadcast listener task started!")
 
         def broadcast_callback(message: messaging.MessageManager):
-            content = message.content
-            different_id = content["kwargs"]["id"] != str(self.id)
-            self_younger = float(content["kwargs"]["start_time"]) <= self.time_started
+            kwargs = message.content["kwargs"]
+            different_id = kwargs["id"] != self.id
+            self_younger = float(kwargs["start_time"]) <= self.time_started
             if different_id and self_younger:
                 loop.run_until_complete(
                     self.terminate("Another server is running on this local network, shutting down!"))
@@ -189,8 +179,8 @@ class Server:
             transport, protocol = await loop.create_datagram_endpoint(lambda: messaging.BroadcastProtocol(broadcast_callback),
                                                                       local_addr=('', self.config.broadcast_port),
                                                                       family=socket.AF_INET)
-        except OSError:
-            logging.info("Broadcast listener exited: port is busy")
+        except OSError as e:
+            logging.error(f"Broadcast listener exited: port is busy : {e}")
             loop.run_until_complete(self.terminate("Another server is likely running on this computer, shutting down!"))
             return
 
@@ -198,6 +188,7 @@ class Server:
             await protocol.closed
         finally:
             transport.close()
+            await protocol.closed
             logging.info("Broadcast listener task stopped")
 
     def send_starttime(self, copter, start_time):
@@ -221,12 +212,23 @@ def requires_any_connected(f):
 
     return wrapper
 
-class RemoteClientProtocol(messaging.PeerProtocol):
+class ClientPeer(messaging.PeerProtocol):
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        self._parent.clients[self.peername[0]] = self
 
+        # if not any(client_addr == addr[0] for client_addr in Client.clients.keys()):
+        #     client = Client(self.callbacks, addr[0])
+        #     client.buffer_size = self.config.server_buffer_size
+        #     logging.info("New client")
+        # else:
+        #     client = Client.clients[addr[0]]
+        #     client.close(True)  # to ensure in unregistering
+        #     logging.info("Reconnected client")
+        # self.sel.register(conn, selectors.EVENT_READ, data=client)
+        # client.connect(self.sel, conn, addr)
 
 class Client(messaging.ConnectionManager):
-    clients = {}
-
     on_connect = None  # Use as callback functions
     on_first_connect = None
     on_disconnect = None
@@ -237,7 +239,6 @@ class Client(messaging.ConnectionManager):
         self.clover_dir = None
         self.connected = False
 
-        self.clients[ip] = self
 
     @staticmethod
     def get_by_id(copter_id):
@@ -280,13 +281,6 @@ class Client(messaging.ConnectionManager):
         if self.on_disconnect:
             self.on_disconnect(self)
 
-        if inner:
-            super()._close()
-        else:
-            super().close()
-
-        logging.info("Connection to {} closed!".format(self.copter_id))
-
     def remove(self):
         if self.connected:
             self.close()
@@ -298,9 +292,6 @@ class Client(messaging.ConnectionManager):
 
         logging.info("Client {} successfully removed!".format(self.copter_id))
 
-    @requires_connect
-    def _send(self, data):
-        super()._send(data)
         logging.debug("Queued data to send (first 256 bytes): {}".format(data[:256]))
 
     @staticmethod
@@ -319,28 +310,16 @@ class Client(messaging.ConnectionManager):
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
-        format="%(asctime)s [%(name)-7.7s] [%(threadName)-19.19s] [%(levelname)-7.7s]  %(message)s",
+        format="%(asctime)s [%(name)-7.7s] [%(module)-19.19s] [%(levelname)-7.7s]  %(message)s",
         handlers=[
             logging.FileHandler(os.path.join(log_path, "{}.log".format(now))),
             logging.StreamHandler()
         ])
 
+    # print(messaging.get_ip_address())
+
     server = Server()
-    loop = asyncio.get_event_loop()
-    loop.set_debug(True)
-    print(loop)
+    server.serve_forever()
 
-    try:
-        loop.run_until_complete(server.run())
-        #loop.run_until_complete(asyncio.sleep(4))
-        #loop.run_until_complete(server.stop())
-        loop.run_forever()
-        print(3)
-    finally:
-        loop.run_until_complete(server.stop("hey"))
-
-        print(1)
-    print(4)
-    #
 
 

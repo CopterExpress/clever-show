@@ -14,9 +14,6 @@ import platform
 import traceback
 import collections
 
-from contextlib import closing
-
-
 class Namespace:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -33,6 +30,8 @@ class PendingRequest(Namespace): pass
 
 logger = logging.getLogger(__name__)
 
+def str_peername(peername):
+    return f"{peername[0]}:{peername[1]}"
 
 def get_ip_address():
     """
@@ -40,14 +39,17 @@ def get_ip_address():
 
     Returns:
         string: IP address of current computer or `localhost` if no network connection present
-    """    
+    """
+    ip_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # TODO IPv6
     try:
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as ip_socket:
-            ip_socket.connect(("8.8.8.8", 80))
-            return ip_socket.getsockname()[0]
-    except OSError:
-        logger.warning("No network connection detected, using localhost")
-        return "localhost"
+        ip_socket.connect(("8.8.8.8", 80))
+        ip = ip_socket.getsockname()[0]
+    except OSError as e:
+        logging.warning(f"No network connection detected, using localhost: {e}")
+        ip = "localhost"
+    finally:
+        ip_socket.close()
+    return ip
 
 
 def get_ntp_time(ntp_host, ntp_port):
@@ -125,8 +127,6 @@ class BroadcastProtocol:
             self.closed.set_result(True)
 
     def datagram_received(self, data, addr):
-        logging.info(data)
-
         message = MessageManager(data)
         message.process_message()
         content = message.content
@@ -136,6 +136,7 @@ class BroadcastProtocol:
         if is_ip_broadcast:
             logging.debug(f"Got broadcast message from {addr}: {content}")
             asyncio.get_event_loop().call_soon(self._on_broadcast, message)
+            self.transport.close()
         else:
             logging.warning(f"Got wrong broadcast message from {addr}")
 
@@ -379,44 +380,59 @@ class CallbackManager:
 
 class PeerProtocol(asyncio.Protocol):
     def __init__(self, parent, callbacks):
-        # self._parent = parent
+        self._parent = parent
         self._callbacks = callbacks
 
         self._recv_buffer = bytearray()
         self._current_msg = None
-        self._recv_msg_queue = asyncio.Queue
+        self._msg_queue = asyncio.Queue()
+
+        loop = asyncio.get_event_loop()
+        self.closed: asyncio.Future = loop.create_future()
+
+    @property
+    def peername(self):
+        return self.transport.get_extra_info('peername')
+
+    @property
+    def connected(self):
+        return not self.closed.done()
 
     def connection_made(self, transport):
         self.transport = transport
+        logging.info(f"Connected to {str_peername(self.peername)}")
 
-        peername = transport.get_extra_info('peername')
-        print(peername)
         # self._resend_requests()
-
 
     def data_received(self, data):
         self._recv_buffer += data
+        logger.debug("Received {} bytes from {}".format(len(data), self.peername))
 
-    def _proceess_received(self):
+    async def _proceess_received(self):
         while self._recv_buffer:
-            # add new message object if queue is empty or last message already processed
             if self._current_msg is None:
-                self._current_msg = MessageManager()
+                self._current_msg = MessageManager(self._recv_buffer)
+            else:
+                self._current_msg.set_buffer(self._recv_buffer)
 
-            #self._recv_buffer.
-            last_message.process_message()
+            self._current_msg.process_message()
 
-            # if something left after processing message - put it back
-            if last_message.content is not None and last_message.income_raw:
-                self._recv_buffer = last_message.income_raw + self._recv_buffer
-                last_message.income_raw = b''
+            if self._current_msg.processed:
+                #self._recv_buffer =
+                await self._msg_queue.put(self._current_msg)
+                self._current_msg = None
 
-            if self._received_queue and last_message.content is not None:
-                self.process_received(self._received_queue.popleft())
+            # if last_message.content is not None and last_message.income_raw:
+            #     self._recv_buffer = last_message.income_raw + self._recv_buffer
+            #     last_message.income_raw = b''
+            #
+            # if self._received_queue and last_message.content is not None:
+            #     self.process_received(self._received_queue.popleft())
 
     def connection_lost(self, exc):
-        pass
-    #        logger.info("Closing connection to {}".format(self.addr))
+        logger.info(f"Lost connection to {str_peername(self.peername)}: {'closed' if exc is None else exc}")
+        if not self.closed.done():
+            self.closed.set_result(True)
 
 
 class ConnectionManager:
@@ -446,15 +462,6 @@ class ConnectionManager:
         """
         self.callbacks = callbacks
 
-        self.selector = None
-        self.socket = None
-        self.addr = None
-
-        self._should_close = False
-
-        self._recv_buffer = b""
-        self._send_buffer = b""
-
         self.whoami = whoami
 
 
@@ -465,26 +472,6 @@ class ConnectionManager:
             self._received_queue.clear()
             self._send_queue.clear()
 
-
-
-    def read(self):
-        self._read()
-
-
-    def _read(self):
-        try:
-            data = self.socket.recv(self.buffer_size)
-        except io.BlockingIOError:
-            # Resource temporarily unavailable (errno EWOULDBLOCK)
-            pass
-        else:
-            if data:
-                self._recv_buffer += data
-                logger.debug("Received {} bytes from {}".format(len(data), self.addr))
-            else:
-                logger.warning("Connection to {} lost!".format(self.addr))
-
-                raise RuntimeError("Peer closed.")
 
     def process_received(self, message):
         message_type = message.jsonheader["message-type"]
@@ -587,39 +574,7 @@ class ConnectionManager:
                 logger.info("Return rights to pi:pi after file transfer")
                 os.system("chown pi:pi {}".format(filepath))
 
-    def write(self):
-        with self._send_lock:
-            if (not self._send_buffer) and self._send_queue:
-                message = self._send_queue.popleft()
-                self._send_buffer += message
-        if self._send_buffer:
-            self._write()
-        else:
             self._set_selector_events_mask('r')  # we're done writing
-
-    def _write(self):
-        try:
-            sent = self.socket.send(self._send_buffer[:self.buffer_size])
-        except io.BlockingIOError:
-            # Resource temporarily unavailable (errno EWOULDBLOCK)
-            pass
-        except Exception as error:
-            logger.warning(
-                "Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
-
-            raise error
-        else:
-            self._send_buffer = self._send_buffer[sent:]
-            left = len(self._send_buffer)
-            logger.debug("Sent message to {}: sent {} bytes, {} bytes left.".format(self.addr, sent, left))
-
-    def _send(self, data):
-        with self._send_lock:
-            self._send_queue.append(data)
-
-        if self.selector.get_key(self.socket).events != selectors.EVENT_WRITE:
-            self._set_selector_events_mask('rw')
-            NotifierSock().notify()
 
     def get_response(self, requested_value, callback,  # timeout=30,
                      request_args=(), request_kwargs=None,
@@ -691,7 +646,6 @@ class ConnectionManager:
                           callback_args=callback_args, callback_kwargs=callback_kwargs)
 
     def _resend_requests(self):
-        with self._request_lock:
             for request_id, request in self._request_queue.items():  # TODO filter
                 if request.resend:
                     self._send(MessageManager.create_request(
