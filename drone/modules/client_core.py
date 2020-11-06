@@ -24,9 +24,7 @@ class ServerPeer(messaging.PeerProtocol):
     def connection_lost(self, exc):
         super().connection_lost(exc)
         if exc is not None:
-            loop = asyncio.get_event_loop()
-            loop.call_soon(self._parent.reconnect)
-            self._parent._server_connection = None
+            self._parent.reconnect()
 
 class Client:
     """
@@ -53,7 +51,7 @@ class Client:
 
         self.callbacks = messaging.CallbackManager()
 
-        self._server_connection: messaging.PeerProtocol = None
+        self._server_connection: ServerPeer = None
 
         self.client_id = None
 
@@ -68,7 +66,9 @@ class Client:
 
     @property
     def connected(self):
-        return self._server_connection is not None
+        if self._server_connection is None:
+            return False
+        return self._server_connection.is_connected
 
     def load_config(self):
         """
@@ -102,7 +102,7 @@ class Client:
         return timenow
 
     def serve_forever(self):
-        asyncio.run(self.run(serve_forever=True))
+        asyncio.run(self.run(serve_forever=True), debug=True)
 
     async def run(self, serve_forever=False):
         """
@@ -116,15 +116,22 @@ class Client:
         self.load_config()
         self.register_callbacks()
 
+        self._server_connection = ServerPeer(self, self.callbacks)
+
         logger.info(f"Starting client with id: '{self.client_id}' on '{socket.gethostname()}'"
                     f" ({messaging.get_ip_address()})")
 
         self.reconnect()
+        await self._server_connection.connected
+        self._server_connection.send_message("hi", args=(1, 2), kwargs={'k': 4})
 
         if serve_forever:
             await self._stopped
 
     async def stop(self, reason: str=''):
+        if self._stopped.done():
+            logging.error("Client is already stopped")
+            return
         if self._stopping.done():
             logging.error("Client is already stopping")
             return
@@ -151,10 +158,9 @@ class Client:
             logger.warning("Reconnection task is already running")
 
         logger.info("Starting reconnection task")
-        loop = asyncio.get_event_loop()
-        self._reconnect_task = loop.create_task(self._reconnect())  # todo args
+        self._reconnect_task = asyncio.create_task(self._reconnect())  # todo args
 
-    async def _reconnect(self, attempt_limit=3, timeout=20):
+    async def _reconnect(self, attempt_limit=3, timeout=10):
         logger.info(f"Reconnection task started")
 
         try:
@@ -166,29 +172,27 @@ class Client:
                     if self.connected:
                         return
                 else:
-                    logger.info("Too many attempts. Trying to get new server IP")
+                    logger.warning("Too many attempts. Trying to get new server IP")
                     await self._broadcast_listen(timeout)
+        except Exception as e:
+            print(e, 1, e.args, e, type(e))
         finally:
-            logging.info("Reconnection task stopped")
             self._reconnect_task = None
+            logger.info("Reconnection task stopped")
 
     async def _connect(self):
         loop = asyncio.get_event_loop()
 
         try:
-            transport, protocol = await loop.create_connection(lambda: ServerPeer(self, self.callbacks),
+            transport, protocol = await loop.create_connection(lambda: self._server_connection,
                                                                host=self.config.server_host,
                                                                port=self.config.server_port,
                                                                )
-
         except OSError as e:
             logger.error(f"Cannot connect to server due error: {e}")
-            self._server_connection = None
         else:
-            logger.info("Connection to server successful!")
-
             messaging.set_keepalive(transport.get_extra_info('socket'))
-            self._server_connection = protocol
+            logger.info("Connection to server successful")
 
     async def _broadcast_listen(self, listen_timeout=None):
         logging.info("Broadcast listener started")
@@ -291,7 +295,7 @@ if __name__ == "__main__":
                       ('git_version', '42aee96'), ('calibration_status', None), ('start_position', [0.2, 0.2, 0.0]),
                       ('mode', 'MANUAL'), ('time_delta', 1581342970.889573), ('armed', False),
                       ('config_version', 'Copter config V0.0'), ('last_task', 'No task')])
-            if active_client.connected:
+            if active_client.wait_connected:
                 active_client.server_connection.send_message("telemetry", kwargs={"value": t})
 
 

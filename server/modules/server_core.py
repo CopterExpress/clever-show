@@ -8,7 +8,7 @@ import random
 import logging
 import datetime
 import collections
-import traceback
+# import traceback
 
 # Add parent dir to PATH to import messaging_lib and config_lib
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.realpath(os.path.join(current_dir, os.pardir, os.pard
 
 # Import modules from lib dir
 import lib.messaging as messaging
+import lib.asyncio_mod
 from lib.config import ConfigManager
 
 random.seed()
@@ -58,6 +59,11 @@ class Server:
     def load_config(self):
         self.config.load_config_and_spec(self.config_path)
 
+    def _protocol_factory(self, addr):  # protocol call was modded in factory call (in asyncio-mod)
+        logging.debug(f"Got connection from {messaging.str_peername(addr)}")
+        instance = self._clients.get(addr[0], messaging.PeerProtocol(self, self.callbacks))
+        return instance
+
     async def run(self, wait_closed: bool=False):
         if self.time_started is not None:
             logger.warning("Server is already running, restarting")
@@ -81,7 +87,7 @@ class Server:
 
         logging.info(f"Starting server with id: '{self.id}' on '{self.host}' ({self.ip})")
 
-        self._tcp_server = await loop.create_server(lambda: messaging.PeerProtocol(self, self.callbacks),
+        self._tcp_server = await loop.create_server(self._protocol_factory,
                                                     port=self.config.server_port,
                                                     reuse_address=True,
                                                     start_serving=False)
@@ -96,9 +102,12 @@ class Server:
             await self._stopped
 
     def serve_forever(self):
-        asyncio.run(self.run(wait_closed=True))
+        asyncio.run(self.run(wait_closed=True), debug=True)
 
     async def stop(self, reason: str=''):
+        if self._stopped.done():
+            logging.error("Server is already stopped")
+            return
         if self._stopping.done():
             logging.error("Server is already stopping")
             return
@@ -197,7 +206,7 @@ class Server:
 
 def requires_connect(f):
     def wrapper(*args, **kwargs):
-        if args[0].connected:
+        if args[0].wait_connected:
             return f(*args, **kwargs)
         logging.warning("Function requires client to be connected!")
 
@@ -298,7 +307,7 @@ class Client(messaging.ConnectionManager):
     @requires_any_connected
     def broadcast(message, force_all=False):
         for client in Client.clients.values():
-            if client.connected or force_all:
+            if client.wait_connected or force_all:
                 client._send(message)
 
     @classmethod

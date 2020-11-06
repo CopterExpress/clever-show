@@ -5,6 +5,7 @@ import io
 import os
 import sys
 import json
+import time
 import socket
 import struct
 import random
@@ -13,6 +14,7 @@ import logging
 import platform
 import traceback
 import collections
+
 
 class Namespace:
     def __init__(self, **kwargs):
@@ -30,10 +32,12 @@ class PendingRequest(Namespace): pass
 
 logger = logging.getLogger(__name__)
 
+
 def str_peername(peername):
     return f"{peername[0]}:{peername[1]}"
 
-def get_ip_address():
+
+def get_ip_address():  # dodo async
     """
     Returns the IP address of current computer or `localhost` if no network connection present.
 
@@ -83,9 +87,9 @@ def set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
 
     Raises:
         NotImplementedError: for unknown platform.
-    """     
+    """
     current_platform = platform.system()  # could be empty
-    
+
     if current_platform == "Linux":
         return _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails)
     if current_platform == "Windows":
@@ -95,14 +99,17 @@ def set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
 
     raise NotImplementedError
 
+
 def _set_keepalive_linux(sock, after_idle_sec, interval_sec, max_fails):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
 
+
 def _set_keepalive_windows(sock, after_idle_sec, interval_sec):
-    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec*1000, interval_sec*1000))
+    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, after_idle_sec * 1000, interval_sec * 1000))
+
 
 def _set_keepalive_osx(sock, interval_sec):
     TCP_KEEPALIVE = 0x10
@@ -114,8 +121,11 @@ class BroadcastProtocol:
     def __init__(self, on_broadcast):
         self._on_broadcast = on_broadcast
 
-        loop = asyncio.get_event_loop()
-        self.closed: asyncio.Future = loop.create_future()
+        self._closed = asyncio.Event()
+
+    @property
+    def closed(self):
+        return self._closed.wait()
 
     def connection_made(self, transport):
         self.transport = transport
@@ -123,8 +133,7 @@ class BroadcastProtocol:
 
     def connection_lost(self, exc):
         logging.info(f"Broadcast connection lost: {'closed' if exc is None else exc}")
-        if not self.closed.done():
-            self.closed.set_result(True)
+        self._closed.set()
 
     def datagram_received(self, data, addr):
         message = MessageManager(data)
@@ -143,8 +152,10 @@ class BroadcastProtocol:
     def error_received(self, exc):
         logging.warning(f"Error on broadcast connection received: {exc}")
 
+
 class BroadcastSendProtocol:
     pass
+
 
 class MessageManager:
     """
@@ -162,6 +173,7 @@ class MessageManager:
         jsonheader (dict): Headers dictionary with information about message encoding and purpose. Would be populated when receiving and processing of the json header will be completed.
         content (object): Would be populated when receiving and processing of the message will be completed. Defaults to None.
     """
+
     def __init__(self, data):
         """
         ```python
@@ -337,6 +349,9 @@ class MessageManager:
     def get_buffer(self):
         return self._income_raw
 
+    def reset_buffer(self):
+        self._income_raw = None
+
     def process_message(self):
         """
         Attempts processing the message. Chunks of `income_raw` would be consumed as different parts of the message will be processed. The result of processing (body of the message) will be available at `content` and `jsonheader`.
@@ -351,9 +366,11 @@ class MessageManager:
         if self.jsonheader:
             if not self.processed:
                 self._process_content()
+
     @property
     def processed(self):
         return self.content is not None
+
 
 class CallbackManager:
     def __init__(self):
@@ -370,6 +387,7 @@ class CallbackManager:
             d[key] = f
             logger.debug("Registered callback function {} for {}".format(f, key))
             return f
+
         return inner
 
     def action_callback(self, key):
@@ -378,35 +396,61 @@ class CallbackManager:
     def request_callback(self, key):
         return self._register_function(self.request_callbacks, key)
 
+
 class PeerProtocol(asyncio.Protocol):
     def __init__(self, parent, callbacks):
         self._parent = parent
         self._callbacks = callbacks
 
+        self.transport = None
+
         self._recv_buffer = bytearray()
         self._current_msg = None
         self._msg_queue = asyncio.Queue()
 
-        loop = asyncio.get_event_loop()
-        self.closed: asyncio.Future = loop.create_future()
+        self._connected = asyncio.Event()
+        self._closed = asyncio.Event()
+        self._closed.set()
 
     @property
     def peername(self):
         return self.transport.get_extra_info('peername')
 
     @property
+    def is_connected(self):
+        return self._connected.is_set()
+
+    @property
     def connected(self):
-        return not self.closed.done()
+        return self._connected.wait()
+
+    @property
+    def closed(self):
+        return self._closed.wait()
 
     def connection_made(self, transport):
         self.transport = transport
         logging.info(f"Connected to {str_peername(self.peername)}")
 
+        self._connected.set()
+        self._closed.clear()
+
         # self._resend_requests()
+
+    def connection_lost(self, exc):
+        logger.info(f"Lost connection to {str_peername(self.peername)}: {'closed' if exc is None else exc}")
+        self._connected.clear()
+        self._closed.set()
+
+    def error_received(self, exc):
+        logging.warning(f"Error on broadcast connection received: {exc}")
 
     def data_received(self, data):
         self._recv_buffer += data
         logger.debug("Received {} bytes from {}".format(len(data), self.peername))
+        logger.debug(f'{data}, {self._recv_buffer}')
+
+        asyncio.create_task(self._proceess_received())
 
     async def _proceess_received(self):
         while self._recv_buffer:
@@ -416,23 +460,37 @@ class PeerProtocol(asyncio.Protocol):
                 self._current_msg.set_buffer(self._recv_buffer)
 
             self._current_msg.process_message()
+            self._recv_buffer = bytearray(self._current_msg.get_buffer())
+            # self._current_msg.reset_buffer()
 
             if self._current_msg.processed:
-                #self._recv_buffer =
+                logging.info(self._current_msg.content)
                 await self._msg_queue.put(self._current_msg)
                 self._current_msg = None
+            else:
+                await asyncio.sleep(0)
 
-            # if last_message.content is not None and last_message.income_raw:
-            #     self._recv_buffer = last_message.income_raw + self._recv_buffer
-            #     last_message.income_raw = b''
-            #
-            # if self._received_queue and last_message.content is not None:
-            #     self.process_received(self._received_queue.popleft())
+    # Sending api functions
 
-    def connection_lost(self, exc):
-        logger.info(f"Lost connection to {str_peername(self.peername)}: {'closed' if exc is None else exc}")
-        if not self.closed.done():
-            self.closed.set_result(True)
+    def _send(self, msg):
+        if not self.is_connected:
+            logger.error("Peer is disconnected, can't send")
+            return
+
+        self.transport.write(msg[:10])
+        time.sleep(0.5)
+        self.transport.write(msg[10:])
+
+    def send_message(self, action, args=(), kwargs=None):
+        """
+        Sends to peer message with specified action,  arguments and keyword arguments.
+
+        Args:
+            action (str): action(command) to perform upon receiving. Should correspond with `action_string` of function registered in `message_callback()` on the peer.
+            args (tuple, optional): Arguments for the command. Defaults to ().
+            kwargs (dict, optional): Keyword arguments for the command. Defaults to None.
+        """
+        self._send(MessageManager.create_action_message(action, args, kwargs))
 
 
 class ConnectionManager:
@@ -464,7 +522,6 @@ class ConnectionManager:
 
         self.whoami = whoami
 
-
     def _clear(self):
         if not self.resume_queue:  # maybe needs locks
             self._recv_buffer = b''
@@ -472,10 +529,9 @@ class ConnectionManager:
             self._received_queue.clear()
             self._send_queue.clear()
 
-
     def process_received(self, message):
         message_type = message.jsonheader["message-type"]
-        content = message.content if message.jsonheader["content-type"] != "binary"\
+        content = message.content if message.jsonheader["content-type"] != "binary" \
             else message.content[:256]
         logger.debug(
             "Received message! Header: {}, content: {}".format(message.jsonheader, content))
@@ -646,23 +702,12 @@ class ConnectionManager:
                           callback_args=callback_args, callback_kwargs=callback_kwargs)
 
     def _resend_requests(self):
-            for request_id, request in self._request_queue.items():  # TODO filter
-                if request.resend:
-                    self._send(MessageManager.create_request(
-                        request.requested_value, request_id, request.request_kwargs.update(resend=request.resend))
-                    )
-                    request.resend = False
-
-    def send_message(self, action, args=(), kwargs=None):
-        """
-        Sends to peer message with specified action,  arguments and keyword arguments.
-
-        Args:
-            action (str): action(command) to perform upon receiving. Should correspond with `action_string` of function registered in `message_callback()` on the peer.
-            args (tuple, optional): Arguments for the command. Defaults to ().
-            kwargs (dict, optional): Keyword arguments for the command. Defaults to None.
-        """
-        self._send(MessageManager.create_action_message(action, args, kwargs))
+        for request_id, request in self._request_queue.items():  # TODO filter
+            if request.resend:
+                self._send(MessageManager.create_request(
+                    request.requested_value, request_id, request.request_kwargs.update(resend=request.resend))
+                )
+                request.resend = False
 
     def _send_response(self, requested_value, request_id, value, filetransfer=False):
         self._send(MessageManager.create_response(requested_value, request_id, value, filetransfer))
@@ -683,4 +728,5 @@ class ConnectionManager:
         else:
             logger.info("Sending file {} to {} (as: {})".format(filepath, self.addr, dest_filepath))
             self._send(MessageManager.create_message(data, "binary", "message",
-                       additional_headers={"action": "filetransfer", "filepath": dest_filepath}))
+                                                     additional_headers={"action": "filetransfer",
+                                                                         "filepath": dest_filepath}))
