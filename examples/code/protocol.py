@@ -13,9 +13,25 @@ logging.basicConfig(
 
 async def server():
     loop = asyncio.get_event_loop()
+    clients = asyncio.Queue()
 
-    server = await loop.create_server(lambda: p.PeerProtocol(None, None), host='', port=8181)
+    def factory(*args):
+        protocol = p.PeerProtocol()
+        clients.put_nowait(protocol)
+        return protocol
 
+    server = await loop.create_server(factory, host='', port=8181)
+
+    client1 = await clients.get()
+    await client1.connected
+    msg = await client1.receive_message()
+    print(msg.header, msg.content)
+
+    msg = messages.PendingMessage(msg.content + " from server")
+    await msg.send_to(client1)
+
+    await client1.closed
+    server.close()
     await server.wait_closed()
 
 async def client():
@@ -23,9 +39,11 @@ async def client():
 
     transport, protocol = await loop.create_connection(lambda: p.PeerProtocol(None, None),
                                                        host='', port=8181)
-    await protocol.send(messages.Request("greetings"))
 
-    await protocol.closed
+    await protocol.send(messages.PendingMessage("greetings"))
+    print((await protocol.receive_message()).content)
+
+    await protocol.close()
 
 async def main():
     s = asyncio.create_task(server())

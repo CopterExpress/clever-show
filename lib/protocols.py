@@ -5,8 +5,9 @@ import messages
 import exceptions
 
 from network import str_peername
+from utils import Callback
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("protocols")
 
 
 class BroadcastProtocol:
@@ -29,7 +30,7 @@ class BroadcastProtocol:
         self._closed.set()
 
     def datagram_received(self, data, addr):
-        message = message.MessageDecoder(data)
+        message = messages.MessageDecoder(data)
         message.process_message()
         content = message.content
 
@@ -46,8 +47,10 @@ class BroadcastProtocol:
         logger.warning(f"Error on broadcast connection received: {exc}")
 
 class PeerProtocol(asyncio.Protocol):
-    def __init__(self, connected_callback, callbacks):
-        self._callbacks = callbacks
+    def __init__(self, connected_callback=None, disconnected_callback=None, message_callback=None):
+        self.connected_callback = Callback(connected_callback)
+        self.disconnected_callback = Callback(disconnected_callback)
+        self.message_callback = Callback(message_callback)
 
         self.transport: asyncio.Transport = None
 
@@ -83,6 +86,10 @@ class PeerProtocol(asyncio.Protocol):
     def closed(self):
         return self._closed.wait()
 
+    async def close(self):
+        self.transport.close()
+        await self.closed
+
     # Drain control
 
     def pause_writing(self) -> None:
@@ -94,7 +101,7 @@ class PeerProtocol(asyncio.Protocol):
     async def drain(self) -> None:
         await self._can_write.wait()
 
-    async def send(self, msg: messages.PendingMessage):
+    async def send(self, msg: messages.AbstractPendingMessage):
         if not self.is_connected:  # and not send_disconnected
             msg.sent.cancel("Peer is disconnected, can't send")
             raise RuntimeError("Peer is disconnected, can't send")
@@ -110,7 +117,7 @@ class PeerProtocol(asyncio.Protocol):
         while self.is_connected:
             msg = None
             try:
-                msg: messages.PendingMessage = await self._send_queue.get()
+                msg: messages.AbstractPendingMessage = await self._send_queue.get()
                 self.transport.write(msg.encode())
                 await self.drain()
             except asyncio.CancelledError:
@@ -130,6 +137,8 @@ class PeerProtocol(asyncio.Protocol):
 
         self._can_write.set()
 
+        self.connected_callback(self)
+
     def connection_lost(self, exc):
         logger.info(f"Lost connection to {str_peername(self.peername)}: {'closed' if exc is None else exc}")
         self._connected.clear()
@@ -148,6 +157,8 @@ class PeerProtocol(asyncio.Protocol):
 
         self._recv_buffer = bytearray()
         self._current_msg = None
+
+        self.disconnected_callback(self)
 
     def error_received(self, exc):
         logger.warning(f"Error on {str_peername(self.peername)} connection received: {exc}")
@@ -171,8 +182,11 @@ class PeerProtocol(asyncio.Protocol):
                 self._recv_buffer = self._current_msg.get_buffer()
                 # self._current_msg.reset_buffer()
                 if self._current_msg.processed:
-                    logger.debug(f"Recieved message {self._current_msg.content} from {str_peername(self.peername)}")
-                    await self._recv_queue.put(self._current_msg)
+                    logger.debug(f"Received message {self._current_msg.content} from {str_peername(self.peername)}")
+
+                    put_msg = self.message_callback.gather_bool(self, self._current_msg)
+                    if put_msg:
+                        await self._recv_queue.put(self._current_msg)
                     self._current_msg = None
                 else:
                     await asyncio.sleep(0)

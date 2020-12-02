@@ -45,6 +45,7 @@ class ContentTypes:
     ENCODED = "encoded"
 
 class MessageTypes:
+    MESSAGE = "message"
     REQUEST = "request"
     RESPONSE = "response"
 
@@ -159,11 +160,14 @@ class MessageDecoder:
 class MessageEncoder:
     def __init__(self, codec=default_codec):
         self.chain_id = None
-
         self.codec = codec
 
-    def encode(self, *args, **kwargs):
-        return self.encode_raw_message(*args, **kwargs)
+    def set_chain_id(self, chain_id=None):
+        if chain_id is None:
+            if self.chain_id is None:
+                self.chain_id = uuid.uuid4().hex
+        else:
+            self.chain_id = chain_id
 
     def encode_raw_message(self, content: bytes, content_type, message_type, chain_id=None, additional_headers=None):
         """Returns encoded message in bytes. It is recommended use other encoding functions for general purposes.
@@ -177,19 +181,21 @@ class MessageEncoder:
         Returns:
             bytes: encoded message
         """
+        # if chain_id is None:
+        #     if self.chain_id is not None:
+        #         chain_id = self.chain_id
+        #     else:
+        #         chain_id = uuid.uuid4().hex
+        # else:
+        #     self.chain_id = chain_id
+        self.set_chain_id(chain_id)
 
-        if chain_id is None:
-            chain_id = uuid.uuid4().int
-        elif self.chain_id is not None:
-            chain_id = self.chain_id
-        else:
-            self.chain_id = chain_id
 
         header = {
             "content-length": len(content),
             "content-type": content_type,
             "message-type": message_type,
-            "chain-id": chain_id
+            "chain-id": self.chain_id
         }
         if additional_headers:
             header.update(additional_headers)
@@ -256,7 +262,7 @@ class MessageEncoder:
     #                                  "response", additional_headers=headers)
     #     return message
 
-class PendingMessage(MessageEncoder):
+class AbstractPendingMessage(MessageEncoder):
     def __init__(self, codec=default_codec):
         super().__init__(codec)
         self._sent = asyncio.Future()
@@ -265,24 +271,44 @@ class PendingMessage(MessageEncoder):
     def sent(self):
         return self._sent
 
-    async def send(self, connection):
-        if self._sent:
+    async def send_to(self, connection):
+        if self._sent.done():
             raise RuntimeError("This message was already sent, create another one")
-        return connection.send(self)
-
-class Response(PendingMessage):
-    def __init__(self, chain_id, result, type, codec=default_codec):
-        super().__init__(codec)
-
-        self._chain_id = chain_id
-        self._result = result
+        return await connection.send(self)
 
     def encode(self):
-        contents = {"value": self._result}
-        return self.encode_message(contents, MessageTypes.RESPONSE, chain_id=self._chain_id)
+        raise NotImplementedError
+
+class PendingMessage(AbstractPendingMessage):
+    def __init__(self, content, encode_content=True, codec=default_codec):
+        super().__init__(codec)
+        self._content = content
+        self.encode_content = encode_content
+
+    def encode(self):
+        if self.encode_content:
+            content = self.codec.encode(self._content)
+            content_type = ContentTypes.ENCODED
+        else:
+            content = self._content
+            content_type = ContentTypes.BINARY
+        return self.encode_raw_message(content, content_type, MessageTypes.MESSAGE)
 
 
-class Request(PendingMessage):
+class Response(AbstractPendingMessage):
+    def __init__(self, chain_id, result, response_type, codec=default_codec):
+        super().__init__(codec)
+
+        self.chain_id = chain_id
+        self._result = result
+        self._type = response_type
+
+    def encode(self):
+        return self.encode_message(self._result, MessageTypes.RESPONSE, # chain_id=self.chain_id,
+                                   additional_headers={"response-type": self._type})
+
+
+class Request(AbstractPendingMessage):
     def __init__(self, name, args=(), kwargs=None, callback=None, codec=default_codec):
         super().__init__(codec)
 
@@ -295,10 +321,23 @@ class Request(PendingMessage):
 
         self.callback = callback
         self._response = asyncio.Future()
+        #self.responses ?
+
+        self._progress = float('nan')
+        self._got_progress = asyncio.Future()
 
     @property
     def response(self):
         return self._response
+
+    @property
+    async def progress(self):
+        await self._got_progress
+        return self._progress
+
+    @progress.setter
+    def progress(self, value):
+        pass
 
     def encode(self):
         contents = {"name": self._name,
@@ -325,7 +364,7 @@ class RequestBatch:
 
     async def send(self):
         for connection, request in self._request_dict.items():
-            connection.send(request)
+            connection.send_to(request)
 
     @property
     def request_dict(self):
@@ -345,11 +384,40 @@ class ReceivedRequest:
         self.connection = connection
         self.message: MessageDecoder = message
 
+    @property
+    def name(self):
+        return self.message.content["name"]
+
+    @property
+    def args(self):
+        return self.message.content.get("args", list())
+
+    @property
+    def kwargs(self):
+        return self.message.content.get("kwargs", dict())
+
+    async def send(self, reply: Response):
+        await self.connection.protocol.send(reply)
+        await reply.sent
+
     async def reply(self, data):
-        reply = Response(self.message.chain_id)
+        reply = Response(self.message.chain_id, data, ResponseTypes.RESULT)
+
+        await self.send(reply)
+        return reply
 
     async def reply_processing(self, progress: float=0):
-        progress = max(0, min(1, progress))
+        progress = max(0.0, min(1.0, progress))
+        #contents = {"progress": progress}
+        reply = Response(self.message.chain_id, progress, ResponseTypes.RESULT)
+
+        await self.send(reply)
+        return reply
 
     async def reply_error(self, err: Exception):
-        pass
+        #contents = {"error": err}
+        reply = Response(self.message.chain_id, err, ResponseTypes.ERROR)
+
+        await self.send(reply)
+        return reply
+

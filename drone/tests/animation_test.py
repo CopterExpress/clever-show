@@ -7,7 +7,7 @@ import logging
 
 logging.basicConfig(  # TODO all prints as logs
     level=logging.DEBUG,  # INFO
-    stream=sys.stdout,
+#    stream=sys.stdout,
     format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),

@@ -14,10 +14,7 @@ def modify_filename(path, pattern):  # TODO move to core
 
 
 def parent_path(path, levels=1):
-    for i in range(levels):
-        path = os.path.abspath(os.path.join(path, os.pardir))
-    return path
-
+    return os.path.realpath(os.path.join(path, *[os.pardir for _ in range(levels)]))
 
 def parent_dir(path):
     return os.path.basename(os.path.normpath(path))
