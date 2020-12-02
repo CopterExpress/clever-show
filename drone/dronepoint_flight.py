@@ -21,9 +21,10 @@ logging.basicConfig(
 
 
 @messaging.message_callback("dronepoint")
-def dronepoint_callback(connection, dronepoint_id=None):
+def dronepoint_callback(connection, dronepoint_id=None, container_id=None):
     # this function only called after receiving "dronepoint" message from the server
-    logging.info("Dronepoint_id: {}".format(dronepoint_id))  # dronepoint_id - int
+    # dronepoint_id and container_id are ints
+    logging.info("Dronepoint_id: {}; Container_id: {}".format(dronepoint_id, container_id))
     # your code goes here
 
 

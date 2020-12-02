@@ -642,8 +642,12 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def dronepoint_command(self):
         dronepoint_id = random.randint(1, 2)
-        logging.info(f"Dronepoint_id: {dronepoint_id}")
-        self.send_to_selected("dronepoint", command_kwargs={"dronepoint_id": dronepoint_id})
+        container_id = random.randint(1, 3)
+        logging.info(f"Dronepoint_id: {dronepoint_id}; Container_id: {container_id}")
+        self.send_to_selected("dronepoint", command_kwargs={
+            "dronepoint_id": dronepoint_id,
+            "container_id": container_id,
+        })
 
     def register_callbacks(self):
         @messaging.message_callback("telemetry")
