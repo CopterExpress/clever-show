@@ -3,6 +3,7 @@ import re
 import sys
 import glob
 import time
+import random
 import logging
 import asyncio
 import platform
@@ -37,6 +38,7 @@ from modules.visual_land_dialog import VisualLandDialog
 from modules.config_editor_models import ConfigDialog
 
 startup_cwd = os.getcwd()
+random.seed()
 
 def multi_glob(*patterns):
     return itertools.chain.from_iterable(glob.iglob(pattern) for pattern in patterns)
@@ -182,6 +184,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
 
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
+
+        menubar = self.menuBar()
+        custom_menu = menubar.addMenu('Custom')
+
+        send_dronepoint_command = QtWidgets.QAction('Dronepoint', self)
+        send_dronepoint_command.triggered.connect(self.dronepoint_command)
+        custom_menu.addAction(send_dronepoint_command)
 
     def init_table(self):
         # Remove standard table widget
@@ -629,6 +638,12 @@ class MainWindow(QtWidgets.QMainWindow):
             config.write()
 
         ConfigDialog().call_config_dialog(config, save_callback, restart, name="server config")
+
+    @pyqtSlot()
+    def dronepoint_command(self):
+        dronepoint_id = random.randint(1, 2)
+        logging.info(f"Dronepoint_id: {dronepoint_id}")
+        self.send_to_selected("dronepoint", command_kwargs={"dronepoint_id": dronepoint_id})
 
     def register_callbacks(self):
         @messaging.message_callback("telemetry")
