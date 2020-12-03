@@ -31,6 +31,5 @@ def dronepoint_callback(connection, dronepoint_id=None, container_id=None):
 if __name__ == "__main__":
     # logging.basicConfig(level=logging.DEBUG)
     client = client_core.Client()
-    client.start()
-    print("Client started")
-    # your code can go here
+    client.start()  # this function WILL block until exit! but you can put this call into thread
+    print("Client exited")
