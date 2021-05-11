@@ -641,7 +641,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @pyqtSlot()
     def dronepoint_command(self):
-        dronepoint_id = random.randint(1, 2)
+        dronepoint_id = random.randint(1, 3)
         container_id = random.randint(1, 3)
         logging.info(f"Dronepoint_id: {dronepoint_id}; Container_id: {container_id}")
         self.send_to_selected("dronepoint", command_kwargs={
