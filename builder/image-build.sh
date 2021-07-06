@@ -2,7 +2,7 @@
 
 set -e # Exit immidiately on non-zero result
 
-SOURCE_IMAGE="https://github.com/CopterExpress/clover/releases/download/v0.20/clover_v0.20.img.zip"
+SOURCE_IMAGE="https://github.com/CopterExpress/clover/releases/download/v0.21.2/clover_v0.21.2.img.zip"
 
 export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:='noninteractive'}
 export LANG=${LANG:='C.UTF-8'}
