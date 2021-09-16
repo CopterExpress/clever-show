@@ -565,6 +565,7 @@ def _command_service_restart(*args, **kwargs):
     service = kwargs["name"]
     if service=="clover":
         restart_service("clever")
+        restart_service("clover")
     if service=="clever-show":
         restart_service("clever-show@{}".format(copter.client_id))
     restart_service(service)
