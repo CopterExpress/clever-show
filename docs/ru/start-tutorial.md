@@ -12,15 +12,15 @@
 
 ПО для организации шоу коптеров состоит из 2х основных частей - серверного приложения и клиентской части, которая предоставляется в виде образа для Raspberry Pi.
 
-Актуальная версия образа на текущий момент: [v0.4-alpha.3](https://github.com/CopterExpress/clever-show/releases/tag/v0.4-alpha.3).
+Актуальная версия образа на текущий момент: [v0.4-alpha.6](https://github.com/CopterExpress/clever-show/releases/tag/v0.4-alpha.6).
 
-Скачайте на компьютер [образ для Raspberry Pi](https://github.com/CopterExpress/clever-show/releases/download/v0.4-alpha.3/clever-show_v0.4-alpha.3.img.zip) и [исходный код](https://github.com/CopterExpress/clever-show/archive/v0.4-alpha.3.zip). Разархивируйте исходный код в удобную директорию.
+Скачайте на компьютер [образ для Raspberry Pi](https://github.com/CopterExpress/clever-show/releases/download/v0.4-alpha.6/clever-show_v0.4-alpha.6.img.zip) и [исходный код](https://github.com/CopterExpress/clever-show/archive/refs/tags/v0.4-alpha.6.zip). Разархивируйте исходный код в удобную директорию.
 
 > Серверное приложение и образ для коптера должны быть одинаковой версии для их совместной работы.
 
 ## Настройка роутера
 
-Для управления одним или несколькими коптерами требуется подключение коптеров и сервера к одной сети. Для этого требуется отдельный wifi роутер с известным SSID и паролем. **SSID и пароль сети не должны содержать пробелов в названии!**
+Для управления одним или несколькими коптерами требуется подключение коптеров и сервера к одной сети. Для этого требуется отдельный wifi роутер с известным SSID и паролем. **SSID и пароль сети не должны содержать пробелов!**
 
 ## Установка и запуск клиента
 
