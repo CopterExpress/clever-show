@@ -12,7 +12,10 @@
 
 ПО для организации шоу коптеров состоит из 2х основных частей - серверного приложения и клиентской части, которая предоставляется в виде образа для Raspberry Pi.
 
-Актуальная версия образа на текущий момент: [v0.4-alpha.6](https://github.com/CopterExpress/clever-show/releases/tag/v0.4-alpha.6).
+Актуальная версия образа на текущий момент: [v0.4-alpha.6](https://github.com/CopterExpress/clever-show/releases/tag/v0.4-alpha.6). Образ основан на образе [clover v0.20](https://github.com/CopterExpress/clover/releases/tag/v0.20). **Внимание!** Для работы на Raspberry Pi 4 светодиодной ленты необходимо обновить пакет rpi_ws281x. В некоторых ревизиях Raspberry Pi 4 может наблюдаться нестабильная работа
+
+Инструкция для установки клиентского ПО clever-show на образ `clover v0.21.*` (с полной поддержкой Raspberry Pi 4) находится [здесь](clover_installation.md).
+
 
 Скачайте на компьютер [образ для Raspberry Pi](https://github.com/CopterExpress/clever-show/releases/download/v0.4-alpha.6/clever-show_v0.4-alpha.6.img.zip) и [исходный код](https://github.com/CopterExpress/clever-show/archive/refs/tags/v0.4-alpha.6.zip). Разархивируйте исходный код в удобную директорию.
 
