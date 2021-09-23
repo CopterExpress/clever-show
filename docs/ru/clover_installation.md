@@ -20,6 +20,15 @@ git clone https://github.com/CopterExpress/clever-show.git
 sudo pip install -r /home/pi/clever-show/drone/requirements.txt
 ```
 
+Установите chrony и установите конфигурацию по умолчанию:
+```bash
+sudo apt-get install -y chrony
+```
+
+```bash
+sudo cp /home/pi/clever-show/examples/chrony/client.conf /etc/chrony/chrony.conf
+```
+
 Скопируйте файлы сервисов clever-show и запустите их:
 ```bash 
 sudo cp /home/pi/clever-show/builder/assets/clever-show.service /lib/systemd/system/
@@ -30,10 +39,4 @@ sudo systemctl start clever-show.service
 sudo cp /home/pi/clever-show/builder/assets/failsafe.service /lib/systemd/system/
 sudo systemctl enable failsafe.service
 sudo systemctl start failsafe.service
-```
-
-Установите chrony и установите конфигурацию по умолчанию:
-```bash
-sudo apt-get install -y chrony
-sudo cp /home/pi/clever-show/examples/chrony/client.conf /etc/chrony/chrony.conf
 ```
