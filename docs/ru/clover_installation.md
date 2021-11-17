@@ -14,7 +14,7 @@ curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo ap
 sudo apt-get update -qq --allow-releaseinfo-change
 ```
 
-Зашрузите репозиторий clever-show и установите необходимые для клиента зависимости
+Загрузите репозиторий clever-show и установите необходимые для клиента зависимости
 ```
 git clone https://github.com/CopterExpress/clever-show.git
 sudo pip install -r /home/pi/clever-show/drone/requirements.txt
