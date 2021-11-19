@@ -153,21 +153,19 @@ def create_folder_if_does_not_exist(folder_path):
 def get_rgb_from_object(obj):
     rgb = [0, 0, 0]
     try:
-        if len(obj.material_slots) > 0:
-            print('material slots true')
-            for slot in obj.material_slots:
-                if "led_color" in slot.name.lower():
-                    print('led color')
-                    if slot.material.use_nodes:
-                        for node in slot.material.node_tree.nodes:
-                            if node.type in ('EMISSION', 'BSDF_DIFFUSE'):
-                                alpha = node.inputs[0].default_value[3]
-                                for component in range(3):
-                                    rgb[component] = int(node.inputs[0].default_value[component] * alpha * 255)
+        for slot in obj.material_slots:
+            if "led_color" in slot.name.lower():
+                print('led color', slot.name)
+                if slot.material.use_nodes:
+                    for node in slot.material.node_tree.nodes:
+                        if node.type in ('EMISSION', 'BSDF_DIFFUSE', 'BSDF_PRINCIPLED'):
+                            alpha = node.inputs[0].default_value[3]
+                            for component in range(3):
+                                rgb[component] = int(node.inputs[0].default_value[component] * alpha * 255)
                 else:
-                    print('no led color')
                     for component in range(3):
                         rgb[component] = int(slot.material.diffuse_color[component] * 255)
+                break
 
     except AttributeError:
         pass
