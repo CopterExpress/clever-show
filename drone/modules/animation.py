@@ -169,7 +169,7 @@ class Animation(object):
             self.set_state("Bad animation delay from config 'ANIMATION' section", log_error=True)
             return
         try:
-            animation_file = open(self.filepath)
+            animation_file = open(self.filepath, 'rU')
         except IOError:
             self.set_state("File {} can't be opened".format(self.filepath), log_error=True)
         else:
