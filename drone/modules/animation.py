@@ -203,7 +203,9 @@ class Animation(object):
                         return
                     self.original_frames.append(frame)
                 for row in csv_reader:
-                    if len(row) == 2:
+                    if not row:  # skip empty rows
+                        continue
+                    elif len(row) == 2:
                         try:
                             current_frame_delay = float(row_0[1])
                             logger.debug("Got new frame delay: {}".format(current_frame_delay))
