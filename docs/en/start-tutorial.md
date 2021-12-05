@@ -37,6 +37,18 @@ ssh pi@192.168.11.1
 
 ```bash
 sudo client-setup <SSID> <password> <copter name>
+
+For example:
+sudo client-setup drone-show-wifi password_12345 clover-1
+```
+
+* If you're doing this in Web terminal, then
+
+```bash
+sudo sh clever-show/builder/assets/client-setup <SSID> <password> <copter name>
+
+For example:
+sudo sh clever-show/builder/assets/client-setup drone-show-wifi password_12345 clover-1
 ```
 
 * Now when you run the server application, the configured copters will appear as rows in the table. You can also connect to Raspberry Pi on the copter by its name with the addition of .local via `ssh` in the network specified when setting up WIFI, for example `ssh pi@clover-1.local`, password `raspberry`.
