@@ -27,6 +27,7 @@ sudo apt-get install -y chrony
 
 ```bash
 sudo cp /home/pi/clever-show/examples/chrony/client.conf /etc/chrony/chrony.conf
+sudo systemctl restart chrony
 ```
 
 Скопируйте файлы сервисов clever-show и запустите их:
