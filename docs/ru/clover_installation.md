@@ -7,6 +7,10 @@
 sudo nano /etc/hostname
 sudo nano /etc/hosts
 ```
+После установки hostname перезагрузите Raspberry:
+```bash
+sudo reboot
+```
 
 Обновите репозитории apt:
 ```bash
