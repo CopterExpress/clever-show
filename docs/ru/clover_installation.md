@@ -45,3 +45,16 @@ sudo cp /home/pi/clever-show/builder/assets/failsafe.service /lib/systemd/system
 sudo systemctl enable failsafe.service
 sudo systemctl start failsafe.service
 ```
+
+На новых ревизиях Raspbery Pi может не работать светодиодная лента
+Для исправления, обновите пакет `rpi_ws281x` и перезагрузите Raspbery Pi: 
+```bash
+pip install rpi_ws281x --upgrade
+sudo apt-get update
+sudo apt-get install ros-melodic-ws281x
+sudo reboot
+```
+Проверка работы светодиодной ленты:
+```bash
+rosservice call /led/set_effect "{effect: 'rainbow'}"
+```
