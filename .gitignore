@@ -35,3 +35,7 @@ drone/client_logs
 drone/config/client.ini
 drone/_copter_client_old_\.py
 drone/test_cl\.py
+
+venv/
+dist/
+build/
