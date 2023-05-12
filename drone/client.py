@@ -8,7 +8,6 @@ import logging
 import datetime
 import threading
 import subprocess
-from collections import namedtuple
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -89,11 +88,11 @@ emergency = False
 
 logging.basicConfig(  # TODO all prints as logs
     level=logging.DEBUG,  # INFO
-    stream=sys.stdout,
     format="%(asctime)s [%(name)-7.7s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-    ])
+    ]
+    )
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
@@ -763,7 +762,10 @@ class Telemetry:
 
     @classmethod
     def get_git_version(cls):
-        return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True)
+        result = subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True, universal_newlines=True)
+        if isinstance(result, bytes):
+            result = result.decode("ascii")
+        return result.strip()
 
     @classmethod
     def get_config_version(cls):
