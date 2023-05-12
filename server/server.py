@@ -8,6 +8,7 @@ import asyncio
 import platform
 import itertools
 import subprocess
+from pathlib import Path, PurePosixPath
 
 from functools import partial, wraps
 from quamash import QEventLoop
@@ -406,12 +407,12 @@ class MainWindow(QtWidgets.QMainWindow):
             for copter in to_send:
                 if clover_dir:
                     if copter.client.clover_dir != 'error':
-                        path_to_send = os.path.realpath(os.path.join(copter.client.clover_dir, client_path))
+                        path_to_send = PurePosixPath(copter.client.clover_dir) / client_path
                     else:
                         logging.error("Can't send files to clover ROS package on {}".format(copter.copter_id))
                 else:
-                    path_to_send = client_path
-                copter.client.send_file(file, os.path.join(path_to_send, filename))
+                    path_to_send = PurePosixPath(client_path)
+                copter.client.send_file(file, str(path_to_send / filename))
                 if callback is not None:
                     callback(copter)
 
