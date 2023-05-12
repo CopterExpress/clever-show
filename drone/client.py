@@ -176,7 +176,8 @@ class CopterClient(client_core.Client):
     def on_config_update(self):
         self.gps_thread_run = False
         self.load_config()
-        self.animation.on_config_update(self.config)
+        with self.animation.lock:
+            self.animation.on_config_update(self.config)
         if self.config.flight_frame_id == "floor":
             self.start_floor_frame_broadcast()
         elif self.config.flight_frame_id == "gps":
@@ -422,7 +423,8 @@ def _response_telemetry(*args, **kwargs):
 @messaging.request_callback("anim_id")
 def _response_animation_id(*args, **kwargs):
     # Load animation
-    return copter.animation.id
+    with copter.animation.lock:
+        return copter.animation.id
 
 
 @messaging.request_callback("batt_voltage")
@@ -501,7 +503,8 @@ def _command_move_start_to_current_position(*args, **kwargs):
     private_offset = copter.config.animation_private_offset
     offset = numpy.array(private_offset) + numpy.array(copter.config.animation_common_offset)
     try:
-        xs, ys, zs = copter.animation.get_start_frame(copter.telemetry.start_action).get_pos()
+        with copter.animation.lock:
+            xs, ys, zs = copter.animation.get_start_frame(copter.telemetry.start_action).get_pos()
     except ValueError:
         logger.error("Can't get start point. Check animation file!")
     else:
@@ -688,33 +691,34 @@ def _play_animation(*args, **kwargs):
         logger.error("start: No time argument!")
         return
 
-    # Check animation state
-    if copter.animation.state is not "OK":
-        logger.error("start: Bad animation state")
-        return
+    with copter.animation.lock:
+        # Check animation state
+        if copter.animation.state is not "OK":
+            logger.error("start: Bad animation state")
+            return
 
-    # Get output frames
-    frames = copter.animation.get_output_frames(copter.telemetry.start_action)
-    if not frames:
-        logger.error("start: No frames in animation!")
-        return
+        # Get output frames
+        frames = copter.animation.get_output_frames(copter.telemetry.start_action)
+        if not frames:
+            logger.error("start: No frames in animation!")
+            return
 
-    # Get current telemetry
-    # telem = copter.telemetry.ros_telemetry
-    # if not valid([telem.x, telem.y, telem.z]):
-    #     logger.error("start: Position is not valid!")
-    #     return
+        # Get current telemetry
+        # telem = copter.telemetry.ros_telemetry
+        # if not valid([telem.x, telem.y, telem.z]):
+        #     logger.error("start: Position is not valid!")
+        #     return
 
-    # Play animation!
-    frame_time = start_time
-    for frame in frames:
-        task_manager.add_task(frame_time, 0, animation.execute_frame,
-                              task_kwargs={
-                                  "frame": frame,
-                                  "config": copter.config,
-                              })
-        frame_time += frame.delay
-    task_manager.add_task(frame_time, 0, animation.turn_off_led)
+        # Play animation!
+        frame_time = start_time
+        for frame in frames:
+            task_manager.add_task(frame_time, 0, animation.execute_frame,
+                                task_kwargs={
+                                    "frame": frame,
+                                    "config": copter.config,
+                                })
+            frame_time += frame.delay
+        task_manager.add_task(frame_time, 0, animation.turn_off_led)
 
 # noinspection PyAttributeOutsideInit
 class Telemetry:
@@ -772,18 +776,21 @@ class Telemetry:
         return "{} V{}".format(copter.config.config_name, copter.config.config_version)
 
     def get_start_position(self):
-        try:
-            x, y, z = copter.animation.get_start_frame('fly').get_pos()
-        except (ValueError, AttributeError):
-            return [float('nan'),float('nan'),float('nan'),float('nan'),"error: can't get start pos in animation",float('nan')]
-        else:
-            start_delay = copter.animation.start_time
-            yaw = copter.animation.get_start_frame('fly').yaw
-            if not self.ros_telemetry:
-                self.start_action = 'error: no telemetry data'
+        with copter.animation.lock:
+            try:
+                logger.info(copter.animation)
+                x, y, z = copter.animation.get_start_frame('fly').get_pos()
+            except (ValueError, AttributeError) as e:
+                logger.error(e)
+                return [float('nan'),float('nan'),float('nan'),float('nan'),"error: can't get start pos in animation",float('nan')]
             else:
-                self.start_action = copter.animation.get_start_action(self.ros_telemetry.z, self.fcu_status)
-            return [x,y,z,yaw,self.start_action,start_delay]
+                start_delay = copter.animation.start_time
+                yaw = copter.animation.get_start_frame('fly').yaw
+                if not self.ros_telemetry:
+                    self.start_action = 'error: no telemetry data'
+                else:
+                    self.start_action = copter.animation.get_start_action(self.ros_telemetry.z, self.fcu_status)
+                return [x,y,z,yaw,self.start_action,start_delay]
 
     @classmethod
     def get_battery(cls, ros_telemetry):
@@ -850,7 +857,8 @@ class Telemetry:
         self.round_telemetry()
 
     def update_telemetry_slow(self):
-        self.animation_info = [copter.animation.id, copter.animation.state]
+        with copter.animation.lock:
+            self.animation_info = [copter.animation.id, copter.animation.state]
         self.git_version = self.get_git_version()
         self.config_version = self.get_config_version()
         self.start_position = self.get_start_position()
@@ -998,7 +1006,8 @@ class AnimationEventHandler(FileSystemEventHandler):
                 logger.info("Config updated!")
         elif (os.path.splitext(event.src_path)[-1] == '.csv' and event.event_type != "deleted"):
             if os.path.exists("animation.csv"):
-                copter.animation.on_animation_update("animation.csv")
+                with copter.animation.lock:
+                    copter.animation.on_animation_update("animation.csv")
                 logger.info("Animation updated!")
 
 

@@ -1,4 +1,4 @@
-import os
+import sys
 import csv
 import copy
 import math
@@ -134,9 +134,11 @@ class Frame(object):
 class Animation(object):
     # filepath - path to csv animation file, config - config 'ANIMATION' section (dictionary)
     def __init__(self, filepath="animation.csv", config=None):
-        self.reset(filepath, config)
-        if config is not None:
-            self.on_animation_update(self.filepath)
+        self.lock = threading.Lock()
+        with self.lock:
+            self.reset(filepath, config)
+            if config is not None:
+                self.on_animation_update(self.filepath)
 
     def reset(self, filepath, config):
         self.id = None
@@ -179,7 +181,10 @@ class Animation(object):
                     animation_file, delimiter=',', quotechar='|'
                 )
                 try:
-                    row_0 = csv_reader.next()
+                    if sys.version_info[0] == 3:
+                        row_0 = next(csv_reader)
+                    else:
+                        row_0 = csv_reader.next()
                 except StopIteration:
                     self.set_state("Animation file is empty", log_error=True)
                     return
