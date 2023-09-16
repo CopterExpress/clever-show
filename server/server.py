@@ -601,8 +601,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.stop()
         self.ui.action_play_music.setText("Play music")
 
-    @asyncio.coroutine
-    def play_music_at_time(self, t):
+    async def play_music_at_time(self, t):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
             logging.error("Can't play media")
             return
@@ -610,7 +609,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error("No media file")
             return
         self.player.stop()
-        yield from asyncio.sleep(t - time.time())
+        await asyncio.sleep(t - time.time())
         logging.info("Playing music")
         self.player.play()
 
