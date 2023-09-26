@@ -6,8 +6,6 @@
 
 Создайте анимацию в [Blender](https://www.blender.org/), сконвертируйте её в полётные пути дронов, настройте дроны и запустите своё собственное шоу дронов!
 
-[![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
-
 ## Демонстрационное видео
 
 [![Autonomous drone show in a theater](http://img.youtube.com/vi/HdHbZFz7nR0/0.jpg)](http://www.youtube.com/watch?v=HdHbZFz7nR0)
