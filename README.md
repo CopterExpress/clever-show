@@ -6,8 +6,6 @@ Software for making the drone show with drones controlled by [Raspberry Pi](http
 
 Create animation in [Blender](https://www.blender.org/), convert it to drone paths, set up the drones and run your own show!
 
-[![Build Status](https://travis-ci.org/CopterExpress/clever-show.svg?branch=master)](https://travis-ci.org/CopterExpress/clever-show)
-
 ## Demo video
 
 [![Autonomous drone show in a theater](http://img.youtube.com/vi/HdHbZFz7nR0/0.jpg)](http://www.youtube.com/watch?v=HdHbZFz7nR0)
