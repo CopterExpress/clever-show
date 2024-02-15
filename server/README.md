@@ -15,6 +15,10 @@ Can be used with built-in NTP server or with external package for time synchroni
 pip3 install -r requirements.txt
 ```
 
+## Building Python 3.6 from sources and setup venv
+
+See manual [Russian](INSTALL.md).
+
 ## Usage
 
 ```cmd
