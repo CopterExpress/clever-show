@@ -80,6 +80,7 @@ sudo apt-get update
 Загрузите репозиторий clever-show и установите необходимые для клиента зависимости
 ```
 git clone https://github.com/CopterExpress/clever-show.git --branch python3
+sudo chown -R root:root /home/pi/clever-show/
 sudo pip3 install -r /home/pi/clever-show/drone/requirements.txt --upgrade
 ```
 
