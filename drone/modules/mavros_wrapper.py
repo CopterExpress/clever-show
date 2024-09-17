@@ -82,15 +82,18 @@ def get_calibration_status():
     gyro_status = get_param('CAL_GYRO0_ID')
     mag_status = get_param('CAL_MAG0_ID')
     acc_status = get_param('CAL_ACC0_ID')
+    sys_has_mag = get_param('SYS_HAS_MAG')
+    has_mag = sys_has_mag.success and sys_has_mag.value.integer == 1
+
     status_text = ""
     if gyro_status.value.integer == 0 and gyro_status.success:
         status_text += "gyro: uncalibrated; "
-    if mag_status.value.integer == 0 and mag_status.success:
+    if has_mag and mag_status.value.integer == 0 and mag_status.success:
         status_text += "mag: uncalibrated; "
     if acc_status.value.integer == 0 and acc_status.success:
         status_text += "acc: uncalibrated; "
     if status_text == "":
-        if not gyro_status.success or not mag_status.success or not acc_status.success:
+        if not gyro_status.success or not acc_status.success or not (has_mag and mag_status.success):
             status_text = "NO_INFO"
         else:
             status_text = "OK"
