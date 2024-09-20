@@ -22,6 +22,7 @@ sudo apt-get update -qq --allow-releaseinfo-change
 ```
 git clone https://github.com/CopterExpress/clever-show.git
 sudo pip install -r /home/pi/clever-show/drone/requirements.txt
+sudo chown -R root:root /home/pi/clever-show
 ```
 
 Установите chrony и установите конфигурацию по умолчанию:
@@ -82,6 +83,7 @@ sudo apt-get update
 git clone https://github.com/CopterExpress/clever-show.git --branch python3
 sudo chown -R root:root /home/pi/clever-show/
 sudo pip3 install -r /home/pi/clever-show/drone/requirements.txt --upgrade
+sudo chown -R root:root /home/pi/clever-show
 ```
 
 Установите chrony и установите конфигурацию по умолчанию:
