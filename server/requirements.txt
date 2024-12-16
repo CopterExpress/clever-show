@@ -1,4 +1,4 @@
-configobj==5.0.6
+configobj==5.0.9
 numpy
 PyQt5==5.13.0
 PyQt5-sip==4.19.18
