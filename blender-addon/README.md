@@ -12,3 +12,5 @@ Documentation is located here:
 
 * [English](../docs/en/blender-addon.md)
 * [Russian](../docs/ru/blender-addon.md)
+
+* [Alternative version of the addon](https://github.com/DroneLegion/BlenderDroneShow)
